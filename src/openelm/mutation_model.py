@@ -11,6 +11,8 @@ from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 from langchain.llms.base import LLM
 from langchain.schema import Generation, LLMResult
+from langchain.schema.messages import HumanMessage
+
 from pydantic import Extra, root_validator
 from transformers import BatchEncoding
 
@@ -86,8 +88,8 @@ class PromptModel(MutationModel):
         templates = [prompt_dict["template"] for prompt_dict in prompt_dicts]
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
             results = []
-            for prompt in prompts:
-                results.append(self.model.generate([prompt]))
+            for prompt in prompts:  
+                results.append(self.model.generate([[HumanMessage(content=prompt)]])) #if model == chat model, generate take List[List[BaseMessage]] 
             completions: list[str] = [
                 llmresult.generations[0][0].text for llmresult in results
             ]
