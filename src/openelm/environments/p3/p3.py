@@ -22,6 +22,7 @@ from openelm.environments.p3 import (
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
+from openelm.utils.code_eval import return_f,extract_args_f,return_g,merge_Q_and_A,scrap_f_g
 
 
 class P3Solution(Genotype):
@@ -85,6 +86,7 @@ def g1():
         if "pca" in state:
             del state["pca"]
         return state
+    
 
 
 class P3Problem(BaseEnvironment[P3Solution]):
@@ -147,8 +149,11 @@ class P3Problem(BaseEnvironment[P3Solution]):
         first_example = self.prompt_seed[:i_first].strip()
 
         if self.config.embedding_model_type == "openai":
-            self.genotype_ndim: int = 1
+            dummy_features = np.array(
+            get_embedding(first_example, engine=self.config.embedding_model_path))
+            self.genotype_ndim: int = len(dummy_features)
             self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
+            
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
             dummy_pl = pipeline(
@@ -304,14 +309,24 @@ class P3ProbSolResult(Genotype):
         self.program_str = program_str
         self.result_obj = result_obj
         self.config = config
+        if self.config.model_name == "openai":
+            # print("not implemented yet")
+            i_f = program_str.find("def f(")
+            i_g = program_str.find("def g(")
+            
+            self.problem_func = self.program_str[i_f:i_g].strip()
+            self.solution_func = self.program_str[i_g:].strip()
+            # no more problem if an assert is in def f
+            i_assert = self.solution_func.find("assert") 
+            self.solution_func = self.solution_func[:i_assert].strip() 
+        else:
+            i_f6 = program_str.find("def f6_2(")
+            i_g6 = program_str.find("def g6_2(")
+            i_assert = program_str.find("assert")
+            self.problem_func = self.program_str[i_f6:i_g6].strip()
+            self.solution_func = self.program_str[i_g6:i_assert].strip()
 
-        i_f6 = program_str.find("def f6_2(")
-        i_g6 = program_str.find("def g6_2(")
-        i_assert = program_str.find("assert")
-        self.problem_func = self.program_str[i_f6:i_g6].strip()
-        self.solution_func = self.program_str[i_g6:i_assert].strip()
-
-        # When comparing for phenotype, just use import statement and new probsol
+            # When comparing for phenotype, just use import statement and new probsol
         baseline = '''from typing import List
 
 def f1_1(s: str):
@@ -320,9 +335,9 @@ def f1_1(s: str):
 def g1_1():
     """Find a string that when concatenated onto 'Hello ' gives 'Hello world'."""
     return "world"'''
-        self.baseline_emb = np.array(
-            get_embedding(baseline, engine=self.config.embedding_model_path)
-        )
+#         self.baseline_emb = np.array(
+#             get_embedding(baseline, engine=self.config.embedding_model_path)
+#         )
 
         if self.config.embedding_model_type == "hf":
             self.pl = pipeline(
@@ -348,7 +363,7 @@ def g1_1():
             emb = np.array(
                 get_embedding(compare_str, engine=self.config.embedding_model_path)
             )
-            return cosine_similarity(emb, self.baseline_emb)
+            return emb#cosine_similarity(emb, self.baseline_emb)
         elif self.config.embedding_model_type == "hf":
             features = np.array(self.pl(self.program_str))
             features_scaled = self.scaler.transform(np.squeeze(features))
@@ -363,6 +378,12 @@ def g1_1():
             del state["scaler"]
         if "pca" in state:
             del state["pca"]
+        if "baseline_emb" in state:
+            del state["baseline_emb"]
+        if "config" in state:
+            del state["config"]
+        if "result_obj" in state:
+            state["result_obj"] = str(state["result_obj"])
         return state
 
 
@@ -397,7 +418,9 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         first_example = self.prompt_seed[:i_first].strip()
 
         if self.config.embedding_model_type == "openai":
-            self.genotype_ndim: int = 1
+            dummy_features = np.array(
+            get_embedding(first_example, engine=self.config.embedding_model_path))
+            self.genotype_ndim: int = len(dummy_features)
             self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
@@ -564,9 +587,14 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
             debug=self.config.debug,
         )
 
-        if result[0] is True:
-            return -np.inf
-
+        # if result[0] is True: what  result[0]== True is the problem is solved
+            # return -np.inf
+        
+        # if just one try more like
+        if result[0] is True and self.config.eval_k <= 1:
+            return 1.0
+        
+        
         # Do pass@k eval
 
         # Get f6_2() and make it the new f6()
@@ -606,7 +634,8 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         return 1 / pak if pak > 0 else 0
 
     def random(self) -> list[P3ProbSolResult]:
-        program_list = [self.construct_prompt() for _ in range(self.config.batch_size)]
+        # need to multiprocess that
+        program_list = [self.construct_prompt() for _ in range(self.config.batch_size)] 
         new_probsols = self.generate_programs(program_list)
         return new_probsols
 
@@ -615,3 +644,284 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         program_list = list(map(self.construct_prompt, probsols))
         new_probsols = self.generate_programs(program_list)
         return new_probsols
+
+
+
+
+# chatGPT version of Probsol
+class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
+    def __init__(
+        self,
+        config: P3ProbSolEnvConfig,
+        mutation_model: MutationModel,
+    ) -> None:
+        """
+        The objective is to generate problem+solution pairs.
+        Args:
+            config: the config file path or dict.
+            mutation_model: the diff model (or alternatives).
+            ans_type: answer type
+        """
+        self.mutation_model = mutation_model
+        self.config = config
+        self.batch_size = self.config.batch_size
+        self.seed_index = self.config.starting_seed
+        self.rng = None
+        puzzles = requests.get(
+            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
+        ).json()
+        if self.config.prompt_size == "long":
+            self.prompt_seed = P3_PROBSOL_LONG_SEED
+        elif self.config.prompt_size == "med":
+            self.prompt_seed = P3_PROBSOL_MED_SEED
+        else:
+            raise ValueError("No seed string found")
+
+        # Use the first example in the prompt seed as basis for embedding sizes
+        i_first = self.prompt_seed.find("assert")
+        first_example = self.prompt_seed[:i_first].strip()
+
+        if self.config.embedding_model_type == "openai":
+            dummy_features = np.array(
+            get_embedding(first_example, engine=self.config.embedding_model_path))
+            self.genotype_ndim: int = len(dummy_features)
+            self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
+        elif self.config.embedding_model_type == "hf":
+            # Dummy to get behavior space shape
+            dummy_pl = pipeline(
+                "feature-extraction", model=self.config.embedding_model_path
+            )
+            dummy_features = np.array(dummy_pl(first_example))
+            dummy_scaler = StandardScaler()
+            dummy_features_scaled = dummy_scaler.fit_transform(
+                np.squeeze(dummy_features)
+            )
+            dummy_pca = PCA(0.95)
+            dummy_pca_features = dummy_pca.fit_transform(dummy_features_scaled)
+            self.genotype_ndim: int = dummy_pca_features.shape[-1]
+            self.genotype_space = np.repeat([[-20, 20]], self.genotype_ndim, axis=0).T
+
+        # Get info for the seed puzzle that will be mutated
+        # This puzzle is at the index of the puzzles array specified by self.seed_index
+        # TODO: put this in a method or in construct_prompt()?
+        puzzles = requests.get(
+            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
+        ).json()
+        puzzle = puzzles[self.seed_index]
+        if len(puzzle["sol_bodies"]) == 0:
+            raise ValueError(
+                f"No sample solution is provided for the puzzle at index {self.seed_index}"
+            )
+
+        f6_1 = puzzle["sat"].replace("def sat(", "def f6_1(")  # problem form is f6_1()
+        g6_1 = puzzle["sol_header"].replace(
+            "def sol(", "def g6_1("
+        )  # solution form is g6_1()
+        if self.config.prompt_size == "long":
+            g6_1 += "\n" + puzzle["sol_docstring"]  # add in the docstring
+        g6_1 += (
+            "\n" + puzzle["sol_bodies"][0]
+        )  # include the first example solution function body
+
+        self.original_probsol = f6_1 + "\n\n" + g6_1 + "\n\n" + "assert f6_1(g6_1())"
+        self.new_probsol_preamble = "def f6_2("
+
+    def get_rng_state(self) -> Optional[np.random._generator.Generator]:
+        warnings.warn("WARNING: rng state not used in this environment")
+        return None
+
+    def set_rng_state(self, rng_state: Optional[np.random._generator.Generator]):
+        warnings.warn("WARNING: rng state not used in this environment")
+        pass
+
+    def preprocess_p3(self):
+        puzzles = requests.get(
+            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json").json()
+        data_split = requests.get(
+            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/main/puzzles/split.json").json()
+        
+        puzzles_train=[]
+        for i in puzzles:
+            if i["name"][:-2] in data_split["train"] and i["sol_bodies"]!=[]:
+                i["f"] = utils.return_f(i)
+                i["g"] = utils.return_g(i,i["f"])
+                i['attempts'] = 1 # 
+                i["full_prompt"] = ""
+                puzzles_train.append(i)
+    
+    
+    def construct_prompt(
+        self, code_batch: Optional[Union[list[str], str]] = None
+    ) -> dict[str, str]:
+        prompt_str = self.prompt_seed
+
+        if code_batch is None:
+            # prompt with prob+sol from P3 dataset
+            prompt_str += (
+                f"\n\n{self.original_probsol}"  # add this particular probsol, f6_1() and g6_1(), to the prompt
+                f"\n\n{self.new_probsol_preamble}"  # add f6_2() preamble to the prompt
+            )
+        else:
+            # prompt with prob+sol that is given (one that was the output of a prev mutation)
+            if isinstance(code_batch, list):
+                # TODO: get nearby genotypes
+                program_str = code_batch[0]
+            elif isinstance(code_batch, str):
+                program_str = code_batch
+
+            # the prev output was f6_2 and g6_2, so now make it f6_1 and g6_1 for the prompt
+            # and remove comments (which contain changes from prev f6_1) from new f6_1
+            # TODO: pass in the whole object instead of the program_str since it already parsed some of this?
+            i_f6 = program_str.find("def f6_2")
+            program_str = program_str[i_f6:]  # remove import statement
+            program_str = program_str.replace("f6_2(", "f6_1(")
+            program_str = program_str.replace("g6_2(", "g6_1(")
+            i_g6 = program_str.find("def g6_1(")
+            # remove comments with """
+            program_str = (
+                re.sub('""".*"""', "", program_str[:i_g6]) + program_str[i_g6:]
+            )
+            # remove comments with # (and remove empty lines)
+            i_g6 = program_str.find("def g6_1(")
+            lines = program_str[:i_g6].strip().split("\n")
+            new_lines = []
+            for line in lines:
+                if line.strip().startswith("#") or len(line.strip()) == 0:
+                    continue
+                new_lines.append(line)
+            program_str = "\n".join(new_lines) + "\n\n" + program_str[i_g6:]
+            program_str = program_str.strip()
+
+            prompt_str += f"\n\n{program_str}" f"\n\n{self.new_probsol_preamble}"
+
+        template = f"{P3_IMPORTS}\n{self.new_probsol_preamble}"
+        return {"prompt": prompt_str, "template": template}
+
+    def generate_programs(self, code_batch: list[str]) -> list[P3ProbSolResult]:
+        """Generate new programs with a mutation model and evaluate them."""
+        local_scope_exec = False
+        generated_programs = self.mutation_model.generate_programs(
+            code_batch, local_scope_exec
+        )
+
+        if self.config.sandbox:
+            results = []
+            for code in generated_programs:
+                resp = requests.post(
+                    f"{self.sandbox_server}/eval_p3_solution",
+                    json={"code": code, "timeout": self.config.timeout},
+                    timeout=self.config.timeout,
+                )
+                if resp.status_code == 200:
+                    return_dict = json.loads(resp.text)
+                    results.append(return_dict)
+        else:
+            # TODO: handle (probably inside of pool_exec_processes) all cases where the generated code returns
+            # a generator type. The multithreaded execution pickles things and generators can't be pickled
+            # which causes the whole thing to error out.
+            # For now, try/except and re-try.
+            try:
+                results = pool_exec_processes(
+                    generated_programs,
+                    func_name="g6_2",
+                    timeout=self.config.timeout,
+                    processes=self.config.processes,
+                    debug=self.config.debug,
+                )
+            except Exception:
+                return self.generate_programs(code_batch)
+
+        results = [
+            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config}
+            for (gen_prog, res_obj) in zip(generated_programs, results)
+        ]
+        return [P3ProbSolResult(**p) for p in results]
+
+    def fitness(self, probsol: P3ProbSolResult) -> float:
+        """
+        Fitness is the inverse of pass@k of the problem func.
+        We want a pass@k of >0 so that the problem is reasonably solvable.
+        So fitness=0 if unsolved (which is still better than -np.inf).
+        Other than that, more difficult (lower pass@k) => higher fitness.
+        """
+        if isinstance(probsol.result_obj, ExecResult):
+            return -np.inf
+
+        # TODO: check type expected by f6_2 if any?
+        # TODO: implement checks for absolute triviality of f6_2 requirements
+        #   the fitness function being based on pass@k might take care of this though
+
+        eval_code = (
+            f"{P3_IMPORTS}\n"
+            f"{probsol.problem_func}\n"
+            f"def run_eval():\n"
+            f"    return f6_2({probsol.result_obj})"
+        )
+
+        # Run code to see if g6_2 solves f6_2
+        result = pool_exec_processes(
+            eval_code,
+            func_name="run_eval",
+            timeout=self.config.timeout,
+            processes=self.config.processes,
+            debug=self.config.debug,
+        )
+
+        # if result[0] is True: what  result[0]== True is the problem is solved
+            # return -np.inf
+        
+        # if just one try more like
+        if result[0] is True and self.config.eval_k <= 1:
+            return 1.0
+        
+        
+        # Do pass@k eval
+
+        # Get f6_2() and make it the new f6()
+        problem_str = probsol.problem_func.replace("def f6_2(", "def f6(")
+        # Remove comments with """
+        problem_str = re.sub('""".*"""', "", problem_str)
+        # Remove comments with # (and remove empty lines)
+        lines = problem_str.strip().split("\n")
+        new_lines = []
+        for line in lines:
+            if line.strip().startswith("#") or len(line.strip()) == 0:
+                continue
+            new_lines.append(line)
+        problem_str = "\n".join(new_lines)
+        # Get solution_preamble for g6()
+        i_end_preamble = probsol.solution_func.find("):")
+        solution_preamble = probsol.solution_func[: i_end_preamble + 2].replace(
+            "def g6_2(", "def g6("
+        )
+
+        p3_problem = P3Problem(
+            self.config,  # TODO: make an actual P3ProblemEnvConfig
+            self.mutation_model,
+            problem_str=problem_str,
+            solution_preamble=solution_preamble,
+        )
+        solutions = []
+        for _ in range(self.config.eval_k // self.config.batch_size + 1):
+            solutions += p3_problem.random()
+
+        c = 0
+        for s in solutions:
+            if p3_problem.evaluate_solution(s) is True:
+                c += 1
+
+        pak = pass_at_k(len(solutions), c, self.config.eval_k)
+        return 1 / pak if pak > 0 else 0
+
+    def random(self) -> list[P3ProbSolResult]:
+        # need to multiprocess that
+        program_list = [self.construct_prompt() for _ in range(self.config.batch_size)] 
+        new_probsols = self.generate_programs(program_list)
+        return new_probsols
+
+    def mutate(self, probsol_list: list[P3ProbSolResult]) -> list[P3ProbSolResult]:
+        probsols = [pb.program_str for pb in probsol_list]
+        program_list = list(map(self.construct_prompt, probsols))
+        new_probsols = self.generate_programs(program_list)
+        return new_probsols
+ 

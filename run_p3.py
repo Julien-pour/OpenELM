@@ -3,6 +3,8 @@ import logging
 import pathlib
 import time
 from collections import Counter
+import os
+os.environ["HYDRA_FULL_ERROR"] = "1"
 
 import hydra
 import requests
@@ -41,7 +43,7 @@ class P3:
         # elif self.config.model.model_name == 'diff':
         #     self.mutation_model: MutationModel = DiffModel(self.config.model)
 
-        self.log_dir = self.cfg.output_dir
+        self.log_dir = self.config.output_dir
 
     def run(self):
         """
