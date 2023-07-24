@@ -1,12 +1,14 @@
 import functools
 import itertools
 import multiprocessing as mp
+import ast
 from typing import Any, Iterable, Optional, Union
 
 import numpy as np
-
+import copy
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult, unsafe_execute
-
+import requests
+import tiktoken
 
 def pool_exec_processes(
     prompts: Union[str, Iterable[str]],
@@ -32,7 +34,9 @@ def pool_exec_processes(
     """
     if isinstance(prompts, str):
         prompts = [prompts]
-
+    for i in prompts:
+        prompts_2_test=["from typing import*\n"+ i] # overkill need to check usefull imports
+        
     eval_fn = functools.partial(
         unsafe_execute,
         func_name=func_name,
@@ -42,9 +46,9 @@ def pool_exec_processes(
         debug=debug,
     )
     if processes <= 1:
-        return list(map(eval_fn, prompts))
+        return list(map(eval_fn, prompts_2_test))
     with mp.Pool(processes=processes) as pool:
-        results = list(pool.map(eval_fn, prompts))
+        results = list(pool.map(eval_fn, prompts_2_test))
     if debug:
         print(results)
     return results
@@ -200,3 +204,129 @@ def type_str(ty: type) -> str:
     """
     type_str = str(ty).replace("typing.", "")
     return type_str[8:-2] if type_str.startswith("<class '") else type_str
+
+
+
+
+def return_f(puzzle_json):
+    puzzle_json = copy.deepcopy(puzzle_json)
+    f = puzzle_json["sat"]
+    #  add 'sol_docstring' (description of the problem) to the function f
+    f = f.replace("sat(", "f(")
+    idx_add_problem_description = f.find("\n")
+
+    if type(puzzle_json["sol_docstring"]) == str:
+        f=f[:idx_add_problem_description+1]+ puzzle_json["sol_docstring"]+"\n"+f[idx_add_problem_description+1:]
+    return f
+
+def extract_args_f(f):
+    """
+    extract arguments of f, for g
+    """
+    str_arg=""
+    parsed_ast = ast.parse(f)
+    func=parsed_ast.body[0]
+    name_args = [a.arg for a in func.args.args][1:] # remove the first arg as it isn't necessary for g (because it is the output return by g)
+    assert len(func.args.defaults) == len(name_args)
+    for i in range(len(name_args)):
+        def_values = ast.literal_eval(func.args.defaults[i])
+        if type(def_values) == str:
+            def_values = "'"+def_values+"'"
+        str_arg += name_args[i] + " = " + str(def_values)
+        if i < len(name_args)-1:
+            str_arg+=", "
+    return str_arg
+
+def add_return_bool_2_f(f):
+    tree = ast.parse(f)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            node.returns = ast.Name(id='bool', ctx=ast.Load())
+
+    return ast.unparse(tree)
+
+
+def return_g(puzzle_json,f):
+    if puzzle_json["sol_bodies"] == []:
+        print("no solution in json")
+        return "def g(""):\n    pass"
+    args_f = extract_args_f(f)
+    g = "def g("+args_f+"):\n"+copy.deepcopy(puzzle_json["sol_bodies"])[0]
+    return g
+
+def merge_Q_and_A(liste_fg):
+    parsed = liste_fg # format [(f,g),(f,g),...]
+
+    judge_srcs = [f"{f}\n{g}\nassert f(g())" for (f, g) in parsed] # format the code to be judged
+    return judge_srcs
+
+def scrap_f_g(list_pb):
+    """
+    scrap f and g from generated puzzles
+    """
+
+    list_f_g=[]
+    for pb in list_pb:
+        tree = ast.parse(pb)
+        # Find all function definitions in the AST
+        function_defs = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
+        f = ast.unparse(function_defs[0])
+        g = ast.unparse(function_defs[1])
+        list_f_g.append([f,g])
+    return list_f_g
+
+def preprocessing_P3(set="train", n_token_max=512):
+    """
+    dl puzzles from P3 dataset and give train or test puzzles
+    """
+    import sys 
+    sys.set_int_max_str_digits(10_000)
+    puzzles = requests.get(
+        "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
+    ).json()
+    data_split = requests.get(
+        "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/main/puzzles/split.json"
+    ).json()
+    enc = tiktoken.encoding_for_model("gpt-4")
+    puzzles_set=[]
+    for i in puzzles:
+        if i["name"][:-2] in data_split[set] and i["sol_bodies"]!=[]:
+            puzzle_2_add={}
+            puzzle_2_add["f"] = add_return_bool_2_f(return_f(i))
+            puzzle_2_add["g"] = return_g(i,puzzle_2_add["f"])
+            puzzle_2_add['attempts'] = 1 # 
+            puzzle_2_add["full_prompt"] = ""
+            puzzle_2_add["program_str"] = merge_Q_and_A([(puzzle_2_add["f"],puzzle_2_add["g"])])[0]
+            puzzles_set.append(puzzle_2_add)
+    liste_out=[]
+    for idx in range(len(puzzles_set)):
+        generated_programs = puzzles_set[idx]["program_str"]
+        
+        results = pool_exec_processes(
+            generated_programs,
+            func_name="g",debug =False
+            )
+        puzzles_set[idx]["result_obj"]=results[0]
+    
+
+    return puzzles_set
+    liste_fg = []
+    for i in puzzles_set:
+        f = i["f"]
+        g = return_g(i,f)
+        liste_fg.append((f,g))
+
+    # check if the problems are solvable  
+    judge_srcs = merge_Q_and_A(liste_fg)
+    
+    judgments = judge.judge_parallel(judge_srcs, timeout=1.0) # judge the code
+    print("there are: " +str(judgments.count(True))+ " / "+str(len(liste_fg)) + " pb solved") 
+    # 599 /599
+
+    # remove problem if they are too long for chatGPT context token<=512
+    List_len_embedding = []
+    for string in judge_srcs:
+        List_len_embedding.append(len(enc.encode(string)))
+    index=np.array(List_len_embedding)<=n_token_max
+    return list(np.array(puzzles_set)[index])
