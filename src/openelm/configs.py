@@ -18,11 +18,11 @@ class ModelConfig(BaseConfig):
     seed: Optional[int] = None
     deterministic: bool = False
     top_p: float = 0.95
-    temp: float = 1.1
+    temp: float = 0.9
     gen_max_len: int = 512
-    batch_size: int = 10
-    model_type: str = "hf"  # Can be "hf", "openai", etc
-    model_path: str = MISSING  # Can be HF model name or path to local model
+    batch_size: int = 2
+    model_type: str = "openai"  # Can be "hf", "openai", etc
+    model_path: str = "gpt-3.5-turbo-0301"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
@@ -32,7 +32,7 @@ class ModelConfig(BaseConfig):
 @dataclass
 class PromptModelConfig(ModelConfig):
     model_name: str = "prompt"
-    model_path: str = "Salesforce/codegen-350M-mono"
+    model_path: str = "gpt-3.5-turbo-0301"#"gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -43,17 +43,18 @@ class DiffModelConfig(ModelConfig):
 
 @dataclass
 class QDConfig(BaseConfig):
-    init_steps: int = 250
-    total_steps: int = 2500
-    history_length: int = 1
+    init_steps: int = 2 #250
+    total_steps: int = 15 #2500
+    history_length: int = 128
     save_history: bool = False
-    save_snapshot_interval: int = 10
+    save_snapshot_interval: int = 5
     log_snapshot_dir: str = ""
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
     crossover: bool = False
     crossover_parents: int = 2
+    save_all_individual: bool = True
 
 
 @dataclass
@@ -65,7 +66,7 @@ class MAPElitesConfig(QDConfig):
 @dataclass
 class CVTMAPElitesConfig(QDConfig):
     qd_name: str = "cvtmapelites"
-    n_niches: int = 12
+    n_niches: int = 10
     cvt_samples: int = 10000
 
 
@@ -75,7 +76,7 @@ class EnvConfig(BaseConfig):
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
     processes: int = 1
-    batch_size: int = 10  # Batch size of MAP-Elites
+    batch_size: int = 2 # 10  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
     seed: Optional[int] = 42
@@ -126,15 +127,15 @@ class P3ProblemEnvConfig(EnvConfig):
 @dataclass
 class P3ProbSolEnvConfig(EnvConfig):
     env_name: str = "p3_probsol"
-    prompt_size: str = "long"  # med or long
+    prompt_size: str = "med"  # med or long
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
-    eval_k: int = 100  # k for pass@k for fitness
-    embedding_model_type: str = "hf"  # openai or hf
-    embedding_model_path: str = MISSING  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
-
+    eval_k: int = -1 #100  # k for pass@k for fitness
+    embedding_model_type: str = "openai"  # openai or hf
+    embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
+    model_name: str = "openai" # model used for mutation
 
 @dataclass
 class QDEnvConfig(EnvConfig):
@@ -156,8 +157,8 @@ class PromptEnvConfig(EnvConfig):
 
 defaults_elm = [
     {"model": "prompt"},
-    {"qd": "mapelites"},
-    {"env": "sodarace"},
+    {"qd": "cvtmapelites"}, #"mapelites"},
+    {"env": "p3_probsol_Chat"}, #sodarace"},
     "_self_",
 ]
 
@@ -180,7 +181,7 @@ class ELMConfig(BaseConfig):
 
 defaults_p3 = [
     {"model": "prompt"},
-    {"env": "p3"},
+    {"env": "p3_probsol"},
     "_self_",
 ]
 
@@ -199,9 +200,9 @@ class P3Config(BaseConfig):
     env: Any = MISSING
     run_name: Optional[str] = None
     # --- The below are for run_p3.py
-    iterations_per_puzzle: int = 128
+    iterations_per_puzzle: int = 5
     starting_seeds: list[int] = field(
-        default_factory=lambda: [3]
+        default_factory=lambda: [1,2,3]
     )  # indices of selection of puzzles to evaluate with
     save_results: bool = True
     save_result_obj: bool = False  # if saving results, include the whole output
@@ -210,7 +211,7 @@ class P3Config(BaseConfig):
     # problems instead of just solutions to given problems
     # set eval_k >0 to evaluate pass@k of previous runs using this k, instead of
     # doing a new run
-    eval_k: int = -1
+    eval_k: int = -1#-1
     eval_timestamp: str = ""  # optionally provide timestamp of run to eval
     # pass@k, otherwise eval with latest run of every problem
 
@@ -222,6 +223,7 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="image_evolution", node=ImageEnvConfig)
     cs.store(group="env", name="string_evolution", node=StringEnvConfig)
     cs.store(group="env", name="p3_probsol", node=P3ProbSolEnvConfig)
+    cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
     cs.store(group="env", name="prompt_evolution", node=PromptEnvConfig)
     cs.store(group="env", name="qdaif", node=QDEnvConfig)

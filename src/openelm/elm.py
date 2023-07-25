@@ -25,12 +25,8 @@ def load_env(env_name: str) -> Any:
         return FunctionOptim
     elif env_name == "p3_probsol":
         from openelm.environments.p3.p3 import P3ProbSol
-        
+
         return P3ProbSol
-    elif env_name == "p3_probsol_Chat":
-        from openelm.environments.p3.p3 import P3ProbSol_Chat
-        
-        return P3ProbSol_Chat
     elif env_name == "p3_problem":
         from openelm.environments.p3.p3 import P3Problem
 

@@ -1,14 +1,14 @@
 import functools
 import itertools
 import multiprocessing as mp
-import ast
 from typing import Any, Iterable, Optional, Union
-
-import numpy as np
 import copy
-from openelm.sandbox.server.sandbox_codex_execute import ExecResult, unsafe_execute
-import requests
 import tiktoken
+import ast
+import numpy as np
+import requests
+from openelm.sandbox.server.sandbox_codex_execute import ExecResult, unsafe_execute
+import time
 
 def pool_exec_processes(
     prompts: Union[str, Iterable[str]],
@@ -35,8 +35,8 @@ def pool_exec_processes(
     if isinstance(prompts, str):
         prompts = [prompts]
     for i in prompts:
-        prompts_2_test=["from typing import*\n"+ i] # overkill need to check usefull imports
-        
+        prompts_2_test=["\nfrom typing import*\n"+ i] # overkill need to check usefull imports
+
     eval_fn = functools.partial(
         unsafe_execute,
         func_name=func_name,
@@ -256,7 +256,7 @@ def return_g(puzzle_json,f):
     return g
 
 def merge_Q_and_A(liste_fg):
-    parsed = liste_fg # format [(f,g),(f,g),...]
+    parsed = copy.deepcopy(liste_fg) # format [(f,g),(f,g),...]
 
     judge_srcs = [f"{f}\n{g}\nassert f(g())" for (f, g) in parsed] # format the code to be judged
     return judge_srcs
@@ -276,9 +276,10 @@ def scrap_f_g(list_pb):
         list_f_g.append([f,g])
     return list_f_g
 
-def preprocessing_P3(set="train", n_token_max=512):
+def preprocessing_P3(split: str = "train", n_token_max: int =512) -> list[dict]:
     """
     dl puzzles from P3 dataset and give train or test puzzles
+    split = "train" or "test"
     """
     import sys 
     sys.set_int_max_str_digits(10_000)
@@ -290,43 +291,32 @@ def preprocessing_P3(set="train", n_token_max=512):
     ).json()
     enc = tiktoken.encoding_for_model("gpt-4")
     puzzles_set=[]
+    generated_programs=[]
     for i in puzzles:
-        if i["name"][:-2] in data_split[set] and i["sol_bodies"]!=[]:
+        if i["name"][:-2] in data_split[split] and i["sol_bodies"]!=[]:
             puzzle_2_add={}
             puzzle_2_add["f"] = add_return_bool_2_f(return_f(i))
             puzzle_2_add["g"] = return_g(i,puzzle_2_add["f"])
             puzzle_2_add['attempts'] = 1 # 
-            puzzle_2_add["full_prompt"] = ""
             puzzle_2_add["program_str"] = merge_Q_and_A([(puzzle_2_add["f"],puzzle_2_add["g"])])[0]
+            generated_programs.append(puzzle_2_add["program_str"])
+            
+            
+            results = pool_exec_processes(
+                puzzle_2_add["program_str"],
+                func_name="g",debug =True,
+                processes=1
+                )
+            puzzle_2_add["result_obj"]=results[0]
             puzzles_set.append(puzzle_2_add)
-    liste_out=[]
-    for idx in range(len(puzzles_set)):
-        generated_programs = puzzles_set[idx]["program_str"]
-        
-        results = pool_exec_processes(
-            generated_programs,
-            func_name="g",debug =False
-            )
-        puzzles_set[idx]["result_obj"]=results[0]
     
-
-    return puzzles_set
-    liste_fg = []
-    for i in puzzles_set:
-        f = i["f"]
-        g = return_g(i,f)
-        liste_fg.append((f,g))
-
-    # check if the problems are solvable  
-    judge_srcs = merge_Q_and_A(liste_fg)
-    
-    judgments = judge.judge_parallel(judge_srcs, timeout=1.0) # judge the code
-    print("there are: " +str(judgments.count(True))+ " / "+str(len(liste_fg)) + " pb solved") 
-    # 599 /599
-
-    # remove problem if they are too long for chatGPT context token<=512
-    List_len_embedding = []
-    for string in judge_srcs:
-        List_len_embedding.append(len(enc.encode(string)))
-    index=np.array(List_len_embedding)<=n_token_max
-    return list(np.array(puzzles_set)[index])
+    if split == "test":
+        return puzzles_set
+    else:
+        List_len_embedding = []
+        for puzz in puzzles_set:
+            List_len_embedding.append(len(enc.encode(puzz["program_str"])))
+        index=np.array(List_len_embedding)<=n_token_max
+        #remove item where index is False
+        puzzles_set = [item for i, item in enumerate(puzzles_set) if index[i]]
+        return puzzles_set

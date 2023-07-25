@@ -277,7 +277,7 @@ def g5_2():
 
 assert f5_2(g5_2())'''
 
-P3_IMPORTS = "from typing import List\n" # The only import that's necessary as of P3 v0.2
+P3_IMPORTS = "from typing import*\n"#"from typing import List\n" # The only import that's necessary as of P3 v0.2
 
 __all__ = [
     "P3_PROBLEM_MED_SEED",

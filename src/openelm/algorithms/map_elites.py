@@ -202,6 +202,9 @@ class MAPElitesBase:
         self.config: QDConfig = config
         self.history_length = self.config.history_length
         self.save_history = self.config.save_history
+        self.save_all_individual = self.config.save_all_individual
+        if self.save_all_individual:
+            self.list_of_all_individuals = []
         self.save_snapshot_interval = self.config.save_snapshot_interval
         self.start_step = 0
         self.save_np_rng_state = self.config.save_np_rng_state
@@ -433,9 +436,19 @@ class MAPElitesBase:
         for individual in new_individuals:
             fitness = self.env.fitness(individual)
             if np.isinf(fitness):
+                if self.save_all_individual:
+                    phenotype = individual.to_phenotype()
+                    map_ix = self.to_mapindex(phenotype)
+                    state_individual = individual.__getstate__()
+                    state_individual["map_ix"] = list((int(i) for i in map_ix))
+                    self.list_of_all_individuals.append(state_individual)
+                    
                 continue
             phenotype = individual.to_phenotype()
             map_ix = self.to_mapindex(phenotype)
+            state_individual = individual.__getstate__()
+            state_individual["map_ix"] = list((int(i) for i in map_ix))
+            self.list_of_all_individuals.append(state_individual)
 
             # if the return is None, the individual is invalid and is thrown
             # into the recycle bin.
@@ -524,8 +537,11 @@ class MAPElitesBase:
 
         with open((output_folder / "config.json"), "w") as f:
             json.dump(tmp_config, f)
-        f.close()
-
+            
+        if self.save_all_individual:
+            with open((output_folder / "save_all.json"), "w") as f:
+                json.dump(self.list_of_all_individuals, f)
+                
     def plot_fitness(self):
         import matplotlib.pyplot as plt
 

@@ -22,7 +22,7 @@ from openelm.environments.p3 import (
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import return_f,extract_args_f,return_g,merge_Q_and_A,scrap_f_g
+from openelm.utils.code_eval import preprocessing_P3,return_f,extract_args_f,return_g,merge_Q_and_A,scrap_f_g
 
 
 class P3Solution(Genotype):
@@ -86,7 +86,6 @@ def g1():
         if "pca" in state:
             del state["pca"]
         return state
-    
 
 
 class P3Problem(BaseEnvironment[P3Solution]):
@@ -149,11 +148,8 @@ class P3Problem(BaseEnvironment[P3Solution]):
         first_example = self.prompt_seed[:i_first].strip()
 
         if self.config.embedding_model_type == "openai":
-            dummy_features = np.array(
-            get_embedding(first_example, engine=self.config.embedding_model_path))
-            self.genotype_ndim: int = len(dummy_features)
+            self.genotype_ndim: int = 1
             self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
-            
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
             dummy_pl = pipeline(
@@ -309,6 +305,7 @@ class P3ProbSolResult(Genotype):
         self.program_str = program_str
         self.result_obj = result_obj
         self.config = config
+
         if self.config.model_name == "openai":
             # print("not implemented yet")
             i_f = program_str.find("def f(")
@@ -326,7 +323,7 @@ class P3ProbSolResult(Genotype):
             self.problem_func = self.program_str[i_f6:i_g6].strip()
             self.solution_func = self.program_str[i_g6:i_assert].strip()
 
-            # When comparing for phenotype, just use import statement and new probsol
+        # When comparing for phenotype, just use import statement and new probsol
         baseline = '''from typing import List
 
 def f1_1(s: str):
@@ -335,9 +332,7 @@ def f1_1(s: str):
 def g1_1():
     """Find a string that when concatenated onto 'Hello ' gives 'Hello world'."""
     return "world"'''
-#         self.baseline_emb = np.array(
-#             get_embedding(baseline, engine=self.config.embedding_model_path)
-#         )
+        self.baseline_emb = np.zeros(1536)#np.array(get_embedding(baseline, engine=self.config.embedding_model_path))
 
         if self.config.embedding_model_type == "hf":
             self.pl = pipeline(
@@ -363,7 +358,9 @@ def g1_1():
             emb = np.array(
                 get_embedding(compare_str, engine=self.config.embedding_model_path)
             )
-            return emb#cosine_similarity(emb, self.baseline_emb)
+            return cosine_similarity(emb, self.baseline_emb)
+        
+
         elif self.config.embedding_model_type == "hf":
             features = np.array(self.pl(self.program_str))
             features_scaled = self.scaler.transform(np.squeeze(features))
@@ -378,12 +375,6 @@ def g1_1():
             del state["scaler"]
         if "pca" in state:
             del state["pca"]
-        if "baseline_emb" in state:
-            del state["baseline_emb"]
-        if "config" in state:
-            del state["config"]
-        if "result_obj" in state:
-            state["result_obj"] = str(state["result_obj"])
         return state
 
 
@@ -418,9 +409,7 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         first_example = self.prompt_seed[:i_first].strip()
 
         if self.config.embedding_model_type == "openai":
-            dummy_features = np.array(
-            get_embedding(first_example, engine=self.config.embedding_model_path))
-            self.genotype_ndim: int = len(dummy_features)
+            self.genotype_ndim: int = 1
             self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
@@ -667,9 +656,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
         self.rng = None
-        puzzles = requests.get(
-            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
-        ).json()
+        self.preprocess_p3()
         if self.config.prompt_size == "long":
             self.prompt_seed = P3_PROBSOL_LONG_SEED
         elif self.config.prompt_size == "med":
@@ -735,21 +722,50 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         pass
 
     def preprocess_p3(self):
-        puzzles = requests.get(
-            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json").json()
-        data_split = requests.get(
-            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/main/puzzles/split.json").json()
-        
-        puzzles_train=[]
-        for i in puzzles:
-            if i["name"][:-2] in data_split["train"] and i["sol_bodies"]!=[]:
-                i["f"] = utils.return_f(i)
-                i["g"] = utils.return_g(i,i["f"])
-                i['attempts'] = 1 # 
-                i["full_prompt"] = ""
-                puzzles_train.append(i)
-    
-    
+        trainset = preprocessing_P3(split ="train", n_token_max=512)
+        for puz in trainset:
+            del puz["f"], puz["g"],puz["attempts"]
+            puz["config"] = self.config
+        list_p3 = [P3ProbSolResult(**p) for p in trainset]
+        correct_pb=0
+        list_incorrect_puzzle = []
+        for i,probsol in enumerate(list_p3):
+            
+            if isinstance(probsol.result_obj, ExecResult):
+                continue
+            if isinstance(probsol.result_obj, str):
+                eval_code = (
+                    f"{probsol.program_str}\n"
+                    f"def run_eval():\n"
+                    f"    return f('{probsol.result_obj}')"
+                )
+            else:
+                eval_code = (
+                    f"{probsol.program_str}\n"
+                    f"def run_eval():\n"
+                    f"    return f({probsol.result_obj})"
+                )
+            # Run code to see if g6_2 solves f6_2
+            result = pool_exec_processes(
+                eval_code,
+                func_name="run_eval",
+                debug=True
+            )
+            if result[0] is False:
+                list_incorrect_puzzle.append(i)
+                
+        # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
+        for i in list_incorrect_puzzle[::-1]:
+            del list_p3[i]
+            
+        self.archive_puzzle = list_p3
+        #     if result[0] is True:
+        #         correct_pb+=1
+            
+                
+        # print("correct pb", correct_pb)
+        # print("total_pb",len(list_p3))
+
     def construct_prompt(
         self, code_batch: Optional[Union[list[str], str]] = None
     ) -> dict[str, str]:
@@ -847,34 +863,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if isinstance(probsol.result_obj, ExecResult):
             return -np.inf
 
-        # TODO: check type expected by f6_2 if any?
-        # TODO: implement checks for absolute triviality of f6_2 requirements
-        #   the fitness function being based on pass@k might take care of this though
-
-        eval_code = (
-            f"{P3_IMPORTS}\n"
-            f"{probsol.problem_func}\n"
-            f"def run_eval():\n"
-            f"    return f6_2({probsol.result_obj})"
-        )
-
-        # Run code to see if g6_2 solves f6_2
-        result = pool_exec_processes(
-            eval_code,
-            func_name="run_eval",
-            timeout=self.config.timeout,
-            processes=self.config.processes,
-            debug=self.config.debug,
-        )
-
-        # if result[0] is True: what  result[0]== True is the problem is solved
-            # return -np.inf
-        
-        # if just one try more like
-        if result[0] is True and self.config.eval_k <= 1:
-            return 1.0
-        
-        
         # Do pass@k eval
 
         # Get f6_2() and make it the new f6()
@@ -914,8 +902,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         return 1 / pak if pak > 0 else 0
 
     def random(self) -> list[P3ProbSolResult]:
-        # need to multiprocess that
-        program_list = [self.construct_prompt() for _ in range(self.config.batch_size)] 
+        program_list = [self.construct_prompt() for _ in range(self.config.batch_size)]
         new_probsols = self.generate_programs(program_list)
         return new_probsols
 
@@ -924,4 +911,3 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         program_list = list(map(self.construct_prompt, probsols))
         new_probsols = self.generate_programs(program_list)
         return new_probsols
- 
