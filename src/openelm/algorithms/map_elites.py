@@ -11,6 +11,7 @@ from tqdm import trange
 
 from openelm.configs import CVTMAPElitesConfig, MAPElitesConfig, QDConfig
 from openelm.environments import BaseEnvironment, Genotype
+from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 
 Phenotype = Optional[np.ndarray]
 MapIndex = Optional[tuple]
@@ -166,7 +167,16 @@ class Map:
     @property
     def niches_filled(self) -> int:
         """Returns the number of niches in the map that have been explored."""
-        return np.count_nonzero(np.isfinite(self.array))
+        if self.history_length>1:
+            n_niches = self.array.shape[-1]
+            non_empty_niches = 0
+
+            for niche_idx in range(n_niches):
+                if not np.all(np.isinf(self.array[:, niche_idx])):
+                    non_empty_niches += 1
+            return non_empty_niches
+        else:
+            return np.count_nonzero(np.isfinite(self.array))
 
 
 class MAPElitesBase:
@@ -405,7 +415,7 @@ class MAPElitesBase:
             self.fitness_history["min"].append(self.min_fitness())
             self.fitness_history["mean"].append(self.mean_fitness())
             self.fitness_history["qd_score"].append(self.qd_score())
-
+            self.fitness_history["niches_filled"].append(self.niches_filled())
             if (
                 self.save_snapshot_interval is not None
                 and n_steps != 0
@@ -436,19 +446,33 @@ class MAPElitesBase:
         for individual in new_individuals:
             fitness = self.env.fitness(individual)
             if np.isinf(fitness):
-                if self.save_all_individual:
+                if self.save_all_individual: # save all individuals
                     phenotype = individual.to_phenotype()
                     map_ix = self.to_mapindex(phenotype)
-                    state_individual = individual.__getstate__()
+                    state_individual = individual.__getstate__().copy()
+                    if isinstance(state_individual["result_obj"], ExecResult):
+                        state_individual["result_obj"]=str(state_individual["result_obj"])
+                    if "config" in state_individual:
+                        del state_individual["config"]
+                    if "baseline_emb" in state_individual:
+                        del state_individual["baseline_emb"]
                     state_individual["map_ix"] = list((int(i) for i in map_ix))
                     self.list_of_all_individuals.append(state_individual)
-                    
                 continue
+            
             phenotype = individual.to_phenotype()
             map_ix = self.to_mapindex(phenotype)
-            state_individual = individual.__getstate__()
-            state_individual["map_ix"] = list((int(i) for i in map_ix))
-            self.list_of_all_individuals.append(state_individual)
+            if self.save_all_individual: # save all individuals
+                state_individual = individual.__getstate__()
+                state_individual["map_ix"] = list((int(i) for i in map_ix))
+                
+                if isinstance(state_individual["result_obj"], ExecResult):
+                    state_individual["result_obj"]=str(state_individual["result_obj"])
+                if "config" in state_individual:
+                    del state_individual["config"]
+                if "baseline_emb" in state_individual:
+                    del state_individual["baseline_emb"]
+                self.list_of_all_individuals.append(state_individual)
 
             # if the return is None, the individual is invalid and is thrown
             # into the recycle bin.
@@ -465,11 +489,14 @@ class MAPElitesBase:
 
             # If new fitness greater than old fitness in niche, replace.
             if fitness > self.fitnesses[map_ix]:
-                self.fitnesses[map_ix] = fitness
-                self.genomes[map_ix] = individual
+                # self.fitnesses[map_ix] = fitness
+                # self.genomes[map_ix] = individual
+                self.fitnesses.__setitem__(map_ix, fitness)
+                self.genomes.__setitem__(map_ix, individual)
+                
 
             # update if new fitness is the highest so far.
-            if fitness > max_fitness:
+            if fitness >= max_fitness: # doesn't work if history >1 can't save multiple individuals in a cell
                 max_fitness = fitness
                 max_genome = individual
 
@@ -539,9 +566,11 @@ class MAPElitesBase:
             json.dump(tmp_config, f)
             
         if self.save_all_individual:
-            with open((output_folder / "save_all.json"), "w") as f:
-                json.dump(self.list_of_all_individuals, f)
-                
+            try :
+                with open((output_folder / "save_all.json"), "w") as f:
+                    json.dump(self.list_of_all_individuals, f)
+            except Exception:
+                pass                
     def plot_fitness(self):
         import matplotlib.pyplot as plt
 
@@ -697,10 +726,20 @@ class CVTMAPElites(MAPElitesBase):
         # lower and upper bounds for each dimension
         low = self.env.behavior_space[0]
         high = self.env.behavior_space[1]
-
-        points = np.zeros((self.cvt_samples, self.env.behavior_ndim))
-        for i in range(self.env.behavior_ndim):
-            points[:, i] = self.rng.uniform(low[i], high[i], size=self.cvt_samples)
+        state = self.env.__dict__.copy()
+        if "archive_P3puzzle" in state:
+            list_emb=np.array([p.emb for p in state["archive_P3puzzle"]])
+            n_vect2add= self.cvt_samples - len(list_emb)
+            liste_choice=self.rng.choice(len(list_emb), n_vect2add,replace= True)
+            embed2nois = list_emb[liste_choice]
+            noise = np.random.randn(embed2nois.shape[0],embed2nois.shape[1])
+            noisy_embed = embed2nois + noise/50 # add noise to embeddings
+            noisy_embed = noisy_embed / np.linalg.norm(noisy_embed, axis=1)[:, np.newaxis] # normalize embeddings
+            points = np.vstack((list_emb,noisy_embed))
+        else:
+            points = np.zeros((self.cvt_samples, self.env.behavior_ndim))
+            for i in range(self.env.behavior_ndim):
+                points[:, i] = self.rng.uniform(low[i], high[i], size=self.cvt_samples)
 
         k_means = KMeans(init="k-means++", n_init="auto", n_clusters=self.n_niches)
         k_means.fit(points)

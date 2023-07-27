@@ -1,3 +1,5 @@
+from typing import Optional, Union, List
+
 P3_PROBLEM_MED_SEED = '''from typing import List
 
 def f1(s: str):
@@ -277,11 +279,82 @@ def g5_2():
 
 assert f5_2(g5_2())'''
 
+
+# def format_puzz_2_str(code_batch,mode="puzz"):
+#     few_shot_examples = "----\n"
+#     for puzz in range(len(code_batch)):
+#         if mode =="pb+sol":
+#             few_shot_examples+=f"Problem {puzz}:\n```\n{code_batch[puzz]['problem']}\n```\nSolution {puzz}:\n```\n{puzzle_4_prompt[puzz]['solution']}\n```\n"
+#             few_shot_examples+="---\n"
+#         else:
+#             few_shot_examples+=f"Puzzle {puzz}:\n```\n{code_batch[puzz]['problem']}\n```\n---\n"
+#         # few_shot_examples+=f"\n{puzzle_4_prompt[puzz]['problem']}\n"
+#     return few_shot_examples
+
+def P3_probsol_chat_med_seed(code_batch: Optional[List[str]] = [],N_python_problem= 3,new_puzzles = 1) -> str: 
+    if isinstance(code_batch, list):
+        # TODO: get nearby genotypes
+        if len(code_batch) > 0:
+            code_batch = [code_batch[0]]
+    elif isinstance(code_batch, str):
+        code_batch = [code_batch]
+        
+    new_puzzles = 1
+    few_shot_examples=""
+    for puzz in range(len(code_batch)):
+        
+        few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{code_batch[puzz]}\n```\n"
+    N_python_problem= 3+len(code_batch)
+    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) python programming puzzle composed of f (and its solution g) that satisfies the condition f(g()) == True, your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem}).\n
+----
+Puzzle 0:
+```
+def f(start: int, k=2, upper=-172, seq=[79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]):
+    """Find a sequence of k consecutive indices whose sum is minimal"""
+    return 0 <= start <= len(seq) - k and sum(seq[start:start + k]) <= upper
+
+def g(k = 2, upper = -172, seq = [79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]):
+    return min(range(len(seq) - k + 1), key=lambda start: sum(seq[start:start + k])) 
+assert f(g()) == True
+```
+---
+Puzzle 1:
+```
+def f(i: int, li=[-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target=-42):
+    """Find the index of an item in a list using negative indexing."""
+    return li[i] == target and i < 0
+
+def g(li = [-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target = -42):
+    return li.index(target) - len(li) 
+assert f(g()) == True
+```
+---
+Puzzle 2:
+```
+def f(ans: List[List[int]], target=2):
+    """
+    Find a list of pairs of integers where the number of pairs in which the second number is more than
+    two greater than the first number is a given constant
+    """
+    for i in range(len(ans)):
+        a, b = ans[i]
+        if b - a >= 2:
+            target -= 1
+    return target == 0
+
+def g(target = 2):
+    return [[0, 2]] * target 
+assert f(g()) == True
+```
+---
+'''
+    return prompt+few_shot_examples
+
 P3_IMPORTS = "from typing import*\n"#"from typing import List\n" # The only import that's necessary as of P3 v0.2
 
 __all__ = [
     "P3_PROBLEM_MED_SEED",
     "P3_PROBLEM_LONG_SEED",
     "P3_PROBSOL_LONG_SEED",
-    "P3_IMPORTS"
+    "P3_IMPORTS",
 ]

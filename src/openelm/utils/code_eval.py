@@ -8,7 +8,7 @@ import ast
 import numpy as np
 import requests
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult, unsafe_execute
-import time
+import json
 
 def pool_exec_processes(
     prompts: Union[str, Iterable[str]],
@@ -34,8 +34,9 @@ def pool_exec_processes(
     """
     if isinstance(prompts, str):
         prompts = [prompts]
+    prompts_2_test=[]
     for i in prompts:
-        prompts_2_test=["\nfrom typing import*\n"+ i] # overkill need to check usefull imports
+        prompts_2_test.append("\nfrom typing import*\n"+ i) # overkill need to check usefull imports
 
     eval_fn = functools.partial(
         unsafe_execute,
@@ -281,6 +282,7 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512) -> list[dict]:
     dl puzzles from P3 dataset and give train or test puzzles
     split = "train" or "test"
     """
+    load_embedding = True
     import sys 
     sys.set_int_max_str_digits(10_000)
     puzzles = requests.get(
@@ -319,4 +321,16 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512) -> list[dict]:
         index=np.array(List_len_embedding)<=n_token_max
         #remove item where index is False
         puzzles_set = [item for i, item in enumerate(puzzles_set) if index[i]]
+        if load_embedding:
+            import os
+            script_dir = os.path.dirname(__file__) 
+            path_embed = script_dir+"/preprocess_p3_emb.json"
+            with open(path_embed, "r") as f:
+                list_emb = json.load(f)
+                list_keys=list(list_emb.keys())
+            for puzz in (puzzles_set):
+                code = puzz["program_str"]
+                if code in list_keys:
+                    emb = list_emb[code]
+                    puzz["emb"] = emb
         return puzzles_set

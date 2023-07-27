@@ -19,6 +19,7 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
+from openelm.environments.p3 import P3_probsol_chat_med_seed
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
@@ -294,7 +295,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
 
 
 class P3ProbSolResult(Genotype):
-    def __init__(self, program_str: str, result_obj: dict, config: P3ProbSolEnvConfig):
+    def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None ):
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -302,11 +303,12 @@ class P3ProbSolResult(Genotype):
             result_obj: the result of the solution.
             config: environment config
         """
+
         self.program_str = program_str
         self.result_obj = result_obj
         self.config = config
-
-        if self.config.model_name == "openai":
+        self.emb = emb
+        if self.config.model_name == "openai" and self.config.env_name == "p3_probsol_Chat" :
             # print("not implemented yet")
             i_f = program_str.find("def f(")
             i_g = program_str.find("def g(")
@@ -332,8 +334,9 @@ def f1_1(s: str):
 def g1_1():
     """Find a string that when concatenated onto 'Hello ' gives 'Hello world'."""
     return "world"'''
-        self.baseline_emb = np.zeros(1536)#np.array(get_embedding(baseline, engine=self.config.embedding_model_path))
-
+        self.baseline_emb = np.zeros(1536)# useless i keep it for compatibility np.array(get_embedding(baseline, engine=self.config.embedding_model_path))
+        if self.emb==None:
+            self.emb = get_embedding(self.program_str, engine=self.config.embedding_model_path)
         if self.config.embedding_model_type == "hf":
             self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
@@ -358,7 +361,7 @@ def g1_1():
             emb = np.array(
                 get_embedding(compare_str, engine=self.config.embedding_model_path)
             )
-            return cosine_similarity(emb, self.baseline_emb)
+            return emb
         
 
         elif self.config.embedding_model_type == "hf":
@@ -409,7 +412,9 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         first_example = self.prompt_seed[:i_first].strip()
 
         if self.config.embedding_model_type == "openai":
-            self.genotype_ndim: int = 1
+            dummy_features = np.array(
+            get_embedding(first_example, engine=self.config.embedding_model_path))
+            self.genotype_ndim: int = len(dummy_features)
             self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
@@ -450,7 +455,54 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
 
         self.original_probsol = f6_1 + "\n\n" + g6_1 + "\n\n" + "assert f6_1(g6_1())"
         self.new_probsol_preamble = "def f6_2("
+        self.preprocess_p3()
+        
+    def preprocess_p3(self):
+        trainset = preprocessing_P3(split ="train", n_token_max=512)
+        for puz in trainset:
+            del puz["f"], puz["g"],puz["attempts"]
+            puz["config"] = self.config
+        list_p3 = [P3ProbSolResult(**p) for p in trainset]
+        correct_pb=0
+        list_incorrect_puzzle = []
+        for i,probsol in enumerate(list_p3):
+            if isinstance(probsol.result_obj, ExecResult):
+                continue
+            if isinstance(probsol.result_obj, str):
+                eval_code = (
+                    f"{probsol.program_str}\n"
+                    f"def run_eval():\n"
+                    f"    return f('{probsol.result_obj}')"
+                )
+            else:
+                eval_code = (
+                    f"{probsol.program_str}\n"
+                    f"def run_eval():\n"
+                    f"    return f({probsol.result_obj})"
+                )
+            # Run code to see if g6_2 solves f6_2
+            result = pool_exec_processes(
+                eval_code,
+                func_name="run_eval",
+                debug=True
+            )
+            if result[0] is False:
+                
+                list_incorrect_puzzle.append(i)
+            else: 
+                correct_pb+=1
+                
+        # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
+        for i in list_incorrect_puzzle[::-1]:
+            del list_p3[i]
+            
+        self.archive_P3puzzle = list_p3
 
+            
+                
+        print("correct pb", correct_pb)
+        print("total_pb",len(list_p3))
+        
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
         warnings.warn("WARNING: rng state not used in this environment")
         return None
@@ -529,7 +581,9 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
             # a generator type. The multithreaded execution pickles things and generators can't be pickled
             # which causes the whole thing to error out.
             # For now, try/except and re-try.
+            
             try:
+                generated_programs = [code.split("assert")[0] for code in generated_programs]
                 results = pool_exec_processes(
                     generated_programs,
                     func_name="g6_2",
@@ -638,6 +692,8 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
 
 
 # chatGPT version of Probsol
+
+
 class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     def __init__(
         self,
@@ -645,6 +701,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         mutation_model: MutationModel,
     ) -> None:
         """
+        /!\ optimized for chatGPT /!\
+        compare to basae prob sol:
+        remove the explicit mutation in the prompt (prompt with underscore i_1 i_2) as it guided to much the model
+        and it lead to bad diversity of generated problems.
+        
         The objective is to generate problem+solution pairs.
         Args:
             config: the config file path or dict.
@@ -658,9 +719,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.rng = None
         self.preprocess_p3()
         if self.config.prompt_size == "long":
-            self.prompt_seed = P3_PROBSOL_LONG_SEED
+            raise ValueError("long prompt no implemented yet ")
         elif self.config.prompt_size == "med":
-            self.prompt_seed = P3_PROBSOL_MED_SEED
+            self.prompt_seed_function = P3_probsol_chat_med_seed
+            self.prompt_seed= self.prompt_seed_function()
         else:
             raise ValueError("No seed string found")
 
@@ -672,7 +734,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             dummy_features = np.array(
             get_embedding(first_example, engine=self.config.embedding_model_path))
             self.genotype_ndim: int = len(dummy_features)
-            self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
+            self.genotype_space = np.repeat([[-1, 1]], self.genotype_ndim, axis=0).T
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
             dummy_pl = pipeline(
@@ -711,7 +773,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         )  # include the first example solution function body
 
         self.original_probsol = f6_1 + "\n\n" + g6_1 + "\n\n" + "assert f6_1(g6_1())"
-        self.new_probsol_preamble = "def f6_2("
+        self.new_probsol_preamble = ""
 
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
         warnings.warn("WARNING: rng state not used in this environment")
@@ -721,8 +783,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         warnings.warn("WARNING: rng state not used in this environment")
         pass
 
-    def preprocess_p3(self):
-        trainset = preprocessing_P3(split ="train", n_token_max=512)
+    def preprocess_p3(self, split="train"):
+        trainset = preprocessing_P3(split =split, n_token_max=512)
         for puz in trainset:
             del puz["f"], puz["g"],puz["attempts"]
             puz["config"] = self.config
@@ -730,7 +792,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         correct_pb=0
         list_incorrect_puzzle = []
         for i,probsol in enumerate(list_p3):
-            
             if isinstance(probsol.result_obj, ExecResult):
                 continue
             if isinstance(probsol.result_obj, str):
@@ -752,31 +813,35 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 debug=True
             )
             if result[0] is False:
+                
                 list_incorrect_puzzle.append(i)
+            else: 
+                correct_pb+=1
                 
         # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
         for i in list_incorrect_puzzle[::-1]:
             del list_p3[i]
             
-        self.archive_puzzle = list_p3
-        #     if result[0] is True:
-        #         correct_pb+=1
+        self.archive_P3puzzle = list_p3
+
             
                 
-        # print("correct pb", correct_pb)
-        # print("total_pb",len(list_p3))
+        print("correct pb", correct_pb)
+        print("total_pb",len(list_p3))
 
     def construct_prompt(
         self, code_batch: Optional[Union[list[str], str]] = None
     ) -> dict[str, str]:
-        prompt_str = self.prompt_seed
+        
 
         if code_batch is None:
+            prompt_str = self.prompt_seed
             # prompt with prob+sol from P3 dataset
-            prompt_str += (
-                f"\n\n{self.original_probsol}"  # add this particular probsol, f6_1() and g6_1(), to the prompt
-                f"\n\n{self.new_probsol_preamble}"  # add f6_2() preamble to the prompt
-            )
+            pass # do nothing
+            # prompt_str += (
+            #     f"\n\n{self.original_probsol}"  # add this particular probsol, f6_1() and g6_1(), to the prompt
+            #     f"\n\n{self.new_probsol_preamble}"  # add f6_2() preamble to the prompt
+            # )
         else:
             # prompt with prob+sol that is given (one that was the output of a prev mutation)
             if isinstance(code_batch, list):
@@ -784,31 +849,16 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 program_str = code_batch[0]
             elif isinstance(code_batch, str):
                 program_str = code_batch
-
+            prompt_str = self.prompt_seed_function(code_batch)
             # the prev output was f6_2 and g6_2, so now make it f6_1 and g6_1 for the prompt
             # and remove comments (which contain changes from prev f6_1) from new f6_1
             # TODO: pass in the whole object instead of the program_str since it already parsed some of this?
-            i_f6 = program_str.find("def f6_2")
-            program_str = program_str[i_f6:]  # remove import statement
-            program_str = program_str.replace("f6_2(", "f6_1(")
-            program_str = program_str.replace("g6_2(", "g6_1(")
-            i_g6 = program_str.find("def g6_1(")
+            # i_g = program_str.find("def g(")
             # remove comments with """
-            program_str = (
-                re.sub('""".*"""', "", program_str[:i_g6]) + program_str[i_g6:]
-            )
-            # remove comments with # (and remove empty lines)
-            i_g6 = program_str.find("def g6_1(")
-            lines = program_str[:i_g6].strip().split("\n")
-            new_lines = []
-            for line in lines:
-                if line.strip().startswith("#") or len(line.strip()) == 0:
-                    continue
-                new_lines.append(line)
-            program_str = "\n".join(new_lines) + "\n\n" + program_str[i_g6:]
-            program_str = program_str.strip()
+            # program_str = program_str[:i_g] + program_str[i_g:]
 
-            prompt_str += f"\n\n{program_str}" f"\n\n{self.new_probsol_preamble}"
+            # need to change that to sample problem from the selected cell of the archive
+            # prompt_str += f"\n\n{program_str}" # f"\n\n{self.new_probsol_preamble}"
 
         template = f"{P3_IMPORTS}\n{self.new_probsol_preamble}"
         return {"prompt": prompt_str, "template": template}
@@ -817,8 +867,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         """Generate new programs with a mutation model and evaluate them."""
         local_scope_exec = False
         generated_programs = self.mutation_model.generate_programs(
-            code_batch, local_scope_exec
+            code_batch, local_scope_exec,do_trunc=False
         )
+        # /!\ need to parse the code here /!\
 
         if self.config.sandbox:
             results = []

@@ -9,7 +9,6 @@ from omegaconf import MISSING
 class BaseConfig:
     output_dir: str = "logs/"
 
-
 @dataclass
 class ModelConfig(BaseConfig):
     fp16: bool = True
@@ -43,8 +42,8 @@ class DiffModelConfig(ModelConfig):
 
 @dataclass
 class QDConfig(BaseConfig):
-    init_steps: int = 2 #250
-    total_steps: int = 15 #2500
+    init_steps: int = 2 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
+    total_steps: int = 5 #2500 
     history_length: int = 128
     save_history: bool = False
     save_snapshot_interval: int = 5
@@ -66,8 +65,8 @@ class MAPElitesConfig(QDConfig):
 @dataclass
 class CVTMAPElitesConfig(QDConfig):
     qd_name: str = "cvtmapelites"
-    n_niches: int = 10
-    cvt_samples: int = 10000
+    n_niches: int = 1024
+    cvt_samples: int = 42000
 
 
 @dataclass
@@ -78,7 +77,7 @@ class EnvConfig(BaseConfig):
     processes: int = 1
     batch_size: int = 2 # 10  # Batch size of MAP-Elites
     env_name: str = MISSING
-    debug: bool = False
+    debug: bool = True
     seed: Optional[int] = 42
 
 
@@ -127,7 +126,7 @@ class P3ProblemEnvConfig(EnvConfig):
 @dataclass
 class P3ProbSolEnvConfig(EnvConfig):
     env_name: str = "p3_probsol"
-    prompt_size: str = "med"  # med or long
+    prompt_size: str = "long"  # med or long
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -137,6 +136,19 @@ class P3ProbSolEnvConfig(EnvConfig):
     embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation
 
+@dataclass
+class P3ProbSolChatEnvConfig(EnvConfig):
+    env_name: str = "p3_probsol_Chat"
+    prompt_size: str = "med"  # med or long
+    timeout: float = 1.0  # timeout for running a solution
+    starting_seed: int = field(
+        default_factory=lambda: 3
+    )  # index of p3 dataset to use as puzzle to mutate
+    eval_k: int = -1 #100  # k for pass@k for fitness
+    embedding_model_type: str = "openai"  # openai or hf
+    embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
+    model_name: str = "openai" # model used for mutation
+    
 @dataclass
 class QDEnvConfig(EnvConfig):
     env_name: str = "qdaif"
@@ -158,7 +170,7 @@ class PromptEnvConfig(EnvConfig):
 defaults_elm = [
     {"model": "prompt"},
     {"qd": "cvtmapelites"}, #"mapelites"},
-    {"env": "p3_probsol_Chat"}, #sodarace"},
+    {"env": "p3_probsol_Chat"}, #sodarace"},p3_probsol_Chat
     "_self_",
 ]
 
@@ -181,7 +193,7 @@ class ELMConfig(BaseConfig):
 
 defaults_p3 = [
     {"model": "prompt"},
-    {"env": "p3_probsol"},
+    {"env": "p3_probsol_Chat"},#p3_probsol_Chat
     "_self_",
 ]
 
@@ -223,7 +235,7 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="image_evolution", node=ImageEnvConfig)
     cs.store(group="env", name="string_evolution", node=StringEnvConfig)
     cs.store(group="env", name="p3_probsol", node=P3ProbSolEnvConfig)
-    cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolEnvConfig)
+    cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolChatEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
     cs.store(group="env", name="prompt_evolution", node=PromptEnvConfig)
     cs.store(group="env", name="qdaif", node=QDEnvConfig)

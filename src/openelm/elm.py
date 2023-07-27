@@ -27,10 +27,14 @@ def load_env(env_name: str) -> Any:
         from openelm.environments.p3.p3 import P3ProbSol
 
         return P3ProbSol
-    elif env_name == "p3_problem":
-        from openelm.environments.p3.p3 import P3Problem
+    elif env_name == "p3_probsol":
+        from openelm.environments.p3.p3 import P3ProbSol
 
-        return P3Problem
+        return P3ProbSol
+    elif env_name == "p3_probsol_Chat":
+        from openelm.environments.p3.p3 import P3ProbSol_Chat
+
+        return P3ProbSol_Chat
     elif env_name == "prompt_evolution":
         from openelm.environments.prompt.prompt import PromptEvolution
 
@@ -76,6 +80,7 @@ class ELM:
             print("Diff model")
             self.mutation_model = DiffModel(self.config.model)
         if env is None:
+            
             self.environment = load_env(env_name)(
                 config=self.config.env,
                 mutation_model=self.mutation_model,
@@ -86,6 +91,9 @@ class ELM:
             env=self.environment,
             config=self.config.qd,
         )
+        print(env_name)
+        print(self.environment)
+        
 
     def run(
         self, init_steps: Optional[int] = None, total_steps: Optional[int] = None
