@@ -2,6 +2,7 @@ import json
 import re
 import warnings
 from typing import Optional, Union
+import copy
 
 import numpy as np
 import requests
@@ -24,7 +25,6 @@ from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import preprocessing_P3,return_f,extract_args_f,return_g,merge_Q_and_A,scrap_f_g
-
 
 class P3Solution(Genotype):
     def __init__(self, program_str: str, result_obj: dict, config: P3ProblemEnvConfig):
@@ -310,10 +310,10 @@ class P3ProbSolResult(Genotype):
         self.emb = emb
         if self.config.model_name == "openai" and self.config.env_name == "p3_probsol_Chat" :
             # print("not implemented yet")
-            i_f = program_str.find("def f(")
+            # i_f = program_str.find("def f(")
             i_g = program_str.find("def g(")
             
-            self.problem_func = self.program_str[i_f:i_g].strip()
+            self.problem_func = self.program_str[:i_g].strip()
             self.solution_func = self.program_str[i_g:].strip()
             # no more problem if an assert is in def f
             i_assert = self.solution_func.find("assert") 
@@ -620,6 +620,7 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
             f"def run_eval():\n"
             f"    return f6_2({probsol.result_obj})"
         )
+        
 
         # Run code to see if g6_2 solves f6_2
         result = pool_exec_processes(
@@ -866,11 +867,27 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     def generate_programs(self, code_batch: list[str]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model and evaluate them."""
         local_scope_exec = False
-        generated_programs = self.mutation_model.generate_programs(
+        _generated_programs = self.mutation_model.generate_programs(
             code_batch, local_scope_exec,do_trunc=False
         )
-        # /!\ need to parse the code here /!\
-
+        
+        list_pb=[]
+        # parse the generated code 
+        for gen_prog in _generated_programs:
+            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("```\n","```").split("```"))
+            for idx in range(len(split_pb)):
+                if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
+                    list_pb.append(split_pb[idx])
+        for idx_assert in range(len(list_pb)):
+        #     list_pb[idx] = list_pb[idx].split("assert")[0]+"assert f(g()) == True"
+            if not "assert f(" in list_pb[idx_assert]:
+                list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
+        generated_programs = list_pb
+        
+        for idx in range(len(generated_programs)):
+            if not P3_IMPORTS in generated_programs[idx]:
+                generated_programs[idx] = P3_IMPORTS+ generated_programs[idx]
+        
         if self.config.sandbox:
             results = []
             for code in generated_programs:
@@ -888,9 +905,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # which causes the whole thing to error out.
             # For now, try/except and re-try.
             try:
+                # IDK for now if it's usefull to remove assert to have an output even if puzzle is not correct
                 results = pool_exec_processes(
                     generated_programs,
-                    func_name="g6_2",
+                    func_name="g",
                     timeout=self.config.timeout,
                     processes=self.config.processes,
                     debug=self.config.debug,
@@ -917,22 +935,70 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # Do pass@k eval
 
         # Get f6_2() and make it the new f6()
-        problem_str = probsol.problem_func.replace("def f6_2(", "def f6(")
+        problem_str = probsol.problem_func#.replace("def f6_2(", "def f6(")
         # Remove comments with """
-        problem_str = re.sub('""".*"""', "", problem_str)
+        # problem_str = re.sub('""".*"""', "", problem_str)
         # Remove comments with # (and remove empty lines)
-        lines = problem_str.strip().split("\n")
-        new_lines = []
-        for line in lines:
-            if line.strip().startswith("#") or len(line.strip()) == 0:
-                continue
-            new_lines.append(line)
-        problem_str = "\n".join(new_lines)
+        # lines = problem_str.strip().split("\n")
+        # new_lines = []
+        # for line in lines:
+        #     if line.strip().startswith("#") or len(line.strip()) == 0:
+        #         continue
+        #     new_lines.append(line)
+        # problem_str = "\n".join(new_lines)
         # Get solution_preamble for g6()
-        i_end_preamble = probsol.solution_func.find("):")
-        solution_preamble = probsol.solution_func[: i_end_preamble + 2].replace(
-            "def g6_2(", "def g6("
+        # i_end_preamble = probsol.solution_func.find("):")
+        # solution_preamble = probsol.solution_func[: i_end_preamble + 2]#.replace("def g6_2(", "def g6(")
+
+
+        # eval_code = (
+        #     f"{P3_IMPORTS}\n"
+        #     f"{probsol.problem_func}\n"
+        #     f"def run_eval():\n"
+        #     f"    return f({probsol.result_obj})"
+        # )
+        # if isinstance(probsol.result_obj, str):
+        #     eval_code = (
+        #         f"{probsol.program_str}\n"
+        #         f"def run_eval():\n"
+        #         f"    return f('{probsol.result_obj}')"
+        #     )
+        # else:
+        #     eval_code = (
+        #         f"{probsol.program_str}\n"
+        #         f"def run_eval():\n"
+        #         f"    return f({probsol.result_obj})"
+        #     )
+        extract_run_eval = "f"+probsol.program_str.split("assert f")[1]
+        
+        eval_code = (
+            f"{probsol.program_str}\n"
+            f"def run_eval():\n"
+            f"    return {extract_run_eval}"
         )
+        # Run code to see if g6_2 solves f6_2
+        result = pool_exec_processes(
+            eval_code,
+            func_name="run_eval",
+            timeout=self.config.timeout,
+            processes=self.config.processes,
+            debug=self.config.debug,
+        )
+
+        # if result[0] is True: what  result[0]== True is the problem is solved
+            # return -np.inf
+        
+        # if just one try more like
+        if result[0] == True: #and self.config.eval_k <= 1:
+            return 1.0
+        else:
+            print("\n=========== WTF happend=================")
+            print(result)
+            print(eval_code)
+            print("\n============================")
+            return 0.0
+            
+        # Need to handle the case when eval_k >1
 
         p3_problem = P3Problem(
             self.config,  # TODO: make an actual P3ProblemEnvConfig
