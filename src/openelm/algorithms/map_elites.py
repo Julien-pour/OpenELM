@@ -445,35 +445,26 @@ class MAPElitesBase:
         # into the behavior space one-by-one.
         for individual in new_individuals:
             fitness = self.env.fitness(individual)
-            if np.isinf(fitness):
-                if self.save_all_individual: # save all individuals
-                    phenotype = individual.to_phenotype()
-                    map_ix = self.to_mapindex(phenotype)
-                    state_individual = individual.__getstate__().copy()
-                    if isinstance(state_individual["result_obj"], ExecResult):
-                        state_individual["result_obj"]=str(state_individual["result_obj"])
-                    if "config" in state_individual:
-                        del state_individual["config"]
-                    if "baseline_emb" in state_individual:
-                        del state_individual["baseline_emb"]
-                    state_individual["map_ix"] = list((int(i) for i in map_ix))
-                    self.list_of_all_individuals.append(state_individual)
-                continue
-            
             phenotype = individual.to_phenotype()
             map_ix = self.to_mapindex(phenotype)
+            state_individual = individual.__getstate__().copy()
             if self.save_all_individual: # save all individuals
-                state_individual = individual.__getstate__()
-                state_individual["map_ix"] = list((int(i) for i in map_ix))
-                
-                if isinstance(state_individual["result_obj"], ExecResult):
-                    state_individual["result_obj"]=str(state_individual["result_obj"])
+                if "result_obj" in state_individual:
+                    del state_individual["result_obj"]
+                # if isinstance(state_individual["result_obj"], ExecResult):
+                #     state_individual["result_obj"]=str(state_individual["result_obj"])
                 if "config" in state_individual:
                     del state_individual["config"]
                 if "baseline_emb" in state_individual:
                     del state_individual["baseline_emb"]
+                state_individual["map_ix"] = list((int(i) for i in map_ix))
+                state_individual["fitness"] = fitness
+
                 self.list_of_all_individuals.append(state_individual)
 
+            if np.isinf(fitness):
+                continue
+                
             # if the return is None, the individual is invalid and is thrown
             # into the recycle bin.
             if map_ix is None:

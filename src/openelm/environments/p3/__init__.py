@@ -299,17 +299,18 @@ def P3_probsol_chat_med_seed(code_batch: Optional[List[str]] = [],N_python_probl
     elif isinstance(code_batch, str):
         code_batch = [code_batch]
         
-    new_puzzles = 1
+    new_puzzles = 3
     few_shot_examples=""
     for puzz in range(len(code_batch)):
         
         few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{code_batch[puzz]}\n```\n"
     N_python_problem= 3+len(code_batch)
-    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) python programming puzzle composed of f (and its solution g) that satisfies the condition f(g()) == True, your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem}).\n
+    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. You should not forget to define and set a value to all arguments (except the first argmuent of f) of f and give the same arguments to g as follow: def f(arg0,arg1 = value1, arg2= value2, ...) and def g(arg1 = value1, arg2= value2, ...). Make sure you set and give a value otherwise the problem will be incorrect. And you should not forget to import the libraries you need."
+    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+N_python_problem}). {instruction_p3_puzzle}
 ----
 Puzzle 0:
 ```
-def f(start: int, k=2, upper=-172, seq=[79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]):
+def f(start: int, k=2, upper=-172, seq=[79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]) -> bool:
     """Find a sequence of k consecutive indices whose sum is minimal"""
     return 0 <= start <= len(seq) - k and sum(seq[start:start + k]) <= upper
 
@@ -320,7 +321,7 @@ assert f(g()) == True
 ---
 Puzzle 1:
 ```
-def f(i: int, li=[-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target=-42):
+def f(i: int, li=[-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target=-42) -> bool:
     """Find the index of an item in a list using negative indexing."""
     return li[i] == target and i < 0
 
@@ -331,7 +332,8 @@ assert f(g()) == True
 ---
 Puzzle 2:
 ```
-def f(ans: List[List[int]], target=2):
+from typing import*
+def f(ans: List[List[int]], target=2) -> bool:
     """
     Find a list of pairs of integers where the number of pairs in which the second number is more than
     two greater than the first number is a given constant
