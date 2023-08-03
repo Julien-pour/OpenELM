@@ -20,7 +20,7 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
-from openelm.environments.p3 import P3_probsol_chat_med_seed
+from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
@@ -719,7 +719,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.config = config
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
-        self.rng = None
+        self.rng = np.random.default_rng(self.config.seed)
         if self.config.use_preprocessed_trainset:
             print("loading preprocessed trainset")
             self.preprocess_p3()
@@ -840,33 +840,26 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     def construct_prompt(
         self, code_batch: Optional[Union[list[str], str]] = None
     ) -> dict[str, str]:
+
+        # prompt with prob+sol that is given (one that was the output of a prev mutation)
+        if isinstance(code_batch, list):
+            # TODO: get nearby genotypes
+            code_batch = code_batch
+        elif isinstance(code_batch, str):
+            code_batch = [code_batch]
         
+        list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=3))
+        list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
+        prompt_str = self.prompt_seed_function(list_few_shot_example, code_batch)
+        # the prev output was f6_2 and g6_2, so now make it f6_1 and g6_1 for the prompt
+        # and remove comments (which contain changes from prev f6_1) from new f6_1
+        # TODO: pass in the whole object instead of the program_str since it already parsed some of this?
+        # i_g = program_str.find("def g(")
+        # remove comments with """
+        # program_str = program_str[:i_g] + program_str[i_g:]
 
-        if code_batch is None:
-            prompt_str = self.prompt_seed
-            # prompt with prob+sol from P3 dataset
-            pass # do nothing
-            # prompt_str += (
-            #     f"\n\n{self.original_probsol}"  # add this particular probsol, f6_1() and g6_1(), to the prompt
-            #     f"\n\n{self.new_probsol_preamble}"  # add f6_2() preamble to the prompt
-            # )
-        else:
-            # prompt with prob+sol that is given (one that was the output of a prev mutation)
-            if isinstance(code_batch, list):
-                # TODO: get nearby genotypes
-                program_str = code_batch[0]
-            elif isinstance(code_batch, str):
-                program_str = code_batch
-            prompt_str = self.prompt_seed_function(code_batch)
-            # the prev output was f6_2 and g6_2, so now make it f6_1 and g6_1 for the prompt
-            # and remove comments (which contain changes from prev f6_1) from new f6_1
-            # TODO: pass in the whole object instead of the program_str since it already parsed some of this?
-            # i_g = program_str.find("def g(")
-            # remove comments with """
-            # program_str = program_str[:i_g] + program_str[i_g:]
-
-            # need to change that to sample problem from the selected cell of the archive
-            # prompt_str += f"\n\n{program_str}" # f"\n\n{self.new_probsol_preamble}"
+        # need to change that to sample problem from the selected cell of the archive
+        # prompt_str += f"\n\n{program_str}" # f"\n\n{self.new_probsol_preamble}"
 
         template = f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         return {"prompt": prompt_str, "template": template}
@@ -928,6 +921,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             for (gen_prog, res_obj) in zip(generated_programs, results)
         ]
         return [P3ProbSolResult(**p) for p in results]
+    
+    def try_solving_problem(self, probsol: P3ProbSolResult) :
+        a=1
+        
 
     def fitness(self, probsol: P3ProbSolResult) -> float:
         """
@@ -939,53 +936,30 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if isinstance(probsol.result_obj, ExecResult):
             return -np.inf
 
-        # Do pass@k eval
+        # TODO pass@k eval
 
-        # Get f6_2() and make it the new f6()
-        problem_str = probsol.problem_func#.replace("def f6_2(", "def f6(")
-        # Remove comments with """
-        # problem_str = re.sub('""".*"""', "", problem_str)
-        # Remove comments with # (and remove empty lines)
-        # lines = problem_str.strip().split("\n")
-        # new_lines = []
-        # for line in lines:
-        #     if line.strip().startswith("#") or len(line.strip()) == 0:
-        #         continue
-        #     new_lines.append(line)
-        # problem_str = "\n".join(new_lines)
-        # Get solution_preamble for g6()
-        # i_end_preamble = probsol.solution_func.find("):")
-        # solution_preamble = probsol.solution_func[: i_end_preamble + 2]#.replace("def g6_2(", "def g6(")
+        problem_str = probsol.problem_func
 
-
-        # eval_code = (
-        #     f"{P3_IMPORTS}\n"
-        #     f"{probsol.problem_func}\n"
-        #     f"def run_eval():\n"
-        #     f"    return f({probsol.result_obj})"
-        # )
-        # if isinstance(probsol.result_obj, str):
-        #     eval_code = (
-        #         f"{probsol.program_str}\n"
-        #         f"def run_eval():\n"
-        #         f"    return f('{probsol.result_obj}')"
-        #     )
-        # else:
-        #     eval_code = (
-        #         f"{probsol.program_str}\n"
-        #         f"def run_eval():\n"
-        #         f"    return f({probsol.result_obj})"
-        #     )
-        extract_run_eval = "f"+probsol.program_str.split("assert f")[1]
+        if "g(" in probsol.program_str.split("assert f")[1]:
+            extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
+        else:
+            extract_run_eval_1 = "f(*g())"
+        extract_run_eval_2 = "f(g())"
         
-        eval_code = (
+        eval_code_1 = str(
             f"{probsol.program_str}\n"
             f"def run_eval():\n"
-            f"    return {extract_run_eval}"
+            f"    return {extract_run_eval_1}"
         )
+        eval_code_2 = str(
+            f"{probsol.program_str}\n"
+            f"def run_eval():\n"
+            f"    return {extract_run_eval_2}"
+        )
+        eval_codes =[eval_code_1, eval_code_2]
         # Run code to see if g6_2 solves f6_2
         result = pool_exec_processes(
-            eval_code,
+            eval_codes,
             func_name="run_eval",
             timeout=self.config.timeout,
             processes=self.config.processes,
@@ -996,24 +970,31 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # return -np.inf
         
         # if just one try more like
+        if result[1] == True:
+            # if f(g())== True
+            prog = probsol.program_str.split("\nassert f")
+            probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+            return 1.0
         if result[0] == True: #and self.config.eval_k <= 1:
             return 1.0
+        
         else:
             print("\n=========== WTF happend=================")
             print(result)
-            print(eval_code)
+            print(eval_code_1)
             print("\n============================")
-            return 0.0
+            return -np.inf
             
         # Need to handle the case when eval_k >1
 
-        p3_problem = P3Problem(
-            self.config,  # TODO: make an actual P3ProblemEnvConfig
-            self.mutation_model,
-            problem_str=problem_str,
-            solution_preamble=solution_preamble,
+        prompt= prompt_solve_puzzle_given_f(probsol.program_str)
+        template = ""
+        code_batch=[{"prompt":prompt,"template":template} for _ in range(self.config.eval_k)]
+        local_scope_exec = False
+        _generated_programs = self.mutation_model.generate_programs(
+            code_batch, local_scope_exec,do_trunc=False
         )
-        solutions = []
+        solutions = [] 
         for _ in range(self.config.eval_k // self.config.batch_size + 1):
             solutions += p3_problem.random()
 

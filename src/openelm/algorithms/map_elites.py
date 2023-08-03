@@ -60,6 +60,7 @@ class Map:
                 (history_length,) + tuple(dims), fill_value, dtype=dtype
             )
         self.empty = True
+        
 
     def __getitem__(self, map_ix):
         """If history length > 1, the history dim is an n-dim circular buffer."""
@@ -67,7 +68,14 @@ class Map:
             return self.array[map_ix]
         else:
             return self.array[(self.top[map_ix], *map_ix)]
-
+        
+    def __getrandomitem__(self):
+        if self.history_length == 1:
+            return "" 
+        else:
+            return ""
+            
+    
     def __setitem__(self, map_ix, value):
         self.empty = False
         if self.history_length == 1:
@@ -213,6 +221,7 @@ class MAPElitesBase:
         self.history_length = self.config.history_length
         self.save_history = self.config.save_history
         self.save_all_individual = self.config.save_all_individual
+        
         if self.save_all_individual:
             self.list_of_all_individuals = []
         self.save_snapshot_interval = self.config.save_snapshot_interval
@@ -345,7 +354,27 @@ class MAPElitesBase:
                     self.env.set_rng_state(self.rng_generators["env_rng"])
 
             print("Loading finished")
-
+            
+    def __getallitems__(self) -> list[Phenotype]:
+        """
+        Returns all the phenotypes that are in the Map."""
+        valid_phenotype=[]
+        for idx in range(len(self.nonzero.array)):
+            if self.nonzero.array[idx]:
+                if self.history_length == 1:
+                    gen = self.genomes.array[idx,1]
+                    if type(gen)!=float and type(gen)!=int:
+                        valid_phenotype.append(gen) # self.genomes.array
+                        
+                else : # self.history_length > 1:
+                    for idx_history in range(len(self.genomes.array[:,idx])):
+                        gen = self.genomes.array[idx_history,idx]
+                        if type(gen)!=float and type(gen)!=int:
+                            valid_phenotype.append(gen) # self.genomes.array
+                        else:
+                            continue
+        return valid_phenotype
+                    
     def random_selection(self) -> MapIndex:
         """Randomly select a niche (cell) in the map that has been explored."""
         ix = self.rng.choice(np.flatnonzero(self.nonzero.array))
@@ -368,6 +397,17 @@ class MAPElitesBase:
                 best performing solution object can be accessed via the
                 `current_max_genome` class attribute.
         """
+        
+        # bad coding but huge time gain at initialization should remove it to be compatible with openELM
+        if self.env.config.env_name == "p3_probsol_Chat":
+            # add trainset to the MAP
+            if self.env.config.use_preprocessed_trainset and self.env.config.embedding_model_path == "text-embedding-ada-002":
+                for individual in self.env.archive_P3puzzle:
+                    # self.update_map(individual, 0., 0.)
+                    map_ix = self.to_mapindex(individual.emb)
+                    self.fitnesses.__setitem__(map_ix, 1.0)
+                    self.genomes.__setitem__(map_ix, individual)
+                    self.nonzero[map_ix] = True
         start_step = int(self.start_step)
         total_steps = int(total_steps)
         tbar = trange(start_step, total_steps, initial=start_step, total=total_steps)
@@ -382,6 +422,7 @@ class MAPElitesBase:
             self.history = defaultdict(list)
 
         for n_steps in tbar:
+            self.env.all_phenotypes = self.__getallitems__()
             if n_steps < init_steps or self.genomes.empty:
                 # Initialise by generating initsteps random solutions.
                 # If map is still empty: force to do generation instead of mutation.
@@ -447,8 +488,9 @@ class MAPElitesBase:
             fitness = self.env.fitness(individual)
             phenotype = individual.to_phenotype()
             map_ix = self.to_mapindex(phenotype)
-            state_individual = individual.__getstate__().copy()
+            
             if self.save_all_individual: # save all individuals
+                state_individual = individual.__getstate__().copy()
                 if "result_obj" in state_individual:
                     del state_individual["result_obj"]
                 # if isinstance(state_individual["result_obj"], ExecResult):
@@ -479,7 +521,7 @@ class MAPElitesBase:
             self.nonzero[map_ix] = True
 
             # If new fitness greater than old fitness in niche, replace.
-            if fitness > self.fitnesses[map_ix]:
+            if fitness >= self.fitnesses[map_ix]:
                 # self.fitnesses[map_ix] = fitness
                 # self.genomes[map_ix] = individual
                 self.fitnesses.__setitem__(map_ix, fitness)
@@ -724,7 +766,7 @@ class CVTMAPElites(MAPElitesBase):
             liste_choice=self.rng.choice(len(list_emb), n_vect2add,replace= True)
             embed2nois = list_emb[liste_choice]
             noise = np.random.randn(embed2nois.shape[0],embed2nois.shape[1])
-            noisy_embed = embed2nois + noise/50 # add noise to embeddings
+            noisy_embed = embed2nois + noise / 50 # add noise to embeddings
             noisy_embed = noisy_embed / np.linalg.norm(noisy_embed, axis=1)[:, np.newaxis] # normalize embeddings
             points = np.vstack((list_emb,noisy_embed))
         else:

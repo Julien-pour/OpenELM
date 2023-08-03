@@ -1,5 +1,5 @@
 from typing import Optional, Union, List
-
+from openelm.utils.code_eval import get_inputs
 P3_PROBLEM_MED_SEED = '''from typing import List
 
 def f1(s: str):
@@ -291,24 +291,24 @@ assert f5_2(g5_2())'''
 #         # few_shot_examples+=f"\n{puzzle_4_prompt[puzz]['problem']}\n"
 #     return few_shot_examples
 
-def P3_probsol_chat_med_seed(code_batch: Optional[List[str]] = [],N_python_problem= 3,new_puzzles = 1) -> str: 
-    if isinstance(code_batch, list):
-        # TODO: get nearby genotypes
-        if len(code_batch) > 0:
-            code_batch = [code_batch[0]]
-    elif isinstance(code_batch, str):
+def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], code_batch: Optional[List[str]] = [],new_puzzles = 3) -> str: 
+    """
+    prompt for mutation
+    new_puzzles: how many puzzles to generate should pass it as parameters
+    TODO: add mutation if code_batch is given
+    """
+    N_python_problem= max(len(list_few_shot_example),3)
+    if isinstance(code_batch, str):
         code_batch = [code_batch]
         
-    new_puzzles = 3
+    
     few_shot_examples=""
-    for puzz in range(len(code_batch)):
+    # for puzz in range(len(list_few_shot_example)):
         
-        few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{code_batch[puzz]}\n```\n"
-    N_python_problem= 3+len(code_batch)
-    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. You should not forget to define and set a value to all arguments (except the first argument of f) of f and give the same arguments to g as follow: def f(arg0,arg1 = value1, arg2= value2, ...) and def g(arg1 = value1, arg2= value2, ...). Make sure you set and give a value otherwise the problem will be incorrect. And you should not forget to import the libraries you need."
-    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+N_python_problem}). {instruction_p3_puzzle}
-----
-Puzzle 0:
+    #     few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{list_few_shot_example[puzz]}\n```\n"
+    # N_python_problem= +len(code_batch)
+    
+    puzz_0=f'''Puzzle 0:
 ```
 def f(start: int, k=2, upper=-172, seq=[79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]) -> bool:
     """Find a sequence of k consecutive indices whose sum is minimal"""
@@ -318,8 +318,8 @@ def g(k = 2, upper = -172, seq = [79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -
     return min(range(len(seq) - k + 1), key=lambda start: sum(seq[start:start + k])) 
 assert f(g()) == True
 ```
----
-Puzzle 1:
+---'''
+    puzz_1 = '''Puzzle 1:
 ```
 def f(i: int, li=[-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target=-42) -> bool:
     """Find the index of an item in a list using negative indexing."""
@@ -329,8 +329,8 @@ def g(li = [-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target = -42):
     return li.index(target) - len(li) 
 assert f(g()) == True
 ```
----
-Puzzle 2:
+---'''
+    puzz_2 = '''Puzzle 2:
 ```
 from typing import*
 def f(ans: List[List[int]], target=2) -> bool:
@@ -348,9 +348,103 @@ def g(target = 2):
     return [[0, 2]] * target 
 assert f(g()) == True
 ```
----
-'''
+---''' 
+    list_puzz = [puzz_0,puzz_1,puzz_2]
+    for idx_puzz in range(len(list_few_shot_example)):
+        list_puzz[idx_puzz] = f"Puzzle {idx_puzz}:\n```\n{list_few_shot_example[idx_puzz]}\n```\n---"
+        
+    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. Make sure to define and set values for all arguments of function 'f' (excluding the first argument, which will be provided by function 'g'). Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Failing to set and provide values for all arguments may result in an incorrect solution. Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."
+    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+N_python_problem}). {instruction_p3_puzzle}
+----
+{list_puzz[0]}
+{list_puzz[1]}
+{list_puzz[2]}'''
     return prompt+few_shot_examples
+
+def prompt_solve_puzzle_given_f(problem_str: str): 
+    """
+    prompt to solve a puzzle (generate g) given f
+    """
+    arg_sol= "..."#get_inputs(problem)
+    f = problem_str.split("def g")[0]
+    few_shot_ex = 3
+    PY_SIMPLE_CHAT_INSTRUCTION_V2 = "You are a world-class mathematician and a world-class Python developer with an eagle eye for unintended bugs and edge cases, that only responds with only python code. You will be given a function and its docstring. Respond only in code with a correct, efficient implementation of the function."
+    prompt_base = "Now, you need to generate the correct solutions (g), for the problem "+str(few_shot_ex)+" that satisfies the condition f(g) == True."
+    prompt_base += "\nYou will give the solution (def g("+arg_sol+")) to the last problem f. Don't forget that the first argument of f is the value returned by g(), so it is not given to g."
+    fewshot_problems = f'''----
+Problem 0:
+```
+def f(stamps: List[int], target=80, max_stamps=4, options=[10, 32, 8]) -> bool:
+    """Find a selection of at most max_stamps stamps whose total worth is the target value."""
+    for s in stamps:
+        assert s in options
+    return len(stamps) <= max_stamps and sum(stamps) == target
+```
+Solution 0:
+```
+
+def g(target = 80, max_stamps = 4, options = [10, 32, 8]):
+    from itertools import combinations_with_replacement
+    for n in range(max_stamps + 1):
+        for c in combinations_with_replacement(options, n):
+            if sum(c) == target:
+                return list(c)
+assert f(g())
+```
+---
+Problem 1:
+```
+from typing import*
+def f(ans: List[List[int]], target=2) -> bool:
+    """
+    Find a list of pairs of integers where the number of pairs in which the second number is more than
+    two greater than the first number is a given constant
+    """
+    for i in range(len(ans)):
+        a, b = ans[i]
+        if b - a >= 2:
+            target -= 1
+    return target == 0
+```
+Solution 1:
+```
+def g(target = 2):
+    return [[0, 2]] * target 
+assert f(g()) == True
+```
+---
+Problem 2:
+```
+def f(n: int, v=313946483, w=806690290) -> bool:
+    """Find the smallest n such that if v is tripled n times and w is doubled n times, v exceeds w."""
+    for i in range(n):
+        assert v <= w
+        v *= 3
+        w *= 2
+    return v > w
+```
+Solution 2:
+```
+def g(v = 313946483, w = 806690290):
+    i = 0
+    while v <= w:
+        v *= 3
+        w *= 2
+        i += 1
+    return i 
+assert f(g()) == True
+```
+---
+----
+Now, you need to generate the correct solutions (g), for the following problem 3 that satisfies the condition f(g()) == True.
+You will give the solution (def g...) to the last problem f. Don't forget that the first argument of f is the value returned by g(), so it is not given to g.
+----
+Problem 3:
+```
+{f}
+```'''
+    full_prompt = PY_SIMPLE_CHAT_INSTRUCTION_V2 + "\n" + prompt_base + "\n" + fewshot_problems 
+    return full_prompt
 
 P3_IMPORTS = "from typing import*\n"#"from typing import List\n" # The only import that's necessary as of P3 v0.2
 
