@@ -342,8 +342,10 @@ def g1_1():
                 "feature-extraction", model=self.config.embedding_model_path
             )
             seed_features = np.array(self.pl(baseline))
+            # doesn't make sense to do fit standard scaler on a single example along the sequence axis, Normalizer should be better
             self.scaler = StandardScaler()
             seed_features_scaled = self.scaler.fit_transform(np.squeeze(seed_features))
+            # doesn't make sense to do PCA on a single example along the sequence axis
             self.pca = PCA(0.95)
             self.pca.fit(seed_features_scaled)
 
@@ -718,7 +720,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
         self.rng = None
-        self.preprocess_p3()
+        if self.config.use_preprocessed_trainset:
+            print("loading preprocessed trainset")
+            self.preprocess_p3()
         if self.config.prompt_size == "long":
             raise ValueError("long prompt no implemented yet ")
         elif self.config.prompt_size == "med":
@@ -750,31 +754,34 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             dummy_pca_features = dummy_pca.fit_transform(dummy_features_scaled)
             self.genotype_ndim: int = dummy_pca_features.shape[-1]
             self.genotype_space = np.repeat([[-20, 20]], self.genotype_ndim, axis=0).T
+            
+
+
 
         # Get info for the seed puzzle that will be mutated
         # This puzzle is at the index of the puzzles array specified by self.seed_index
         # TODO: put this in a method or in construct_prompt()?
-        puzzles = requests.get(
-            "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
-        ).json()
-        puzzle = puzzles[self.seed_index]
-        if len(puzzle["sol_bodies"]) == 0:
-            raise ValueError(
-                f"No sample solution is provided for the puzzle at index {self.seed_index}"
-            )
+        # puzzles = requests.get(
+        #     "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
+        # ).json()
+        # puzzle = puzzles[self.seed_index]
+        # if len(puzzle["sol_bodies"]) == 0:
+        #     raise ValueError(
+        #         f"No sample solution is provided for the puzzle at index {self.seed_index}"
+        #     )
 
-        f6_1 = puzzle["sat"].replace("def sat(", "def f6_1(")  # problem form is f6_1()
-        g6_1 = puzzle["sol_header"].replace(
-            "def sol(", "def g6_1("
-        )  # solution form is g6_1()
-        if self.config.prompt_size == "long":
-            g6_1 += "\n" + puzzle["sol_docstring"]  # add in the docstring
-        g6_1 += (
-            "\n" + puzzle["sol_bodies"][0]
-        )  # include the first example solution function body
+        # f6_1 = puzzle["sat"].replace("def sat(", "def f6_1(")  # problem form is f6_1()
+        # g6_1 = puzzle["sol_header"].replace(
+        #     "def sol(", "def g6_1("
+        # )  # solution form is g6_1()
+        # if self.config.prompt_size == "long":
+        #     g6_1 += "\n" + puzzle["sol_docstring"]  # add in the docstring
+        # g6_1 += (
+        #     "\n" + puzzle["sol_bodies"][0]
+        # )  # include the first example solution function body
 
-        self.original_probsol = f6_1 + "\n\n" + g6_1 + "\n\n" + "assert f6_1(g6_1())"
-        self.new_probsol_preamble = ""
+        # self.original_probsol = f6_1 + "\n\n" + g6_1 + "\n\n" + "assert f6_1(g6_1())"
+        # self.new_probsol_preamble = ""
 
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
         warnings.warn("WARNING: rng state not used in this environment")
@@ -861,7 +868,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # need to change that to sample problem from the selected cell of the archive
             # prompt_str += f"\n\n{program_str}" # f"\n\n{self.new_probsol_preamble}"
 
-        template = f"{P3_IMPORTS}\n{self.new_probsol_preamble}"
+        template = f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         return {"prompt": prompt_str, "template": template}
 
     def generate_programs(self, code_batch: list[str]) -> list[P3ProbSolResult]:

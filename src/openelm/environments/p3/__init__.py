@@ -305,7 +305,7 @@ def P3_probsol_chat_med_seed(code_batch: Optional[List[str]] = [],N_python_probl
         
         few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{code_batch[puzz]}\n```\n"
     N_python_problem= 3+len(code_batch)
-    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. You should not forget to define and set a value to all arguments (except the first argmuent of f) of f and give the same arguments to g as follow: def f(arg0,arg1 = value1, arg2= value2, ...) and def g(arg1 = value1, arg2= value2, ...). Make sure you set and give a value otherwise the problem will be incorrect. And you should not forget to import the libraries you need."
+    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. You should not forget to define and set a value to all arguments (except the first argument of f) of f and give the same arguments to g as follow: def f(arg0,arg1 = value1, arg2= value2, ...) and def g(arg1 = value1, arg2= value2, ...). Make sure you set and give a value otherwise the problem will be incorrect. And you should not forget to import the libraries you need."
     prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+N_python_problem}). {instruction_p3_puzzle}
 ----
 Puzzle 0:
