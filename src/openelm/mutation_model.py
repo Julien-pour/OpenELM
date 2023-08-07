@@ -19,6 +19,7 @@ from transformers import BatchEncoding
 from openelm.codegen import model_setup, set_seed, truncate
 from openelm.configs import ModelConfig
 from openelm.utils.diff_eval import apply_diff, split_diff
+from joblib import Parallel, delayed
 
 
 def get_model(config: ModelConfig):
@@ -87,9 +88,14 @@ class PromptModel(MutationModel):
         prompts = [prompt_dict["prompt"] for prompt_dict in prompt_dicts]
         templates = [prompt_dict["template"] for prompt_dict in prompt_dicts]
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
-            results = []
-            for prompt in prompts:  
-                results.append(self.model.generate([[HumanMessage(content=prompt)]])) #if model == chat model, generate take List[List[BaseMessage]] 
+            
+            if self.config.parrallel_call:
+                results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
+            else:
+                results = []
+                for prompt in prompts:  
+                    results.append(self.model.generate([[HumanMessage(content=prompt)]])) #if model == chat model, generate take List[List[BaseMessage]] 
+
             completions: list[str] = [
                 llmresult.generations[0][0].text for llmresult in results
             ]

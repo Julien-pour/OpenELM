@@ -3,14 +3,16 @@ import re
 import warnings
 from typing import Optional, Union
 import copy
-
+import os
+os.environ['TRANSFORMERS_CACHE'] = "models"
 import numpy as np
 import requests
 from openai.embeddings_utils import cosine_similarity, get_embedding
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from transformers import pipeline
-
+from transformers import AutoModel, AutoTokenizer
+import torch
 from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
 from openelm.environments.base import BaseEnvironment, Genotype, Phenotype
 from openelm.environments.p3 import (
@@ -341,6 +343,13 @@ def g1_1():
             self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
+            device = "cuda"  # for GPU usage or "cpu" for CPU usage
+
+            tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+            model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True).to(device)
+            with torch.no_grad():
+                inputs = tokenizer.encode("def print_hello_world():\tprint('Hello World!')", return_tensors="pt").to(device)
+                embedding = model(inputs)[0]
             seed_features = np.array(self.pl(baseline))
             # doesn't make sense to do fit standard scaler on a single example along the sequence axis, Normalizer should be better
             self.scaler = StandardScaler()
@@ -838,7 +847,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print("total_pb",len(list_p3))
 
     def construct_prompt(
-        self, code_batch: Optional[Union[list[str], str]] = None
+        self, code_batch: Optional[Union[list[str], str]] = []
     ) -> dict[str, str]:
 
         # prompt with prob+sol that is given (one that was the output of a prev mutation)
@@ -922,23 +931,55 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         ]
         return [P3ProbSolResult(**p) for p in results]
     
-    def try_solving_problem(self, probsol: P3ProbSolResult) :
-        a=1
+    
+    def try_solving_problem(self, probsol: P3ProbSolResult) -> list[P3ProbSolResult]:
+        """
+        generate new solution to a problem given multiple time (can be used for computing pass@k)
+        """
+        new_probsol = copy.deepcopy(probsol)
+        prompt= prompt_solve_puzzle_given_f(new_probsol.program_str)
+        template = ""
+        code_batch=[{"prompt":prompt,"template":template} for _ in range(self.config.eval_k-1)] # -1 because we already have the original problem
+        local_scope_exec = False
+        _generated_programs = self.mutation_model.generate_programs(
+            code_batch, local_scope_exec,do_trunc=False
+        )
         
+        # should we just ask LLM to correct g() or to correct the whole puzzle?
+        list_pb=[]
+        # parse the generated code 
+        for gen_prog in _generated_programs:
+            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("```\n","```").split("```"))
+            for idx in range(len(split_pb)):
+                if "def g" in split_pb[idx] and "return " in split_pb[idx]:
+                    list_pb.append(split_pb[idx])
+        for idx_assert in range(len(list_pb)):
+            if not "assert f(" in list_pb[idx_assert]:
+                list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
+        generated_programs = list_pb
+        
+        list_new_puzzles = [probsol]
+        for idx in range(len(generated_programs)):
+            new_pb_str = new_probsol.program_str.split("def g(")[0] + generated_programs[idx]
+            
+            if not P3_IMPORTS in new_pb_str:
+                new_pb_str = P3_IMPORTS + new_pb_str
+                probsol_2_add=copy.deepcopy(new_probsol)
+                probsol_2_add.program_str = new_pb_str
+                list_new_puzzles.append(probsol_2_add)
+        return list_new_puzzles       
 
-    def fitness(self, probsol: P3ProbSolResult) -> float:
+    def fitness(self, probsol: P3ProbSolResult, use_pass_k = True) -> float:
         """
         Fitness is the inverse of pass@k of the problem func.
         We want a pass@k of >0 so that the problem is reasonably solvable.
         So fitness=0 if unsolved (which is still better than -np.inf).
         Other than that, more difficult (lower pass@k) => higher fitness.
         """
-        if isinstance(probsol.result_obj, ExecResult):
-            return -np.inf
+        # if isinstance(probsol.result_obj, ExecResult):
+        #     return -np.inf
 
         # TODO pass@k eval
-
-        problem_str = probsol.problem_func
 
         if "g(" in probsol.program_str.split("assert f")[1]:
             extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
@@ -970,41 +1011,37 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # return -np.inf
         
         # if just one try more like
-        if result[1] == True:
-            # if f(g())== True
-            prog = probsol.program_str.split("\nassert f")
-            probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
-            return 1.0
-        if result[0] == True: #and self.config.eval_k <= 1:
-            return 1.0
-        
-        else:
-            print("\n=========== WTF happend=================")
-            print(result)
-            print(eval_code_1)
-            print("\n============================")
-            return -np.inf
+        if self.config.eval_k<=1 and use_pass_k:
+            if result[1] == True:
+                # if f(g())== True
+                prog = probsol.program_str.split("\nassert f")
+                probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+                return 1.0
+            elif result[0] == True: 
+                return 1.0
+            else:
+                return -np.inf
             
-        # Need to handle the case when eval_k >1
+        # compute pass@k
+        else:
+            list_new_puzzles = self.try_solving_problem(probsol)
+        
+            c = 0
+            for idx_sol in range(len(list_new_puzzles)):
+                p3probsol = list_new_puzzles[idx_sol]
+                if self.fitness(p3probsol, use_pass_k = False) == 1.0:
+                    
+                    probsol.program_str = p3probsol.program_str
+                    c+=1
+                
 
-        prompt= prompt_solve_puzzle_given_f(probsol.program_str)
-        template = ""
-        code_batch=[{"prompt":prompt,"template":template} for _ in range(self.config.eval_k)]
-        local_scope_exec = False
-        _generated_programs = self.mutation_model.generate_programs(
-            code_batch, local_scope_exec,do_trunc=False
-        )
-        solutions = [] 
-        for _ in range(self.config.eval_k // self.config.batch_size + 1):
-            solutions += p3_problem.random()
+            # c = 0
+            # for s in solutions:
+            #     if p3_problem.evaluate_solution(s) is True:
+            #         c += 1
 
-        c = 0
-        for s in solutions:
-            if p3_problem.evaluate_solution(s) is True:
-                c += 1
-
-        pak = pass_at_k(len(solutions), c, self.config.eval_k)
-        return 1 / pak if pak > 0 else 0
+            pak = pass_at_k(len(list_new_puzzles), c, self.config.eval_k)
+            return 1 / pak if pak > 0 else 0
 
     def random(self) -> list[P3ProbSolResult]:
         program_list = [self.construct_prompt() for _ in range(self.config.batch_size)]

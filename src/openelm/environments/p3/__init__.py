@@ -280,34 +280,30 @@ def g5_2():
 assert f5_2(g5_2())'''
 
 
-# def format_puzz_2_str(code_batch,mode="puzz"):
-#     few_shot_examples = "----\n"
-#     for puzz in range(len(code_batch)):
-#         if mode =="pb+sol":
-#             few_shot_examples+=f"Problem {puzz}:\n```\n{code_batch[puzz]['problem']}\n```\nSolution {puzz}:\n```\n{puzzle_4_prompt[puzz]['solution']}\n```\n"
-#             few_shot_examples+="---\n"
-#         else:
-#             few_shot_examples+=f"Puzzle {puzz}:\n```\n{code_batch[puzz]['problem']}\n```\n---\n"
-#         # few_shot_examples+=f"\n{puzzle_4_prompt[puzz]['problem']}\n"
-#     return few_shot_examples
-
 def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], code_batch: Optional[List[str]] = [],new_puzzles = 3) -> str: 
     """
     prompt for mutation
     new_puzzles: how many puzzles to generate should pass it as parameters
+    elm_mode
     TODO: add mutation if code_batch is given
     """
-    N_python_problem= max(len(list_few_shot_example),3)
+    N_python_problem = len(list_few_shot_example)
     if isinstance(code_batch, str):
         code_batch = [code_batch]
-        
-    
-    few_shot_examples=""
+    # elm_mode is activated if code_batch is not empty
+    # elm_mode: few shot example + prompt mutation + code_batch
+    elm_mode = False
+    mutate_pb = ""
+    if len(code_batch)>0:
+        elm_mode = True
+        mutate_pb = code_batch[0]
+        "Here is a new puzzle:"
+    # prompt_elm = "Please mutate this new puzzle into a related but different puzzle that requires similar"
     # for puzz in range(len(list_few_shot_example)):
         
     #     few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{list_few_shot_example[puzz]}\n```\n"
     # N_python_problem= +len(code_batch)
-    
+    # puzzles for fixed prompt not used anymore
     puzz_0=f'''Puzzle 0:
 ```
 def f(start: int, k=2, upper=-172, seq=[79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]) -> bool:
@@ -349,17 +345,24 @@ def g(target = 2):
 assert f(g()) == True
 ```
 ---''' 
-    list_puzz = [puzz_0,puzz_1,puzz_2]
+    all_puzzle_str = ""
     for idx_puzz in range(len(list_few_shot_example)):
-        list_puzz[idx_puzz] = f"Puzzle {idx_puzz}:\n```\n{list_few_shot_example[idx_puzz]}\n```\n---"
+        all_puzzle_str += f"Puzzle {idx_puzz}:\n```\n{list_few_shot_example[idx_puzz]}\n```\n---\n"
         
     instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. Make sure to define and set values for all arguments of function 'f' (excluding the first argument, which will be provided by function 'g'). Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Failing to set and provide values for all arguments may result in an incorrect solution. Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."
-    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+N_python_problem}). {instruction_p3_puzzle}
+    prompt = f'''You will be given {N_python_problem+elm_mode} (Puzzle 0 to Puzzle {N_python_problem-1+elm_mode}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem+elm_mode} to Puzzle {N_python_problem+new_puzzles+elm_mode-1}). {instruction_p3_puzzle}
 ----
-{list_puzz[0]}
-{list_puzz[1]}
-{list_puzz[2]}'''
-    return prompt+few_shot_examples
+{all_puzzle_str}'''
+    if elm_mode:
+        prompt += "Here is the puzzle to mutate:\n"
+        prompt += f"Puzzle {len(list_few_shot_example)}:\n"
+        prompt += f"```\n{mutate_pb}\n```\n---\n"
+        # prompt += f"Could you please create {new_puzzles} new, interesting, diverse, and valid Python programming puzzles by mutating the Puzzle {len(list_few_shot_example)}? Make sure that the new puzzles are distinctly different from each other."
+        # prompt += f"Could you please create {new_puzzles} new, interesting, diverse, and valid Python programming puzzles by mutating the original Puzzle {len(list_few_shot_example)}? Ensure the mutated puzzles are meaningfully different from each other."
+        # prompt += f"Could you please mutate this new puzzle into another interesting correct Python Programming Puzzle? Ensure the mutated puzzle is meaningfully different from the existing {len(list_few_shot_example)+elm_mode} puzzles."
+        prompt += f"Could you please mutate the Puzzle {len(list_few_shot_example)} into {new_puzzles} new interesting correct Python Programming Puzzles? Please, ensure the mutated puzzles are meaningfully different from the existing puzzles."
+
+    return prompt
 
 def prompt_solve_puzzle_given_f(problem_str: str): 
     """
@@ -369,7 +372,7 @@ def prompt_solve_puzzle_given_f(problem_str: str):
     f = problem_str.split("def g")[0]
     few_shot_ex = 3
     PY_SIMPLE_CHAT_INSTRUCTION_V2 = "You are a world-class mathematician and a world-class Python developer with an eagle eye for unintended bugs and edge cases, that only responds with only python code. You will be given a function and its docstring. Respond only in code with a correct, efficient implementation of the function."
-    prompt_base = "Now, you need to generate the correct solutions (g), for the problem "+str(few_shot_ex)+" that satisfies the condition f(g) == True."
+    prompt_base = "Now, you need to generate the correct solutions (g), for the Problem "+str(few_shot_ex)+" that satisfies the condition f(g) == True."
     prompt_base += "\nYou will give the solution (def g("+arg_sol+")) to the last problem f. Don't forget that the first argument of f is the value returned by g(), so it is not given to g."
     fewshot_problems = f'''----
 Problem 0:
