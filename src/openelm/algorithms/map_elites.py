@@ -401,7 +401,7 @@ class MAPElitesBase:
         # bad coding but huge time gain at initialization should remove it to be compatible with openELM
         if self.env.config.env_name == "p3_probsol_Chat":
             # add trainset to the MAP
-            if self.env.config.use_preprocessed_trainset and self.env.config.embedding_model_path == "text-embedding-ada-002":
+            if self.env.config.use_preprocessed_trainset :
                 for individual in self.env.archive_P3puzzle:
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
@@ -766,7 +766,7 @@ class CVTMAPElites(MAPElitesBase):
             liste_choice=self.rng.choice(len(list_emb), n_vect2add,replace= True)
             embed2nois = list_emb[liste_choice]
             noise = np.random.randn(embed2nois.shape[0],embed2nois.shape[1])
-            noisy_embed = embed2nois + noise / 50 # add noise to embeddings
+            noisy_embed = embed2nois + noise / 256 # add noise to embeddings
             noisy_embed = noisy_embed / np.linalg.norm(noisy_embed, axis=1)[:, np.newaxis] # normalize embeddings
             points = np.vstack((list_emb,noisy_embed))
         else:

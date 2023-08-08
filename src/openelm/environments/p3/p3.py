@@ -52,14 +52,13 @@ def g1():
         )
 
         if self.config.embedding_model_type == "hf":
+            # when the model can't be loaded, with feat-extraction
+            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+                self.tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                self.model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
             self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
-            seed_features = np.array(self.pl(baseline))
-            self.scaler = StandardScaler()
-            seed_features_scaled = self.scaler.fit_transform(np.squeeze(seed_features))
-            self.pca = PCA(0.95)
-            self.pca.fit(seed_features_scaled)
 
     def to_phenotype(self) -> Optional[Phenotype]:
         if self.config.embedding_model_type == "openai":
@@ -72,10 +71,17 @@ def g1():
             )
             return cosine_similarity(emb, self.baseline_emb)
         elif self.config.embedding_model_type == "hf":
-            features = np.array(self.pl(self.program_str))
-            features_scaled = self.scaler.transform(np.squeeze(features))
-            pca_features = self.pca.transform(features_scaled)
-            return pca_features.max(axis=0).flatten()
+            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+                with torch.no_grad():
+                    inputs = self.tokenizer.encode("def print_hello_world():\tprint('Hello World!')", return_tensors="pt")
+                    embedding = self.model(inputs)[0]
+                    del self.tokenizer
+                    del self.model
+                return embedding
+            else:
+                features = np.array(self.pl(self.program_str))
+                del self.pl
+                return features.mean(axis=0).flatten()
 
     def __str__(self) -> str:
         return self.program_str
@@ -296,6 +302,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
         return new_sols
 
 
+
 class P3ProbSolResult(Genotype):
     def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None ):
         """
@@ -310,7 +317,7 @@ class P3ProbSolResult(Genotype):
         self.result_obj = result_obj
         self.config = config
         self.emb = emb
-        if self.config.model_name == "openai" and self.config.env_name == "p3_probsol_Chat" :
+        if self.config.env_name == "p3_probsol_Chat" :
             # print("not implemented yet")
             # i_f = program_str.find("def f(")
             i_g = program_str.find("def g(")
@@ -320,6 +327,7 @@ class P3ProbSolResult(Genotype):
             # no more problem if an assert is in def f
             i_assert = self.solution_func.find("assert") 
             self.solution_func = self.solution_func[:i_assert].strip() 
+
         else:
             i_f6 = program_str.find("def f6_2(")
             i_g6 = program_str.find("def g6_2(")
@@ -327,59 +335,55 @@ class P3ProbSolResult(Genotype):
             self.problem_func = self.program_str[i_f6:i_g6].strip()
             self.solution_func = self.program_str[i_g6:i_assert].strip()
 
-        # When comparing for phenotype, just use import statement and new probsol
-        baseline = '''from typing import List
 
-def f1_1(s: str):
-    return "Hello " + s == "Hello world"
-
-def g1_1():
-    """Find a string that when concatenated onto 'Hello ' gives 'Hello world'."""
-    return "world"'''
-        self.baseline_emb = np.zeros(1536)# useless i keep it for compatibility np.array(get_embedding(baseline, engine=self.config.embedding_model_path))
-        if self.emb==None:
-            self.emb = get_embedding(self.program_str, engine=self.config.embedding_model_path)
-        if self.config.embedding_model_type == "hf":
-            self.pl = pipeline(
-                "feature-extraction", model=self.config.embedding_model_path
-            )
-            device = "cuda"  # for GPU usage or "cpu" for CPU usage
-
-            tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
-            model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True).to(device)
-            with torch.no_grad():
-                inputs = tokenizer.encode("def print_hello_world():\tprint('Hello World!')", return_tensors="pt").to(device)
-                embedding = model(inputs)[0]
-            seed_features = np.array(self.pl(baseline))
-            # doesn't make sense to do fit standard scaler on a single example along the sequence axis, Normalizer should be better
-            self.scaler = StandardScaler()
-            seed_features_scaled = self.scaler.fit_transform(np.squeeze(seed_features))
-            # doesn't make sense to do PCA on a single example along the sequence axis
-            self.pca = PCA(0.95)
-            self.pca.fit(seed_features_scaled)
 
     def __str__(self) -> str:
         return self.program_str
 
     def to_phenotype(self) -> Optional[Phenotype]:
-        if self.config.embedding_model_type == "openai":
-            compare_str = (
-                self.program_str
-            )  # TODO: remove comments from f6_2 for diversity measurement
-            i_assert = compare_str.find("assert")
-            if i_assert > -1:
-                compare_str = compare_str[:i_assert]
-            emb = np.array(
-                get_embedding(compare_str, engine=self.config.embedding_model_path)
-            )
-            return emb
-        
-
-        elif self.config.embedding_model_type == "hf":
-            features = np.array(self.pl(self.program_str))
-            features_scaled = self.scaler.transform(np.squeeze(features))
-            pca_features = self.pca.transform(features_scaled)
-            return pca_features.max(axis=0).flatten()
+        if not self.emb is None:
+            return self.emb
+        else: 
+            if self.config.embedding_model_type == "openai":
+                compare_str = (
+                    self.program_str
+                )  # TODO: remove comments from f6_2 for diversity measurement
+                i_assert = compare_str.find("assert f")
+                if i_assert > -1:
+                    compare_str = compare_str[:i_assert]
+                emb = np.array(
+                    get_embedding(compare_str, engine=self.config.embedding_model_path)
+                )
+                return emb
+            
+            elif self.config.env_name == "p3_probsol_Chat" and self.config.embedding_model_type == "hf": 
+                # when the model can't be loaded, with feat-extraction
+                if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+                    tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                    model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                    with torch.no_grad():
+                        inputs = tokenizer.encode(self.program_str, return_tensors="pt")
+                        embedding = model(inputs)[0]
+                        del tokenizer
+                        del model
+                    return embedding.numpy()#.tolist()
+                else:
+                    pl = pipeline(
+                        "feature-extraction", model=self.config.embedding_model_path
+                    )
+                    features = np.array(pl(self.program_str))
+                    del pl
+                    return features.mean(axis=0).flatten()
+            elif self.config.embedding_model_type == "hf":
+                # weird preprocessing 
+                pl = pipeline(
+                    "feature-extraction", model=self.config.embedding_model_path
+                )
+                features = np.array(pl(self.program_str))
+                return features.max(axis=0).flatten()
+            
+            else:
+                raise NotImplementedError
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -729,9 +733,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
         self.rng = np.random.default_rng(self.config.seed)
-        if self.config.use_preprocessed_trainset:
-            print("loading preprocessed trainset")
-            self.preprocess_p3()
+
         if self.config.prompt_size == "long":
             raise ValueError("long prompt no implemented yet ")
         elif self.config.prompt_size == "med":
@@ -743,54 +745,33 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # Use the first example in the prompt seed as basis for embedding sizes
         i_first = self.prompt_seed.find("assert")
         first_example = self.prompt_seed[:i_first].strip()
+        
+        first_example ="def f(x): return True\ndef g(x): return True\nassert f(g())==True"
+        out = self.to_phenotype(first_example)
 
-        if self.config.embedding_model_type == "openai":
-            dummy_features = np.array(
-            get_embedding(first_example, engine=self.config.embedding_model_path))
-            self.genotype_ndim: int = len(dummy_features)
-            self.genotype_space = np.repeat([[-1, 1]], self.genotype_ndim, axis=0).T
-        elif self.config.embedding_model_type == "hf":
-            # Dummy to get behavior space shape
-            dummy_pl = pipeline(
+        self.genotype_ndim = np.array(out).shape[-1]
+        self.genotype_space = np.repeat([[-1, 1]], self.genotype_ndim, axis=0).T
+        
+        #load embedding model for the phenotype
+        print("load embedding model:" )
+        print(self.config.embedding_model_path)
+        if self.config.embedding_model_type == "hf": 
+            # when the model can't be loaded, with feat-extraction
+            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+                print( "mode tokenzier + model from huggingface hub")
+                self.tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                self.model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+            else:
+                print( "mode pipeline from huggingface hub")
+                self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
-            dummy_features = np.array(dummy_pl(first_example))
-            dummy_scaler = StandardScaler()
-            dummy_features_scaled = dummy_scaler.fit_transform(
-                np.squeeze(dummy_features)
-            )
-            dummy_pca = PCA(0.95)
-            dummy_pca_features = dummy_pca.fit_transform(dummy_features_scaled)
-            self.genotype_ndim: int = dummy_pca_features.shape[-1]
-            self.genotype_space = np.repeat([[-20, 20]], self.genotype_ndim, axis=0).T
+        if self.config.use_preprocessed_trainset:
+            print("loading preprocessed trainset")
+            self.preprocess_p3()
+                
             
 
-
-
-        # Get info for the seed puzzle that will be mutated
-        # This puzzle is at the index of the puzzles array specified by self.seed_index
-        # TODO: put this in a method or in construct_prompt()?
-        # puzzles = requests.get(
-        #     "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
-        # ).json()
-        # puzzle = puzzles[self.seed_index]
-        # if len(puzzle["sol_bodies"]) == 0:
-        #     raise ValueError(
-        #         f"No sample solution is provided for the puzzle at index {self.seed_index}"
-        #     )
-
-        # f6_1 = puzzle["sat"].replace("def sat(", "def f6_1(")  # problem form is f6_1()
-        # g6_1 = puzzle["sol_header"].replace(
-        #     "def sol(", "def g6_1("
-        # )  # solution form is g6_1()
-        # if self.config.prompt_size == "long":
-        #     g6_1 += "\n" + puzzle["sol_docstring"]  # add in the docstring
-        # g6_1 += (
-        #     "\n" + puzzle["sol_bodies"][0]
-        # )  # include the first example solution function body
-
-        # self.original_probsol = f6_1 + "\n\n" + g6_1 + "\n\n" + "assert f6_1(g6_1())"
-        # self.new_probsol_preamble = ""
 
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
         warnings.warn("WARNING: rng state not used in this environment")
@@ -800,12 +781,40 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         warnings.warn("WARNING: rng state not used in this environment")
         pass
 
-    def preprocess_p3(self, split="train"):
-        trainset = preprocessing_P3(split =split, n_token_max=512)
+    def to_phenotype(self,program_str: str):
+        """compute embedding of the program"""
+        if self.config.embedding_model_type == "openai":
+            emb = np.array(
+                get_embedding(program_str, engine=self.config.embedding_model_path))
+            return emb
+        
+        elif self.config.env_name == "p3_probsol_Chat" and self.config.embedding_model_type == "hf": 
+            # when the model can't be loaded, with feat-extraction
+            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+                with torch.no_grad():
+                    inputs = self.tokenizer.encode(program_str, return_tensors="pt",truncation=True,max_length=512)
+                    emb = self.model(inputs)[0]
+                return emb.numpy()
+            
+        elif self.config.embedding_model_type == "hf":
+            # weird preprocessing 
+            features = np.array(self.pl(program_str))
+
+            return features.mean(axis=0).flatten() # mean pooling
+        
+        else:
+            raise NotImplementedError
+        
+    def preprocess_p3(self, split="train",load_embedding=False):
+        trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding)
+        
         for puz in trainset:
             del puz["f"], puz["g"],puz["attempts"]
             puz["config"] = self.config
+            if not load_embedding:
+                puz["emb"]=self.to_phenotype(puz["program_str"])
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
+        
         correct_pb=0
         list_incorrect_puzzle = []
         for i,probsol in enumerate(list_p3):
@@ -926,7 +935,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 return self.generate_programs(code_batch)
 
         results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config}
+            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog)}
             for (gen_prog, res_obj) in zip(generated_programs, results)
         ]
         return [P3ProbSolResult(**p) for p in results]

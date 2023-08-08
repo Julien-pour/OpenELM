@@ -18,10 +18,12 @@ class ModelConfig(BaseConfig):
     deterministic: bool = False
     top_p: float = 0.95
     temp: float = 0.9
-    gen_max_len: int = 512
+    gen_max_len: int = 1024
     batch_size: int = 2
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "gpt-3.5-turbo-0301"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    parrallel_call: bool = True # if True, use parallel call to API
+    processes: int = 8
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
@@ -42,8 +44,8 @@ class DiffModelConfig(ModelConfig):
 
 @dataclass
 class QDConfig(BaseConfig):
-    init_steps: int = 2 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 5 #2500 
+    init_steps: int = 10 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
+    total_steps: int = 10 #2500 
     history_length: int = 128
     save_history: bool = False
     save_snapshot_interval: int = 5
@@ -75,7 +77,7 @@ class EnvConfig(BaseConfig):
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
     processes: int = 1
-    batch_size: int = 2 # 10  # Batch size of MAP-Elites
+    batch_size: int = 5 # 10  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = True
     seed: Optional[int] = 42
@@ -140,13 +142,14 @@ class P3ProbSolEnvConfig(EnvConfig):
 class P3ProbSolChatEnvConfig(EnvConfig):
     env_name: str = "p3_probsol_Chat"
     prompt_size: str = "med"  # med or long
+    use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
     eval_k: int = -1 #100  # k for pass@k for fitness
-    embedding_model_type: str = "openai"  # openai or hf
-    embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
+    embedding_model_type: str = "hf"  # openai or hf
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation
     
 @dataclass
