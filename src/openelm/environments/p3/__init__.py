@@ -280,6 +280,56 @@ def g5_2():
 assert f5_2(g5_2())'''
 
 
+def skills_evaluation(puzzle):
+    # import openai
+    # openai.api_type = "azure"
+    # openai.api_key = AZURE_OPENAI_KEY
+    # openai.api_base = AZURE_OPENAI_ENDPOINT
+    # openai.api_version = "2023-05-15"
+
+    # zero shot evaluation of skills
+    n_skills = 10
+    skills = """
+0 - Sorting and Searching: Sorting refers to arranging a collection of elements in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element in a collection.
+1 - Counting and combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities or arrangements.
+2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes.
+3 - Mathematical Foundations: Strong understanding of mathematical concepts such as summations, probability, arithmetics, and matrices.
+4 - Bit Manipulation: Performing operations at the bit level to solve problems.
+5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, and parsing strings.
+6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for problem-solving, including grid-related problems. This involves tasks such as grid traversal, finding distances, detecting patterns, and solving geometric problems on grids.
+7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming approaches to solve problems by breaking them down into smaller subproblems and building solutions incrementally.
+8 - Stacks and Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
+9 - Optimization Algorithms: These algorithms aim to find the best possible solution for a given problem by minimizing or maximizing an objective function. They involve searching for optimal values within a given solution space, considering various constraints and parameters. For example, brute-force search (checks all possible solutions to a problem without using heuristics) and greedy search (locally optimal choices at each step to find the best solution) are examples of optimization algorithms in this category.
+"""
+
+    start_prompt = "I will give you a Python programming puzzle f (and its solution g) and a list of programming skills. Your role is to say which programming skills are required to understand and solve the problem.\n"
+    end_prompt = "\nFirst, you can write each category and explain with at most one sentence why it is required. Then summarize your answer by writing every index of categories in a Python list as follows (you must always write correctly the following text): Therefore, the list of indices for the problem is: <Python list>"
+    end_prompt_v2 = 'After completing your reasoning (you can start by explaining the problem and the solution in a few sentences). Ensure you remove every listed skills that are unnecessary for understanding or solving the given problem. It is necessary to summarize your answer by writing every index of categories explicitly used in the problem or solution in a Python list, following the format provided below. Please ensure the correct usage of the following text where <Python list> is a list with numbers from 0 to 9: "Therefore, the list of indices for the problem is: <Python list>"' 
+
+    puzzle_prompt = "The puzzle is:\n```\n" +puzzle + "\n```\n"
+    full_prompt = start_prompt + str("skills: ")+ skills + puzzle_prompt + end_prompt_v2
+    
+    # response = experts(full_prompt=full_prompt)
+    # full_text_generated = response.text
+    # response = response["skills"]
+    
+    # split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
+    # assert len(split_completion) == 2, "Skills parsing, the response is not in the correct format"
+    # if split_completion[1][-1] == ".":
+    #     split_completion[1] = split_completion[1][:-1] 
+    # try :
+    #     category_idx_predicted = eval(split_completion[1]) 
+    # except: 
+    #     if split_completion[1].count("]")==1:
+    #         category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
+    #     else:
+    #         print("error in parsing the skills: ",str(split_completion[1:]))
+    #         raise
+
+    return full_prompt,n_skills
+
+
+
 def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], code_batch: Optional[List[str]] = [],new_puzzles = 3) -> str: 
     """
     prompt for mutation

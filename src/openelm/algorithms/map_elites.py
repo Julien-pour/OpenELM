@@ -175,16 +175,17 @@ class Map:
     @property
     def niches_filled(self) -> int:
         """Returns the number of niches in the map that have been explored."""
-        if self.history_length>1:
-            n_niches = self.array.shape[-1]
-            non_empty_niches = 0
+        return np.count_nonzero(np.isfinite(self.array))
+        # if self.history_length>1:
+        #     n_niches = self.array.shape[-1]
+        #     non_empty_niches = 0
 
-            for niche_idx in range(n_niches):
-                if not np.all(np.isinf(self.array[:, niche_idx])):
-                    non_empty_niches += 1
-            return non_empty_niches
-        else:
-            return np.count_nonzero(np.isfinite(self.array))
+        #     for niche_idx in range(n_niches):
+        #         if not np.all(np.isinf(self.array[:, niche_idx])):
+        #             non_empty_niches += 1
+        #     return non_empty_niches
+        # else:
+        #     return np.count_nonzero(np.isfinite(self.array))
 
 
 class MAPElitesBase:
@@ -359,20 +360,24 @@ class MAPElitesBase:
         """
         Returns all the phenotypes that are in the Map."""
         valid_phenotype=[]
-        for idx in range(len(self.nonzero.array)):
-            if self.nonzero.array[idx]:
-                if self.history_length == 1:
-                    gen = self.genomes.array[idx,1]
-                    if type(gen)!=float and type(gen)!=int:
-                        valid_phenotype.append(gen) # self.genomes.array
+        for gen in np.ndindex(self.genomes.array.shape):
+            value_gen = type(self.genomes.array[gen])
+            if value_gen!=float and value_gen!=int:
+                valid_phenotype.append(value_gen)
+        # for idx in range(len(self.nonzero.array)):
+        #     if self.nonzero.array[idx]:
+        #         if self.history_length == 1:
+        #             gen = self.genomes.array[idx,1]
+        #             if type(gen)!=float and type(gen)!=int:
+        #                 valid_phenotype.append(gen) # self.genomes.array
                         
-                else : # self.history_length > 1:
-                    for idx_history in range(len(self.genomes.array[:,idx])):
-                        gen = self.genomes.array[idx_history,idx]
-                        if type(gen)!=float and type(gen)!=int:
-                            valid_phenotype.append(gen) # self.genomes.array
-                        else:
-                            continue
+        #         else : # self.history_length > 1:
+        #             for idx_history in range(len(self.genomes.array[:,idx])):
+        #                 gen = self.genomes.array[idx_history,idx]
+        #                 if type(gen)!=float and type(gen)!=int:
+        #                     valid_phenotype.append(gen) # self.genomes.array
+        #                 else:
+        #                     continue
         return valid_phenotype
                     
     def random_selection(self) -> MapIndex:
@@ -408,6 +413,7 @@ class MAPElitesBase:
                     self.fitnesses.__setitem__(map_ix, 1.0)
                     self.genomes.__setitem__(map_ix, individual)
                     self.nonzero[map_ix] = True
+                print("number of niched filled from the training set ",self.niches_filled())
         start_step = int(self.start_step)
         total_steps = int(total_steps)
         tbar = trange(start_step, total_steps, initial=start_step, total=total_steps)
@@ -499,6 +505,8 @@ class MAPElitesBase:
                     del state_individual["config"]
                 if "baseline_emb" in state_individual:
                     del state_individual["baseline_emb"]
+                if "emb" in state_individual and isinstance(state_individual["emb"], np.ndarray):
+                    state_individual["emb"] = state_individual["emb"].tolist()
                 state_individual["map_ix"] = list((int(i) for i in map_ix))
                 state_individual["fitness"] = fitness
 
@@ -537,7 +545,7 @@ class MAPElitesBase:
 
     def niches_filled(self):
         """Get the number of niches that have been explored in the map."""
-        return self.fitnesses.niches_filled
+        return self.nonzero.array.sum()
 
     def max_fitness(self):
         """Get the maximum fitness value in the map."""
@@ -593,7 +601,14 @@ class MAPElitesBase:
 
         # save env_name to check later, for verifying correctness of environment to run with snapshot load
         tmp_config = dict()
-        tmp_config["env_name"] = self.env.config.env_name
+        tmp_config["env_name"] = self.env.config.env_name 
+        tmp_config["model_name"] = self.config.model_path 
+        tmp_config["seed"] = self.env.config.seed
+        # tmp_config["eval_k"] = self.env.config.eval_k 
+        tmp_config["embedding_model"] = self.env.config.embedding_model_path
+        tmp_config["batch_size"] = self.env.config.batch_size
+        tmp_config["init_steps"] = self.config.init_steps
+        tmp_config["total_steps"] = self.config.total_steps
 
         with open((output_folder / "config.json"), "w") as f:
             json.dump(tmp_config, f)
@@ -724,6 +739,8 @@ class MAPElites(MAPElitesBase):
         self.plot_fitness()
 
 
+
+
 class CVTMAPElites(MAPElitesBase):
     """
     Class implementing CVT-MAP-Elites, a variant of MAP-Elites.
@@ -754,7 +771,7 @@ class CVTMAPElites(MAPElitesBase):
         self.n_niches: int = config.n_niches
         super().__init__(env=env, config=config, *args, **kwargs)
 
-    def _init_discretization(self):
+    def _init_discretization(self,scale=0.12):
         """Discretize behaviour space using CVT."""
         # lower and upper bounds for each dimension
         low = self.env.behavior_space[0]
@@ -762,23 +779,46 @@ class CVTMAPElites(MAPElitesBase):
         state = self.env.__dict__.copy()
         if "archive_P3puzzle" in state:
             list_emb=np.array([p.emb for p in state["archive_P3puzzle"]])
-            n_vect2add= self.cvt_samples - len(list_emb)
+            n_vect2add= self.cvt_samples #- len(list_emb)
             liste_choice=self.rng.choice(len(list_emb), n_vect2add,replace= True)
             embed2nois = list_emb[liste_choice]
-            noise = np.random.randn(embed2nois.shape[0],embed2nois.shape[1])
-            noisy_embed = embed2nois + noise / 256 # add noise to embeddings
+            
+            noise = self.rng.normal(loc=0.0, scale=scale,size=(embed2nois.shape[0],embed2nois.shape[1]))
+            noisy_embed = embed2nois + noise  # add noise to embeddings
             noisy_embed = noisy_embed / np.linalg.norm(noisy_embed, axis=1)[:, np.newaxis] # normalize embeddings
-            points = np.vstack((list_emb,noisy_embed))
+            points = noisy_embed
+            # points = np.vstack((list_emb,noisy_embed))
         else:
             points = np.zeros((self.cvt_samples, self.env.behavior_ndim))
             for i in range(self.env.behavior_ndim):
-                points[:, i] = self.rng.uniform(low[i], high[i], size=self.cvt_samples)
+                points[:, i] = self.rng.normal(low[i], high[i], size=self.cvt_samples)
 
-        k_means = KMeans(init="k-means++", n_init="auto", n_clusters=self.n_niches)
+        k_means = KMeans(init="k-means++", n_init="auto", n_clusters=self.n_niches,random_state=self.config.seed)
         k_means.fit(points)
         self.centroids = k_means.cluster_centers_
 
         self.plot_centroids(points, k_means)
+
+
+    def __getallitems__(self) -> list[Phenotype]:
+        """
+        Returns all the phenotypes that are in the CVT Map."""
+        valid_phenotype=[]
+        for idx in range(len(self.nonzero.array)):
+            if self.nonzero.array[idx]:
+                if self.history_length == 1:
+                    gen = self.genomes.array[idx,1]
+                    if type(gen)!=float and type(gen)!=int:
+                        valid_phenotype.append(gen) # self.genomes.array
+                        
+                else : # self.history_length > 1:
+                    for idx_history in range(len(self.genomes.array[:,idx])):
+                        gen = self.genomes.array[idx_history,idx]
+                        if type(gen)!=float and type(gen)!=int:
+                            valid_phenotype.append(gen) # self.genomes.array
+                        else:
+                            continue
+        return valid_phenotype
 
     def _get_map_dimensions(self):
         """Returns the dimensions of the map."""

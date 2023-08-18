@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer
 import torch
+from langchain.schema import HumanMessage
 from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
 from openelm.environments.base import BaseEnvironment, Genotype, Phenotype
 from openelm.environments.p3 import (
@@ -22,7 +23,7 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
-from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f
+from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
@@ -345,18 +346,25 @@ class P3ProbSolResult(Genotype):
             return self.emb
         else: 
             if self.config.embedding_model_type == "openai":
-                compare_str = (
-                    self.program_str
-                )  # TODO: remove comments from f6_2 for diversity measurement
-                i_assert = compare_str.find("assert f")
-                if i_assert > -1:
-                    compare_str = compare_str[:i_assert]
-                emb = np.array(
-                    get_embedding(compare_str, engine=self.config.embedding_model_path)
-                )
-                return emb
+                # Openai backend to get the embedding
+                if "embedding" in self.config.embedding_model_type: 
+                    # use the embedding model to get the embedding
+                    compare_str = (
+                        self.program_str
+                    )  # TODO: remove comments from f6_2 for diversity measurement
+                    i_assert = compare_str.find("assert f")
+                    if i_assert > -1:
+                        compare_str = compare_str[:i_assert]
+                    emb = np.array(
+                        get_embedding(compare_str, engine=self.config.embedding_model_path)
+                    )
+                    return emb
+                else: 
+                    #use GPT to get the "embedding" in NLP space
+                    raise "can't do that in the Genotype class, should be done in the P3 environment"
             
             elif self.config.env_name == "p3_probsol_Chat" and self.config.embedding_model_type == "hf": 
+                # Huggingface backend to get the embedding
                 # when the model can't be loaded, with feat-extraction
                 if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
                     tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
@@ -374,14 +382,7 @@ class P3ProbSolResult(Genotype):
                     features = np.array(pl(self.program_str))
                     del pl
                     return features.mean(axis=0).flatten()
-            elif self.config.embedding_model_type == "hf":
-                # weird preprocessing 
-                pl = pipeline(
-                    "feature-extraction", model=self.config.embedding_model_path
-                )
-                features = np.array(pl(self.program_str))
-                return features.max(axis=0).flatten()
-            
+
             else:
                 raise NotImplementedError
 
@@ -742,15 +743,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         else:
             raise ValueError("No seed string found")
 
-        # Use the first example in the prompt seed as basis for embedding sizes
-        i_first = self.prompt_seed.find("assert")
-        first_example = self.prompt_seed[:i_first].strip()
-        
-        first_example ="def f(x): return True\ndef g(x): return True\nassert f(g())==True"
-        out = self.to_phenotype(first_example)
 
-        self.genotype_ndim = np.array(out).shape[-1]
-        self.genotype_space = np.repeat([[-1, 1]], self.genotype_ndim, axis=0).T
         
         #load embedding model for the phenotype
         print("load embedding model:" )
@@ -766,12 +759,30 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
+
+        # Use the first example in the prompt seed as basis for embedding sizes
+        # i_first = self.prompt_seed.find("assert")
+        # first_example = self.prompt_seed[:i_first].strip()
+        
+        first_example ="def f(x,a=1,b=1): return a*x==b \ndef g(x,a=1,b=1): return b/a\nassert f(g())==True"
+        out = self.to_phenotype(first_example)
+        if self.config.embedding_model_type == "openai" and not "embedding" in self.config.embedding_model_type: 
+            #NLP space
+            # prompt,n_skills = skills_evaluation("aaaa")
+            # self.n_skills = n_skills
+            self.genotype_ndim = np.array(out).shape[-1]
+            #  in poetry self.genotype_space = np.array(self.config.behavior_space).T
+            self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T 
+        else:
+            self.genotype_ndim = np.array(out).shape[-1]
+            self.genotype_space = np.repeat([[-1, 1]], self.genotype_ndim, axis=0).T
+        
         if self.config.use_preprocessed_trainset:
+            # preprocessing of the trainset
             print("loading preprocessed trainset")
             self.preprocess_p3()
                 
             
-
 
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
         warnings.warn("WARNING: rng state not used in this environment")
@@ -781,13 +792,51 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         warnings.warn("WARNING: rng state not used in this environment")
         pass
 
+    def label_puzzle(self,program_str,n_attempts=0):
+        """
+        Label a puzzle with the skills it requires"""
+        prompt,n_skills = skills_evaluation(program_str)
+        if n_attempts > 4: # should not append but just in case
+            print("WARNING: too many attempts to label the puzzle")
+            return [0. for i in range(n_skills)]
+        response = self.mutation_model.model.generate([[HumanMessage(content=prompt)]])
+        response = response.generations[0][0].text    
+        split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
+        if len(split_completion) == 2 :#"Skills parsing
+            if split_completion[1][-1] == ".":
+                split_completion[1] = split_completion[1][:-1] 
+            try :
+                category_idx_predicted = eval(split_completion[1]) 
+                list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
+                return list_skill
+            
+            except: # if pb when parsing try to fix them
+                if split_completion[1].count("]")==1:
+                    try:
+                        category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
+                        list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
+                        return list_skill
+                    except:
+                        return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+                else:
+                    return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+            
+        else: 
+            return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+    
     def to_phenotype(self,program_str: str):
         """compute embedding of the program"""
         if self.config.embedding_model_type == "openai":
-            emb = np.array(
-                get_embedding(program_str, engine=self.config.embedding_model_path))
-            return emb
-        
+            if "embedding" in self.config.embedding_model_type: 
+                emb = np.array(
+                    get_embedding(program_str, engine=self.config.embedding_model_path))
+                return emb
+
+            else: 
+                #use GPT to get the "embedding" in NLP space
+                return self.label_puzzle(program_str,n_attempts=0)
+                
+    
         elif self.config.env_name == "p3_probsol_Chat" and self.config.embedding_model_type == "hf": 
             # when the model can't be loaded, with feat-extraction
             if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
@@ -805,13 +854,17 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         else:
             raise NotImplementedError
         
-    def preprocess_p3(self, split="train",load_embedding=False):
-        trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding)
+    def preprocess_p3(self, split="train",load_embedding=False,debug=False):
+        """preprocess the trainset of P3 
+        load embedding from json files 
+        debug give random embedding to the puzzles for debugging purpose
+        """
+        trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding,debug=debug)
         
         for puz in trainset:
             del puz["f"], puz["g"],puz["attempts"]
             puz["config"] = self.config
-            if not load_embedding:
+            if not load_embedding and not debug:
                 puz["emb"]=self.to_phenotype(puz["program_str"])
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
         
@@ -850,13 +903,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
         self.archive_P3puzzle = list_p3
 
-            
-                
         print("correct pb", correct_pb)
         print("total_pb",len(list_p3))
 
     def construct_prompt(
-        self, code_batch: Optional[Union[list[str], str]] = []
+        self, code_batch: Optional[Union[list[str], str]] = [],random: bool =True
     ) -> dict[str, str]:
 
         # prompt with prob+sol that is given (one that was the output of a prev mutation)
@@ -865,8 +916,12 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             code_batch = code_batch
         elif isinstance(code_batch, str):
             code_batch = [code_batch]
-        
-        list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=3))
+        if random:
+            #random: only use example from trainset
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=3))
+        else:
+            # use example from archive (and trainset)
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=3))
         list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
         prompt_str = self.prompt_seed_function(list_few_shot_example, code_batch)
         # the prev output was f6_2 and g6_2, so now make it f6_1 and g6_1 for the prompt
@@ -892,7 +947,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_pb=[]
         # parse the generated code 
         for gen_prog in _generated_programs:
-            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("```\n","```").split("```"))
+            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("``` python","```").replace("```\n","```").split("```"))
             for idx in range(len(split_pb)):
                 if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
                     list_pb.append(split_pb[idx])
@@ -902,10 +957,18 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
         generated_programs = list_pb
         
+        list_lib = ["math", "random", "itertools"]
+        
         for idx in range(len(generated_programs)):
             if not P3_IMPORTS in generated_programs[idx]:
                 generated_programs[idx] = P3_IMPORTS+ generated_programs[idx]
-        
+                
+            # check if lib are correctly imported (if not import them)
+            for lib in list_lib:
+                if lib in generated_programs[idx]:
+                    if not f"import {lib}" in  generated_programs[idx].split("def f")[0]:
+                        generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
+    
         if self.config.sandbox:
             results = []
             for code in generated_programs:
@@ -1032,7 +1095,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 return -np.inf
             
         # compute pass@k
-        else:
+        else: # TODO; check if it is working
             list_new_puzzles = self.try_solving_problem(probsol)
         
             c = 0
@@ -1042,18 +1105,13 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     
                     probsol.program_str = p3probsol.program_str
                     c+=1
-                
-
-            # c = 0
-            # for s in solutions:
-            #     if p3_problem.evaluate_solution(s) is True:
-            #         c += 1
 
             pak = pass_at_k(len(list_new_puzzles), c, self.config.eval_k)
             return 1 / pak if pak > 0 else 0
 
     def random(self) -> list[P3ProbSolResult]:
-        program_list = [self.construct_prompt() for _ in range(self.config.batch_size)]
+        # should just take few shot example from trainset not archive
+        program_list = [self.construct_prompt(random=True) for _ in range(self.config.batch_size)]
         new_probsols = self.generate_programs(program_list)
         return new_probsols
 

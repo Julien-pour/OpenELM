@@ -277,12 +277,11 @@ def scrap_f_g(list_pb):
         list_f_g.append([f,g])
     return list_f_g
 
-def preprocessing_P3(split: str = "train", n_token_max: int =512) -> list[dict]:
+def preprocessing_P3(split: str = "train", n_token_max: int =512, load_embedding = False,debug=False) -> list[dict]:
     """
     dl puzzles from P3 dataset and give train or test puzzles
     split = "train" or "test"
     """
-    load_embedding = True
     import sys 
     sys.set_int_max_str_digits(10_000)
     puzzles = requests.get(
@@ -321,7 +320,7 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512) -> list[dict]:
         index=np.array(List_len_embedding)<=n_token_max
         #remove item where index is False
         puzzles_set = [item for i, item in enumerate(puzzles_set) if index[i]]
-        if load_embedding:
+        if load_embedding:            
             import os
             script_dir = os.path.dirname(__file__) 
             path_embed = script_dir+"/preprocess_p3_emb.json"
@@ -333,4 +332,8 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512) -> list[dict]:
                 if code in list_keys:
                     emb = list_emb[code]
                     puzz["emb"] = emb
+        if debug:
+            for puzz in (puzzles_set):
+                puzz["emb"] = np.random.randint(0, 2, 10)
         return puzzles_set
+    
