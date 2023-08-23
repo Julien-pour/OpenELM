@@ -10,6 +10,7 @@ import requests
 from openai.embeddings_utils import cosine_similarity, get_embedding
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from scipy.spatial.distance import cdist
 from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer
 import torch
@@ -23,7 +24,7 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
-from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation
+from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
@@ -305,7 +306,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
 
 
 class P3ProbSolResult(Genotype):
-    def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None ):
+    def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None, idx_generation: int=-1,target_skills=None):
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -318,6 +319,8 @@ class P3ProbSolResult(Genotype):
         self.result_obj = result_obj
         self.config = config
         self.emb = emb
+        self.idx_generation = idx_generation
+        self.target_skills = target_skills
         if self.config.env_name == "p3_probsol_Chat" :
             # print("not implemented yet")
             # i_f = program_str.find("def f(")
@@ -765,6 +768,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # first_example = self.prompt_seed[:i_first].strip()
         
         first_example ="def f(x,a=1,b=1): return a*x==b \ndef g(x,a=1,b=1): return b/a\nassert f(g())==True"
+        _,n_skills = skills_evaluation(first_example)
+        self.n_skills = n_skills
         out = self.to_phenotype(first_example)
         if self.config.embedding_model_type == "openai" and not "embedding" in self.config.embedding_model_type: 
             #NLP space
@@ -794,9 +799,12 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
     def label_puzzle(self,program_str,n_attempts=0):
         """
-        Label a puzzle with the skills it requires"""
+        Label a puzzle with the skills it requires
+        TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
+        """
         prompt,n_skills = skills_evaluation(program_str)
         if n_attempts > 4: # should not append but just in case
+            # raise ValueError("too many attempts to label the puzzle")
             print("WARNING: too many attempts to label the puzzle")
             return [0. for i in range(n_skills)]
         response = self.mutation_model.model.generate([[HumanMessage(content=prompt)]])
@@ -826,18 +834,18 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     
     def to_phenotype(self,program_str: str):
         """compute embedding of the program"""
-        if self.config.embedding_model_type == "openai":
+        # "regular" embedding
+        if self.config.GPT_feedback: 
+            #use chatGPT (or GPT model) to get the "embedding" in NLP space
+            return self.label_puzzle(program_str)
+        
+        elif self.config.embedding_model_type == "openai":
             if "embedding" in self.config.embedding_model_type: 
                 emb = np.array(
                     get_embedding(program_str, engine=self.config.embedding_model_path))
                 return emb
-
-            else: 
-                #use GPT to get the "embedding" in NLP space
-                return self.label_puzzle(program_str,n_attempts=0)
-                
     
-        elif self.config.env_name == "p3_probsol_Chat" and self.config.embedding_model_type == "hf": 
+        elif self.config.embedding_model_type == "hf": 
             # when the model can't be loaded, with feat-extraction
             if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
                 with torch.no_grad():
@@ -845,16 +853,16 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     emb = self.model(inputs)[0]
                 return emb.numpy()
             
-        elif self.config.embedding_model_type == "hf":
-            # weird preprocessing 
-            features = np.array(self.pl(program_str))
+            elif self.config.embedding_model_type == "hf":
+                # weird preprocessing 
+                features = np.array(self.pl(program_str))
 
-            return features.mean(axis=0).flatten() # mean pooling
-        
+                return features.mean(axis=0).flatten() # mean pooling
+            
         else:
             raise NotImplementedError
         
-    def preprocess_p3(self, split="train",load_embedding=False,debug=False):
+    def preprocess_p3(self, split="train",load_embedding=True,debug=False):
         """preprocess the trainset of P3 
         load embedding from json files 
         debug give random embedding to the puzzles for debugging purpose
@@ -906,38 +914,85 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print("correct pb", correct_pb)
         print("total_pb",len(list_p3))
 
-    def construct_prompt(
-        self, code_batch: Optional[Union[list[str], str]] = [],random: bool =True
-    ) -> dict[str, str]:
 
+    def mutate_vec(self, vec2mutate,k=1):
+        """
+        take an vector and mutate k values randomly (from 0. to 1. or 1. to 0.)
+        """
+        vec_mutate=copy.deepcopy(vec2mutate)
+        idx = self.rng.choice(vec_mutate.shape[0], k, replace=False)
+        vec_mutate[idx] = 1.-vec_mutate[idx]
+        return vec_mutate
+    
+    def construct_prompt(
+        self, code_batch: Optional[Union[list[str], str]] = [],random: bool =False
+    ) -> dict[str, str]:
+        """
+        code batch only used for non guided search, it is used  
+        """
+        n_few_shot_example=3
+        skill_targeted=None
         # prompt with prob+sol that is given (one that was the output of a prev mutation)
         if isinstance(code_batch, list):
             # TODO: get nearby genotypes
             code_batch = code_batch
         elif isinstance(code_batch, str):
             code_batch = [code_batch]
+            
+        # choose few shot example
         if random:
             #random: only use example from trainset
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=3))
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example))
         else:
-            # use example from archive (and trainset)
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=3))
-        list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
-        prompt_str = self.prompt_seed_function(list_few_shot_example, code_batch)
-        # the prev output was f6_2 and g6_2, so now make it f6_1 and g6_1 for the prompt
-        # and remove comments (which contain changes from prev f6_1) from new f6_1
-        # TODO: pass in the whole object instead of the program_str since it already parsed some of this?
-        # i_g = program_str.find("def g(")
-        # remove comments with """
-        # program_str = program_str[:i_g] + program_str[i_g:]
+            # use example from archive (and so trainset)
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example))
+        
+        
+        if self.config.IMGEP_mode == "random":
+            # target are chosen randomly 
+            skill_targeted = np.random.randint(0, 2, self.n_skills,dtype=int).tolist()
+            prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
+        elif self.config.IMGEP_mode == "smart":
+            # target are chosen smartly + few shot example are chosen smartly
+            # maybe just target a cell that is close to the few shot example
+            all_emb=[]
+            for puzz in self.all_phenotypes:    
+                all_emb.append(puzz.emb)
+                
+            all_emb = np.array(copy.deepcopy(all_emb))
 
-        # need to change that to sample problem from the selected cell of the archive
-        # prompt_str += f"\n\n{program_str}" # f"\n\n{self.new_probsol_preamble}"
+            flag = True
+            while flag:
+                idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
+                vec=all_emb[idx]
+                k = self.rng.choice([1,2,3], 1, replace=False,p=[3/4,1/8,1/8]) # change proba distrib? 1/2 1/4 1/4
+                skill_targeted = self.mutate_vec(vec, k=k)
+                # check if sampled niched is already filled 
+                result = np.any(np.all(all_emb == skill_targeted, axis=1))
+                if not result:
+                    flag=False
+
+            # choose puzzle from closest niches
+            dists = cdist([skill_targeted], all_emb)[0]
+            nearest = np.argsort(dists)[:n_few_shot_example]
+            list_few_shot_example_phenotypes= []
+            for idx in nearest:
+                list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
+            
+
+            prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
+            skill_targeted.dtype=int
+            skill_targeted=skill_targeted.tolist()
+            
+        else:
+            list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
+            prompt_str = self.prompt_seed_function(list_few_shot_example, code_batch)
+
 
         template = f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
-        return {"prompt": prompt_str, "template": template}
+        return {"prompt": prompt_str, "template": template},skill_targeted
 
-    def generate_programs(self, code_batch: list[str]) -> list[P3ProbSolResult]:
+    def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model and evaluate them."""
         local_scope_exec = False
         _generated_programs = self.mutation_model.generate_programs(
@@ -998,8 +1053,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 return self.generate_programs(code_batch)
 
         results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog)}
-            for (gen_prog, res_obj) in zip(generated_programs, results)
+            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog), "idx_generation": self.idx_generation, "target_skills":target_skills}
+            for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list)
         ]
         return [P3ProbSolResult(**p) for p in results]
     
@@ -1111,12 +1166,34 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
     def random(self) -> list[P3ProbSolResult]:
         # should just take few shot example from trainset not archive
-        program_list = [self.construct_prompt(random=True) for _ in range(self.config.batch_size)]
-        new_probsols = self.generate_programs(program_list)
+        program_list = []
+        skill_targeted_list = []
+        for _ in range(self.config.batch_size):
+            dic_prompt, skill_targeted = self.construct_prompt(random=True)
+            program_list.append(dic_prompt)
+            skill_targeted_list.append(skill_targeted)
+            
+        # program_list = [self.construct_prompt(random=True) for _ in range(self.config.batch_size)]
+        new_probsols = self.generate_programs(program_list,skill_targeted_list)
         return new_probsols
 
     def mutate(self, probsol_list: list[P3ProbSolResult]) -> list[P3ProbSolResult]:
-        probsols = [pb.program_str for pb in probsol_list]
-        program_list = list(map(self.construct_prompt, probsols))
-        new_probsols = self.generate_programs(program_list)
+        if self.config.IMGEP_mode == "random" or self.config.IMGEP_mode == "smart":
+            program_list = []
+            skill_targeted_list = []
+            for _ in range(self.config.batch_size):
+                dic_prompt, skill_targeted = self.construct_prompt()
+                program_list.append(dic_prompt)
+                skill_targeted_list.append(skill_targeted)
+        else:
+            probsols = [pb.program_str for pb in probsol_list]
+            # skill_targeted_list = [None for _ in range(len(probsols))]
+            program_list_targerted_list = list(map(self.construct_prompt, probsols))
+            program_list,skill_targeted_list=[],[]
+            for (prgrm_list,skill_targeted) in program_list_targerted_list:
+                program_list.append(prgrm_list)
+                skill_targeted_list.append(skill_targeted)
+            
+        new_probsols = self.generate_programs(program_list,skill_targeted_list)
+
         return new_probsols

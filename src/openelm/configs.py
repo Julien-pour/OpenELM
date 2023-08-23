@@ -16,12 +16,12 @@ class ModelConfig(BaseConfig):
     gpus: int = 1
     seed: Optional[int] = None
     deterministic: bool = False
-    top_p: float = 0.95
-    temp: float = 0.9
-    gen_max_len: int = 1024
-    batch_size: int = 2
+    top_p: float = 1.
+    temp: float = 0.7
+    gen_max_len: int = -1 # -1 for no limit
+    batch_size: int = 3
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "gpt-3.5-turbo-0301"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "gpt-3.5-turbo-0613"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
     processes: int = 8
     logits_only: bool = False
@@ -33,7 +33,7 @@ class ModelConfig(BaseConfig):
 @dataclass
 class PromptModelConfig(ModelConfig):
     model_name: str = "prompt"
-    model_path: str = "gpt-3.5-turbo-0301"#"gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
+    model_path: str = "gpt-3.5-turbo-0613"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -44,7 +44,8 @@ class DiffModelConfig(ModelConfig):
 
 @dataclass
 class QDConfig(BaseConfig):
-    init_steps: int = 10 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
+    model_path: str = "gpt-3.5-turbo-0613" # just for register the model
+    init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
     total_steps: int = 10 #2500 
     history_length: int = 128
     save_history: bool = False
@@ -61,7 +62,7 @@ class QDConfig(BaseConfig):
 @dataclass
 class MAPElitesConfig(QDConfig):
     qd_name: str = "mapelites"
-    map_grid_size: tuple[int, ...] = field(default_factory=lambda: (5,))
+    map_grid_size: tuple[int, ...] = field(default_factory=lambda: (2,))
 
 
 @dataclass
@@ -148,16 +149,19 @@ class P3ProbSolChatEnvConfig(EnvConfig):
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
     eval_k: int = -1 #100  # k for pass@k for fitness
-    embedding_model_type: str = "hf"  # openai or hf
-    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
-    model_name: str = "openai" # model used for mutation
+    embedding_model_type: str = "openai" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "ChatGPT" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    model_name: str = "openai" # model used for mutation, not used ? (if not used should be removed from the config) 
+    GPT_feedback: bool = True # use GPT for feedback (MapElites)  
+    IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
+    
     
 @dataclass
 class QDEnvConfig(EnvConfig):
     env_name: str = "qdaif"
     behavior_space: list[list[float]] = field(
         default_factory=lambda: [
-            [0, 5],
+            [0, 5], 
             [0, 5],
         ]
     )
@@ -168,11 +172,20 @@ class PromptEnvConfig(EnvConfig):
     env_name: str = "prompt_evolution"
     task_name: str = "antonym"  # toy or antonym or animal or cot
     evals_per_prompt: int = 10
+ 
 
+# baseline 0 and 1 (give few shot example then gen new pb, and openELM)
+# defaults_elm = [
+#     {"model": "prompt"},
+#     {"qd": "cvtmapelites"}, #"mapelites"},
+#     {"env": "p3_probsol_Chat"}, #sodarace"},p3_probsol_Chat
+#     "_self_",
+# ]
 
+# baseline 2 and 3 (openELM in NLP space, and GPT feedback)
 defaults_elm = [
     {"model": "prompt"},
-    {"qd": "cvtmapelites"}, #"mapelites"},
+    {"qd": "mapelites"}, #"mapelites"},
     {"env": "p3_probsol_Chat"}, #sodarace"},p3_probsol_Chat
     "_self_",
 ]

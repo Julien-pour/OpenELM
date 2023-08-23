@@ -28,12 +28,13 @@ def get_model(config: ModelConfig):
     elif config.model_type == "openai":
         # Adapt config here
         cfg: dict = {
-            "max_tokens": config.gen_max_len,
             "temperature": config.temp,
             "top_p": config.top_p,
             # TODO: rename config option?
             "model_name": config.model_path,
         }
+        if config.gen_max_len!=-1:
+            cfg["max_tokens"]=config.gen_max_len
         if "3.5" in config.model_path or "gpt-4" in config.model_path:
             return ChatOpenAI(**cfg)
         else:

@@ -1,4 +1,5 @@
 import json
+import copy
 import os
 import pickle
 from collections import defaultdict
@@ -12,7 +13,6 @@ from tqdm import trange
 from openelm.configs import CVTMAPElitesConfig, MAPElitesConfig, QDConfig
 from openelm.environments import BaseEnvironment, Genotype
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
-
 Phenotype = Optional[np.ndarray]
 MapIndex = Optional[tuple]
 
@@ -363,7 +363,7 @@ class MAPElitesBase:
         for gen in np.ndindex(self.genomes.array.shape):
             value_gen = type(self.genomes.array[gen])
             if value_gen!=float and value_gen!=int:
-                valid_phenotype.append(value_gen)
+                valid_phenotype.append(self.genomes.array[gen])
         # for idx in range(len(self.nonzero.array)):
         #     if self.nonzero.array[idx]:
         #         if self.history_length == 1:
@@ -428,7 +428,9 @@ class MAPElitesBase:
             self.history = defaultdict(list)
 
         for n_steps in tbar:
+            self.env.idx_generation = n_steps
             self.env.all_phenotypes = self.__getallitems__()
+            self.env.n_steps = n_steps
             if n_steps < init_steps or self.genomes.empty:
                 # Initialise by generating initsteps random solutions.
                 # If map is still empty: force to do generation instead of mutation.
@@ -507,7 +509,7 @@ class MAPElitesBase:
                     del state_individual["baseline_emb"]
                 if "emb" in state_individual and isinstance(state_individual["emb"], np.ndarray):
                     state_individual["emb"] = state_individual["emb"].tolist()
-                state_individual["map_ix"] = list((int(i) for i in map_ix))
+                state_individual["map_ix"] = list((int(i) for i in map_ix)) # not sure about that for multi dim map
                 state_individual["fitness"] = fitness
 
                 self.list_of_all_individuals.append(state_individual)
@@ -609,9 +611,12 @@ class MAPElitesBase:
         tmp_config["batch_size"] = self.env.config.batch_size
         tmp_config["init_steps"] = self.config.init_steps
         tmp_config["total_steps"] = self.config.total_steps
-
+        if self.env.config.env_name == "p3_probsol_Chat":
+            tmp_config["GPT_feedback"] = self.env.config.GPT_feedback
+            tmp_config["IMGEP_mode"] = self.env.config.IMGEP_mode
+            
         with open((output_folder / "config.json"), "w") as f:
-            json.dump(tmp_config, f)
+            json.dump(tmp_config, f,indent=4)
             
         if self.save_all_individual:
             try :

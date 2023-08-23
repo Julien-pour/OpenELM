@@ -1,5 +1,9 @@
 from typing import Optional, Union, List
 from openelm.utils.code_eval import get_inputs
+from openelm.environments.base import  Genotype
+
+skill_list = ['Sorting and Searching', 'Counting and combinatorics', 'Tree and Graph problem', 'Mathematical Foundations', 'Bit Manipulation', 'String Manipulation', 'Geometry and Grid Problems', 'Recursion and Dynamic Programming', 'Stacks and Queues', 'Optimization Algorithms']
+
 P3_PROBLEM_MED_SEED = '''from typing import List
 
 def f1(s: str):
@@ -308,24 +312,6 @@ def skills_evaluation(puzzle):
 
     puzzle_prompt = "The puzzle is:\n```\n" +puzzle + "\n```\n"
     full_prompt = start_prompt + str("skills: ")+ skills + puzzle_prompt + end_prompt_v2
-    
-    # response = experts(full_prompt=full_prompt)
-    # full_text_generated = response.text
-    # response = response["skills"]
-    
-    # split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
-    # assert len(split_completion) == 2, "Skills parsing, the response is not in the correct format"
-    # if split_completion[1][-1] == ".":
-    #     split_completion[1] = split_completion[1][:-1] 
-    # try :
-    #     category_idx_predicted = eval(split_completion[1]) 
-    # except: 
-    #     if split_completion[1].count("]")==1:
-    #         category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
-    #     else:
-    #         print("error in parsing the skills: ",str(split_completion[1:]))
-    #         raise
-
     return full_prompt,n_skills
 
 
@@ -335,7 +321,6 @@ def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], co
     prompt for mutation
     new_puzzles: how many puzzles to generate should pass it as parameters
     elm_mode
-    TODO: add mutation if code_batch is given
     """
     N_python_problem = len(list_few_shot_example)
     if isinstance(code_batch, str):
@@ -354,47 +339,6 @@ def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], co
     #     few_shot_examples+=f"Puzzle {N_python_problem+puzz}:\n```\n{list_few_shot_example[puzz]}\n```\n"
     # N_python_problem= +len(code_batch)
     # puzzles for fixed prompt not used anymore
-    puzz_0=f'''Puzzle 0:
-```
-def f(start: int, k=2, upper=-172, seq=[79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]) -> bool:
-    """Find a sequence of k consecutive indices whose sum is minimal"""
-    return 0 <= start <= len(seq) - k and sum(seq[start:start + k]) <= upper
-
-def g(k = 2, upper = -172, seq = [79, 18, -98, -13, 88, -93, -77, -95, 40, -3, -22]):
-    return min(range(len(seq) - k + 1), key=lambda start: sum(seq[start:start + k])) 
-assert f(g()) == True
-```
----'''
-    puzz_1 = '''Puzzle 1:
-```
-def f(i: int, li=[-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target=-42) -> bool:
-    """Find the index of an item in a list using negative indexing."""
-    return li[i] == target and i < 0
-
-def g(li = [-60, 9, 1, -42, 31, 70, 5, 1, 42, -90, -20], target = -42):
-    return li.index(target) - len(li) 
-assert f(g()) == True
-```
----'''
-    puzz_2 = '''Puzzle 2:
-```
-from typing import*
-def f(ans: List[List[int]], target=2) -> bool:
-    """
-    Find a list of pairs of integers where the number of pairs in which the second number is more than
-    two greater than the first number is a given constant
-    """
-    for i in range(len(ans)):
-        a, b = ans[i]
-        if b - a >= 2:
-            target -= 1
-    return target == 0
-
-def g(target = 2):
-    return [[0, 2]] * target 
-assert f(g()) == True
-```
----''' 
     all_puzzle_str = ""
     for idx_puzz in range(len(list_few_shot_example)):
         all_puzzle_str += f"Puzzle {idx_puzz}:\n```\n{list_few_shot_example[idx_puzz]}\n```\n---\n"
@@ -407,12 +351,57 @@ assert f(g()) == True
         prompt += "Here is the puzzle to mutate:\n"
         prompt += f"Puzzle {len(list_few_shot_example)}:\n"
         prompt += f"```\n{mutate_pb}\n```\n---\n"
-        # prompt += f"Could you please create {new_puzzles} new, interesting, diverse, and valid Python programming puzzles by mutating the Puzzle {len(list_few_shot_example)}? Make sure that the new puzzles are distinctly different from each other."
-        # prompt += f"Could you please create {new_puzzles} new, interesting, diverse, and valid Python programming puzzles by mutating the original Puzzle {len(list_few_shot_example)}? Ensure the mutated puzzles are meaningfully different from each other."
-        # prompt += f"Could you please mutate this new puzzle into another interesting correct Python Programming Puzzle? Ensure the mutated puzzle is meaningfully different from the existing {len(list_few_shot_example)+elm_mode} puzzles."
         prompt += f"Could you please mutate the Puzzle {len(list_few_shot_example)} into {new_puzzles} new interesting correct Python Programming Puzzles? Please, ensure the mutated puzzles are meaningfully different from the existing puzzles."
-
     return prompt
+
+def P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example :[List[Genotype]], skill_targeted: List[bool],new_puzzles = 3) -> str: 
+    """
+    prompt for guided goal mutation
+    new_puzzles: how many puzzles to generate should pass it as parameters
+    skill_targeted: list of boolean indicating if the skill is targeted or not  e.g [0,1,0,0,1,...]
+    elm_mode
+    """
+    idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
+    
+
+    N_python_problem = len(list_few_shot_example)
+    print()
+    skill_list_str=""
+    if len(skill_targeted)==0:
+        skill_list_str+="None"
+    else:
+        for idx in idx_skill_targeted:
+            skill_list_str+=f"{idx} - {skill_list[idx]}\n"
+    all_puzzle_str = ""
+    for idx_puzz in range(len(list_few_shot_example)):
+        idx_curr_puzz = [idx for idx, val in enumerate(list_few_shot_example[idx_puzz].emb) if val]
+        all_puzzle_str += f"Puzzle {idx_puzz}, required skills {idx_curr_puzz} :\n```\n{list_few_shot_example[idx_puzz].program_str}\n```\n---\n"
+    skills = """
+0 - Sorting and Searching: Sorting refers to arranging a collection of elements in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element in a collection.
+1 - Counting and combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities or arrangements.
+2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes.
+3 - Mathematical Foundations: Strong understanding of mathematical concepts such as summations, probability, arithmetics, and matrices.
+4 - Bit Manipulation: Performing operations at the bit level to solve problems.
+5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, and parsing strings.
+6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for problem-solving, including grid-related problems. This involves tasks such as grid traversal, finding distances, detecting patterns, and solving geometric problems on grids.
+7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming approaches to solve problems by breaking them down into smaller subproblems and building solutions incrementally.
+8 - Stacks and Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
+9 - Optimization Algorithms: These algorithms aim to find the best possible solution for a given problem by minimizing or maximizing an objective function. They involve searching for optimal values within a given solution space, considering various constraints and parameters. For example, brute-force search (checks all possible solutions to a problem without using heuristics) and greedy search (locally optimal choices at each step to find the best solution) are examples of optimization algorithms in this category.
+"""
+    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. Make sure to define and set values for all arguments of function 'f' (excluding the first argument, which will be provided by function 'g'). Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Failing to set and provide values for all arguments may result in an incorrect solution. Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."
+
+    prompt_skills = f"""In addition each of those puzzles are associated with a list skills. Here is a details description of those skills: {skills}Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}) that require those skills: {idx_skill_targeted}.
+{instruction_p3_puzzle}. Please, ensure the mutated puzzles fall into all those skills: {idx_skill_targeted}."""
+
+    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate new puzzles according to the instruction given.
+{prompt_skills}
+----
+{all_puzzle_str}
+Your task is to create {new_puzzles} new puzzles, spanning from Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}, each of which must necessitates the utilization of the following skills (required skills {idx_skill_targeted}):
+{skill_list_str}
+'''
+    return prompt
+
 
 def prompt_solve_puzzle_given_f(problem_str: str): 
     """
