@@ -1,5 +1,6 @@
 import json
 import re
+import time
 import warnings
 from typing import Optional, Union
 import copy
@@ -12,7 +13,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.spatial.distance import cdist
 from transformers import pipeline
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer # maybe this is the pb (bitsandbytes launch message when doing multiprocess)?
 import torch
 from langchain.schema import HumanMessage
 from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
@@ -29,7 +30,8 @@ from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import preprocessing_P3,return_f,extract_args_f,return_g,merge_Q_and_A,scrap_f_g
-
+from joblib import Parallel, delayed
+from tqdm import tqdm
 class P3Solution(Genotype):
     def __init__(self, program_str: str, result_obj: dict, config: P3ProblemEnvConfig):
         """
@@ -306,7 +308,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
 
 
 class P3ProbSolResult(Genotype):
-    def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None, idx_generation: int=-1,target_skills=None):
+    def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None, idx_generation: int=-1,target_skills=None,fitness=None):
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -314,7 +316,7 @@ class P3ProbSolResult(Genotype):
             result_obj: the result of the solution.
             config: environment config
         """
-
+        self.fitness=None
         self.program_str = program_str
         self.result_obj = result_obj
         self.config = config
@@ -867,6 +869,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         load embedding from json files 
         debug give random embedding to the puzzles for debugging purpose
         """
+        print("start loading p3 trainset into map")
         trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding,debug=debug)
         
         for puz in trainset:
@@ -995,9 +998,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model and evaluate them."""
         local_scope_exec = False
+        start_t0 = time.time()
         _generated_programs = self.mutation_model.generate_programs(
             code_batch, local_scope_exec,do_trunc=False
         )
+        start_t1 = time.time()
         
         list_pb=[]
         # parse the generated code 
@@ -1011,6 +1016,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             if not "assert f(" in list_pb[idx_assert]:
                 list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
         generated_programs = list_pb
+        
+        print(f"time to generate {len(generated_programs)} program = {start_t1-start_t0} sec")
         
         list_lib = ["math", "random", "itertools"]
         
@@ -1042,6 +1049,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # For now, try/except and re-try.
             try:
                 # IDK for now if it's usefull to remove assert to have an output even if puzzle is not correct
+                # start_t2 = time.time()
                 results = pool_exec_processes(
                     generated_programs,
                     func_name="g",
@@ -1049,13 +1057,45 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     processes=self.config.processes,
                     debug=self.config.debug,
                 )
-            except Exception:
-                return self.generate_programs(code_batch)
-
-        results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog), "idx_generation": self.idx_generation, "target_skills":target_skills}
+                # start_t3 = time.time()
+                # print(f"time compute return g {len(generated_programs)} program = {start_t3-start_t2} sec")
+            except Exception as e:
+                print(f"An exception occurred: {str(e)}")
+                print("========================Warning======================")
+                return self.generate_programs(code_batch,skill_targeted_list)
+        
+        # trick: just label correct problem to save computation time or $$ (chatGPT):
+        pre_results = [
+            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
             for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list)
         ]
+        probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
+        start_t4 = time.time()
+        list_fitness = [self.fitness(puzz) for puzz in probsol_2_test]
+        start_t5 = time.time()
+        print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit > 0.0]
+        print(f"number of correct puzzle {len(idx_correct_puzzle)}")
+        list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
+        start_t6 = time.time()
+        list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in tqdm(list_correct_puzzle))
+        start_t7 = time.time()
+        print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
+        list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
+
+        # add phenotype of correct puzzle to the list of phenotype
+        for idx in range(len(list_phenotype_correct_puzzle)):
+            list_phenotype[idx_correct_puzzle[idx]] = list_phenotype_correct_puzzle[idx]
+            
+        generated_programs = [gen_prog for gen_prog in generated_programs]
+        results = [
+            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
+            for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list,list_phenotype,list_fitness)
+        ]
+        # results = [
+        #     {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog), "idx_generation": self.idx_generation, "target_skills":target_skills}
+        #     for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list,)
+        # ]
         return [P3ProbSolResult(**p) for p in results]
     
     
@@ -1096,7 +1136,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 list_new_puzzles.append(probsol_2_add)
         return list_new_puzzles       
 
-    def fitness(self, probsol: P3ProbSolResult, use_pass_k = True) -> float:
+    def fitness(self, probsol: P3ProbSolResult, use_pass_k = False) -> float:
         """
         Fitness is the inverse of pass@k of the problem func.
         We want a pass@k of >0 so that the problem is reasonably solvable.
@@ -1107,6 +1147,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         #     return -np.inf
 
         # TODO pass@k eval
+        if not probsol.fitness == None:
+            return probsol.fitness
 
         if "g(" in probsol.program_str.split("assert f")[1]:
             extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
@@ -1138,7 +1180,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # return -np.inf
         
         # if just one try more like
-        if self.config.eval_k<=1 and use_pass_k:
+        if self.config.eval_k<=1 :
             if result[1] == True:
                 # if f(g())== True
                 prog = probsol.program_str.split("\nassert f")

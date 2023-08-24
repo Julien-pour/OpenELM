@@ -1,6 +1,4 @@
 from typing import Optional, Union, List
-from openelm.utils.code_eval import get_inputs
-from openelm.environments.base import  Genotype
 
 skill_list = ['Sorting and Searching', 'Counting and combinatorics', 'Tree and Graph problem', 'Mathematical Foundations', 'Bit Manipulation', 'String Manipulation', 'Geometry and Grid Problems', 'Recursion and Dynamic Programming', 'Stacks and Queues', 'Optimization Algorithms']
 
@@ -354,7 +352,7 @@ def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], co
         prompt += f"Could you please mutate the Puzzle {len(list_few_shot_example)} into {new_puzzles} new interesting correct Python Programming Puzzles? Please, ensure the mutated puzzles are meaningfully different from the existing puzzles."
     return prompt
 
-def P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example :[List[Genotype]], skill_targeted: List[bool],new_puzzles = 3) -> str: 
+def P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example, skill_targeted: List[bool],new_puzzles = 3) -> str: 
     """
     prompt for guided goal mutation
     new_puzzles: how many puzzles to generate should pass it as parameters

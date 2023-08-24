@@ -287,7 +287,9 @@ class MAPElitesBase:
         self.nonzero: Map = Map(dims=self.map_dims, fill_value=False, dtype=bool)
 
         log_path = Path(log_snapshot_dir)
+        
         if log_snapshot_dir and os.path.isdir(log_path):
+            print("loading path")
             stem_dir = log_path.stem
 
             assert (
@@ -404,8 +406,9 @@ class MAPElitesBase:
         """
         
         # bad coding but huge time gain at initialization should remove it to be compatible with openELM
-        if self.env.config.env_name == "p3_probsol_Chat":
+        if self.env.config.env_name == "p3_probsol_Chat" and not self.config.loading_snapshot_map:
             # add trainset to the MAP
+            print("loading P3 trainset to map")
             if self.env.config.use_preprocessed_trainset :
                 for individual in self.env.archive_P3puzzle:
                     # self.update_map(individual, 0., 0.)
@@ -413,7 +416,7 @@ class MAPElitesBase:
                     self.fitnesses.__setitem__(map_ix, 1.0)
                     self.genomes.__setitem__(map_ix, individual)
                     self.nonzero[map_ix] = True
-                print("number of niched filled from the training set ",self.niches_filled())
+        print("number of niched filled from the training set ",self.niches_filled())
         start_step = int(self.start_step)
         total_steps = int(total_steps)
         tbar = trange(start_step, total_steps, initial=start_step, total=total_steps)
@@ -494,8 +497,13 @@ class MAPElitesBase:
         # into the behavior space one-by-one.
         for individual in new_individuals:
             fitness = self.env.fitness(individual)
-            phenotype = individual.to_phenotype()
-            map_ix = self.to_mapindex(phenotype)
+            if fitness != -np.inf:
+                phenotype = individual.to_phenotype()
+                map_ix = self.to_mapindex(phenotype)
+            else:
+                map_ix=None
+                phenotype=None
+                individual.emb = None
             
             if self.save_all_individual: # save all individuals
                 state_individual = individual.__getstate__().copy()
@@ -509,7 +517,10 @@ class MAPElitesBase:
                     del state_individual["baseline_emb"]
                 if "emb" in state_individual and isinstance(state_individual["emb"], np.ndarray):
                     state_individual["emb"] = state_individual["emb"].tolist()
-                state_individual["map_ix"] = list((int(i) for i in map_ix)) # not sure about that for multi dim map
+                if map_ix!=None:
+                    state_individual["map_ix"] = list((int(i) for i in map_ix)) # not sure about that for multi dim map
+                else:
+                    state_individual["map_ix"] = None
                 state_individual["fitness"] = fitness
 
                 self.list_of_all_individuals.append(state_individual)
