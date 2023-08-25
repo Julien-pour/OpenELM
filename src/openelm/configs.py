@@ -19,11 +19,11 @@ class ModelConfig(BaseConfig):
     top_p: float = 1.
     temp: float = 0.7
     gen_max_len: int = -1 # -1 for no limit
-    batch_size: int = 3
+    batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "gpt-3.5-turbo-0613"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 8
+    processes: int = 12
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
@@ -46,11 +46,12 @@ class DiffModelConfig(ModelConfig):
 class QDConfig(BaseConfig):
     model_path: str = "gpt-3.5-turbo-0613" # just for register the model
     init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 10 #2500 
+    total_steps: int = 300#256 #2500 
     history_length: int = 128
     save_history: bool = False
     save_snapshot_interval: int = 5
-    log_snapshot_dir: str = ""
+    loading_snapshot_map: bool = True # load map located at log_snapshot_dir
+    log_snapshot_dir: str = "/media/data/flowers/OpenELM/logs/elm/23-08-25_15:07/step_45"#"/media/data/flowers/OpenELM/logs/elm/23-08-24_18:26/step_25" 
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -77,10 +78,10 @@ class EnvConfig(BaseConfig):
     timeout: float = 5.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
-    processes: int = 1
-    batch_size: int = 5 # 10  # Batch size of MAP-Elites
+    processes: int = 11
+    batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
-    debug: bool = True
+    debug: bool = False
     seed: Optional[int] = 42
 
 
@@ -153,7 +154,7 @@ class P3ProbSolChatEnvConfig(EnvConfig):
     embedding_model_path: str = "ChatGPT" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
-    IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
+    IMGEP_mode: str = "random" # guided exploration mode, option: "random" "smart" "none"
     
     
 @dataclass

@@ -1060,9 +1060,39 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 # start_t3 = time.time()
                 # print(f"time compute return g {len(generated_programs)} program = {start_t3-start_t2} sec")
             except Exception as e:
-                print(f"An exception occurred: {str(e)}")
-                print("========================Warning======================")
-                return self.generate_programs(code_batch,skill_targeted_list)
+                results=[]
+                for idx_code in range(len(generated_programs)):
+                    try:
+                        result = pool_exec_processes(
+                                generated_programs[idx_code],
+                                func_name="g",
+                                timeout=self.config.timeout,
+                                processes=self.config.processes,
+                                debug=self.config.debug,
+                            )
+                        results.append(result)
+                    except Exception as ebis:
+                        results.append("Error") #pb when g output a class aaaa:... def g(): return aaaa()
+                        
+                
+                # print(f"An exception occurred when generating puzzles: {str(e)}")
+                # print("========================Warning======================")
+                # for idx_code in range(len(generated_programs)):
+                #     try:
+                #         results = pool_exec_processes(
+                #                 generated_programs[idx_code],
+                #                 func_name="g",
+                #                 timeout=self.config.timeout,
+                #                 processes=self.config.processes,
+                #                 debug=self.config.debug,
+                #             )
+                #     except Exception as ebis:
+                #         print(f"An exception occurred when generating puzzles : {str(ebis)}")
+                #         print("\n=======\npuzzle :"+str(generated_programs[idx_code]))
+                #     # print("\n=======\npuzzle :"+str(generated_programs[idx_code]))
+                    
+                # print("retrying to generate puzzles")
+                # return self.generate_programs(code_batch,skill_targeted_list)
         
         # trick: just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [

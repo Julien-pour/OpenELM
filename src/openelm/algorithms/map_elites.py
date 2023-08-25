@@ -542,13 +542,21 @@ class MAPElitesBase:
             self.nonzero[map_ix] = True
 
             # If new fitness greater than old fitness in niche, replace.
-            if fitness >= self.fitnesses[map_ix]:
-                # self.fitnesses[map_ix] = fitness
-                # self.genomes[map_ix] = individual
-                self.fitnesses.__setitem__(map_ix, fitness)
-                self.genomes.__setitem__(map_ix, individual)
+            try:
+                if fitness >= self.fitnesses[map_ix]:
+                    # self.fitnesses[map_ix] = fitness
+                    # self.genomes[map_ix] = individual
+                    self.fitnesses.__setitem__(map_ix, fitness)
+                    self.genomes.__setitem__(map_ix, individual)
+            except Exception as e:
                 
-
+                print(f"An exception occurred: {str(e)}")
+                print("fitness",fitness)
+                print("fitness_map",self.fitnesses[map_ix])
+                print(np.array(map_ix).shape)
+                print("========================Warning======================")    
+                # TODO: pb to fix
+                raise ValueError("Error in update map"+str(e))
             # update if new fitness is the highest so far.
             if fitness >= max_fitness: # doesn't work if history >1 can't save multiple individuals in a cell
                 max_fitness = fitness
