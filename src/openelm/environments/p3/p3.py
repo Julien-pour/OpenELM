@@ -1198,14 +1198,29 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         )
         eval_codes =[eval_code_1, eval_code_2]
         # Run code to see if g6_2 solves f6_2
-        result = pool_exec_processes(
-            eval_codes,
-            func_name="run_eval",
-            timeout=self.config.timeout,
-            processes=self.config.processes,
-            debug=self.config.debug,
-        )
-
+        try:
+            result = pool_exec_processes(
+                eval_codes,
+                func_name="run_eval",
+                timeout=self.config.timeout,
+                processes=self.config.processes,
+                debug=self.config.debug,
+            )
+        except:
+            result = [False,False]
+            for idx_eval_code in range(len(eval_codes)):
+                try: 
+                    result_i = pool_exec_processes(
+                        [eval_codes[idx_eval_code]],
+                        func_name="run_eval",
+                        timeout=self.config.timeout,
+                        processes=self.config.processes,
+                        debug=self.config.debug,
+                    )
+                    result[idx_eval_code] = result_i[0]
+                except:
+                    pass
+                    
         # if result[0] is True: what  result[0]== True is the problem is solved
             # return -np.inf
         
