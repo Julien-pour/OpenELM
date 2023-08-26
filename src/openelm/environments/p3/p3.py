@@ -316,7 +316,7 @@ class P3ProbSolResult(Genotype):
             result_obj: the result of the solution.
             config: environment config
         """
-        self.fitness=None
+        self.fitness=fitness
         self.program_str = program_str
         self.result_obj = result_obj
         self.config = config
@@ -869,10 +869,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         load embedding from json files 
         debug give random embedding to the puzzles for debugging purpose
         """
+        load_embedding = self.config.use_preprocessed_trainset_emb
         print("start loading p3 trainset into map")
         trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding,debug=debug)
         
-        for puz in trainset:
+        for puz in tqdm(trainset):
             del puz["f"], puz["g"],puz["attempts"]
             puz["config"] = self.config
             if not load_embedding and not debug:
@@ -1108,7 +1109,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
         start_t6 = time.time()
-        list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in tqdm(list_correct_puzzle))
+        list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
         list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct

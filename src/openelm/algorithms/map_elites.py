@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
+
 import numpy as np
 from sklearn.cluster import KMeans
 from tqdm import trange
@@ -551,9 +552,11 @@ class MAPElitesBase:
             except Exception as e:
                 
                 print(f"An exception occurred: {str(e)}")
-                print("fitness",fitness)
-                print("fitness_map",self.fitnesses[map_ix])
-                print(np.array(map_ix).shape)
+                # print("fitness_map",np.array(self.fitnesses[map_ix]))
+                print("map_ix",map_ix)
+                print("fitness_map_shape",np.array(self.fitnesses[map_ix]).shape) #fitness_map_shape (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+                print("fitness",fitness) #fitness 1.0
+                print(np.array(map_ix).shape) #(1,)
                 print("========================Warning======================")    
                 # TODO: pb to fix
                 raise ValueError("Error in update map"+str(e))
@@ -633,7 +636,11 @@ class MAPElitesBase:
         if self.env.config.env_name == "p3_probsol_Chat":
             tmp_config["GPT_feedback"] = self.env.config.GPT_feedback
             tmp_config["IMGEP_mode"] = self.env.config.IMGEP_mode
-            
+        if self.config.qd_name == "cvtmapelites":
+            with open((output_folder / "centroids.npy"), "wb") as f:
+                np.save(f, self.centroids)
+
+                pickle.dump(self.centroids, f)
         with open((output_folder / "config.json"), "w") as f:
             json.dump(tmp_config, f,indent=4)
             
@@ -642,7 +649,8 @@ class MAPElitesBase:
                 with open((output_folder / "save_all.json"), "w") as f:
                     json.dump(self.list_of_all_individuals, f)
             except Exception:
-                pass                
+                pass          
+                  
     def plot_fitness(self):
         import matplotlib.pyplot as plt
 
@@ -798,28 +806,35 @@ class CVTMAPElites(MAPElitesBase):
     def _init_discretization(self,scale=0.12):
         """Discretize behaviour space using CVT."""
         # lower and upper bounds for each dimension
-        low = self.env.behavior_space[0]
-        high = self.env.behavior_space[1]
-        state = self.env.__dict__.copy()
-        if "archive_P3puzzle" in state:
-            list_emb=np.array([p.emb for p in state["archive_P3puzzle"]])
-            n_vect2add= self.cvt_samples #- len(list_emb)
-            liste_choice=self.rng.choice(len(list_emb), n_vect2add,replace= True)
-            embed2nois = list_emb[liste_choice]
-            
-            noise = self.rng.normal(loc=0.0, scale=scale,size=(embed2nois.shape[0],embed2nois.shape[1]))
-            noisy_embed = embed2nois + noise  # add noise to embeddings
-            noisy_embed = noisy_embed / np.linalg.norm(noisy_embed, axis=1)[:, np.newaxis] # normalize embeddings
-            points = noisy_embed
-            # points = np.vstack((list_emb,noisy_embed))
-        else:
-            points = np.zeros((self.cvt_samples, self.env.behavior_ndim))
-            for i in range(self.env.behavior_ndim):
-                points[:, i] = self.rng.normal(low[i], high[i], size=self.cvt_samples)
+        if self.config.load_centroids:
+        # load centroids in self.centroids from pickle files
+            log_path = Path(self.config.log_snapshot_dir)
+                
+            with open((log_path / "centroids.npy"), "rb") as f:
+                self.centroids = np.load(f)
+        else:            
+            low = self.env.behavior_space[0]
+            high = self.env.behavior_space[1]
+            state = self.env.__dict__.copy()
+            if "archive_P3puzzle" in state:
+                list_emb=np.array([p.emb for p in state["archive_P3puzzle"]])
+                n_vect2add= self.cvt_samples #- len(list_emb)
+                liste_choice=self.rng.choice(len(list_emb), n_vect2add,replace= True)
+                embed2nois = list_emb[liste_choice]
+                
+                noise = self.rng.normal(loc=0.0, scale=scale,size=(embed2nois.shape[0],embed2nois.shape[1]))
+                noisy_embed = embed2nois + noise  # add noise to embeddings
+                noisy_embed = noisy_embed / np.linalg.norm(noisy_embed, axis=1)[:, np.newaxis] # normalize embeddings
+                points = noisy_embed
+                # points = np.vstack((list_emb,noisy_embed))
+            else:
+                points = np.zeros((self.cvt_samples, self.env.behavior_ndim))
+                for i in range(self.env.behavior_ndim):
+                    points[:, i] = self.rng.normal(low[i], high[i], size=self.cvt_samples)
 
-        k_means = KMeans(init="k-means++", n_init="auto", n_clusters=self.n_niches,random_state=self.config.seed)
-        k_means.fit(points)
-        self.centroids = k_means.cluster_centers_
+            k_means = KMeans(init="k-means++", n_init="auto", n_clusters=self.n_niches,random_state=self.config.seed)
+            k_means.fit(points)
+            self.centroids = k_means.cluster_centers_
 
         self.plot_centroids(points, k_means)
 
