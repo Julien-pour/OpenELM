@@ -23,15 +23,16 @@ class ModelConfig(BaseConfig):
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "gpt-3.5-turbo-0613"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 12
+    processes: int = 15
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
-
+    request_timeout: int = 40 # timeout for API call
 
 @dataclass
 class PromptModelConfig(ModelConfig):
+    request_timeout: int = 40 # timeout for API call
     model_name: str = "prompt"
     model_path: str = "gpt-3.5-turbo-0613"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
@@ -44,14 +45,17 @@ class DiffModelConfig(ModelConfig):
 
 @dataclass
 class QDConfig(BaseConfig):
+    """
+
+    """
     model_path: str = "gpt-3.5-turbo-0613" # just for register the model
     init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 300#256 #2500 
+    total_steps: int = 400#256 #2500 
     history_length: int = 128
     save_history: bool = False
-    save_snapshot_interval: int = 5
-    loading_snapshot_map: bool = True # load map located at log_snapshot_dir
-    log_snapshot_dir: str = "/media/data/flowers/OpenELM/logs/elm/23-08-25_15:07/step_45"#"/media/data/flowers/OpenELM/logs/elm/23-08-24_18:26/step_25" 
+    save_snapshot_interval: int = 1#5
+    loading_snapshot_map: bool = False # load map located at log_snapshot_dir
+    log_snapshot_dir: str = ""#"/media/data/flowers/OpenELM/logs/elm/23-08-24_18:26/step_25" 
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -71,6 +75,7 @@ class CVTMAPElitesConfig(QDConfig):
     qd_name: str = "cvtmapelites"
     n_niches: int = 1024
     cvt_samples: int = 42000
+    load_centroids: bool = False # load centroids from log_snapshot_dir
 
 
 @dataclass
@@ -78,7 +83,7 @@ class EnvConfig(BaseConfig):
     timeout: float = 5.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
-    processes: int = 11
+    processes: int = 15
     batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
@@ -142,19 +147,40 @@ class P3ProbSolEnvConfig(EnvConfig):
 
 @dataclass
 class P3ProbSolChatEnvConfig(EnvConfig):
+    """
+    IMGEP random:
+    embedding_model_type: str = "openai"
+    embedding_model_path: str = "ChatGPT"
+    IMGEP_mode: str = "random"
+    GPT_feedback: bool = True
+    
+    IMGEP smart: IMGEP random + IMGEP_mode: str = "smart" 
+    
+    ELM-NLP: IMGEP random + IMGEP_mode: str = "none" 
+    
+    rd-gen: same as ELM-NLP
+    
+    ELM:
+    embedding_model_type: str = "hf"
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"
+    GPT_feedback: bool = False
+    use_preprocessed_trainset_emb = False
+    
+    """
     env_name: str = "p3_probsol_Chat"
     prompt_size: str = "med"  # med or long
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
+    use_preprocessed_trainset_emb: bool = False
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
     eval_k: int = -1 #100  # k for pass@k for fitness
-    embedding_model_type: str = "openai" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
-    embedding_model_path: str = "ChatGPT" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    embedding_model_type: str = "hf"#"openai" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"#"ChatGPT" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation, not used ? (if not used should be removed from the config) 
-    GPT_feedback: bool = True # use GPT for feedback (MapElites)  
-    IMGEP_mode: str = "random" # guided exploration mode, option: "random" "smart" "none"
+    GPT_feedback: bool = False # use GPT for feedback (MapElites)  
+    IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     
     
 @dataclass
@@ -184,9 +210,21 @@ class PromptEnvConfig(EnvConfig):
 # ]
 
 # baseline 2 and 3 (openELM in NLP space, and GPT feedback)
+
+"""
+IMGEP random: "qd": "mapelites"
+
+IMGEP smart: "qd": "mapelites" 
+
+ELM-NLP: "qd": "mapelites"
+rd-gen: "qd": "mapelites"
+
+ELM: "qd": "cvtmapelites"
+
+"""
 defaults_elm = [
     {"model": "prompt"},
-    {"qd": "mapelites"}, #"mapelites"},
+    {"qd": "cvtmapelites"}, #"mapelites"},
     {"env": "p3_probsol_Chat"}, #sodarace"},p3_probsol_Chat
     "_self_",
 ]
