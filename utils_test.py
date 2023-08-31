@@ -1,14 +1,43 @@
 import numpy as np
+from pebble import ProcessPool
+
 def test_puzzle(test_fg):
     test_fg= "from typing import *\n"+test_fg
     try:
         exec(test_fg)
-        return True
+        return True,test_fg
     except Exception as e:
         # print(str(e))
         # print("program not working: "+test_fg)
-        return False
-    
+        return False,test_fg
+
+def judge_parallel(src_codes, timeout=10., max_workers=10):
+
+    max_workers = min(len(src_codes), max_workers)
+
+    codes = src_codes
+    successes = set()
+    with ProcessPool(max_workers=max_workers) as pool:
+        future = pool.map(test_puzzle, [code for code in codes], timeout=timeout)
+
+        results = future.result()
+        i = 0
+        while True:
+            try:
+                success, code = next(results)
+                if success:
+                    successes.add(codes[i])
+            except StopIteration:
+                break
+            except (TimeoutError, Exception) as error:
+                pass
+            assert i < len(codes)
+            i += 1
+        assert i == len(codes)
+    # utils.silence_std_err(False)
+    return [code in successes for code in src_codes]
+
+
 prompt_solve_puzzle='''You will be given a function and its docstring. Respond only in code with a correct, efficient implementation of the function.
 You need to generate the correct solutions (g), for the Problem 3 that satisfies the condition f(g()) == True.
 Problem 0:
@@ -76,6 +105,7 @@ Problem 3:
 ```
 Solution 3:
 ```
+{g_firstline}
 '''
 
 

@@ -9,7 +9,7 @@ import torch
 import json
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig,TrainingArguments
-from utils_test import pass_at_k,prompt_solve_puzzle,test_puzzle
+from utils_test import pass_at_k,prompt_solve_puzzle,test_puzzle,judge_parallel
 # from peft import prepare_model_for_kbit_training
 # from peft import LoraConfig, get_peft_model
 # from trl import SFTTrainer
@@ -41,15 +41,18 @@ model=torch.compile(model)
 
 torch._dynamo.config.suppress_errors = True
 
-path_trainset="/projets/flowers/julien/OpenELM/src/openelm/utils/preprocess_p3_emb.json"
-with open(path_trainset, 'r') as f:
-    trainset = json.load(f)
+from openelm.utils.code_eval import preprocessing_P3_no_test
+testset= preprocessing_P3_no_test(split="test",n_token_max=128)
+# path_trainset="/projets/flowers/julien/OpenELM/src/openelm/utils/preprocess_p3_emb.json"
+
+# with open(path_trainset, 'r') as f:
+#     trainset = json.load(f)
     
-list_trainset= [x["program_str"] for x in trainset]
+list_trainset= [[x["program_str"],x["g_firstline"]] for x in testset]
 list_puzzle_correct=[]
 correct_puzz=0
 curr_idx=0
-num_return_sequences=10 #n_try
+num_return_sequences=5 #n_try
 list_passk=[]
 list_puzzle=[]
 with torch.no_grad():
@@ -64,9 +67,9 @@ with torch.no_grad():
         while flag and attempt<5:
             attempt+=1
             try:
-                puzzle= list_trainset[idx]
+                puzzle,g_firstline= list_trainset[idx]
                 prompt_f = puzzle.split("def g(")[0]
-                prompt = prompt_solve_puzzle.format(pb=prompt_f)
+                prompt = prompt_solve_puzzle.format(pb=prompt_f,g_firstline=g_firstline)
                 inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
                 outputs = model.generate(input_ids=inputs["input_ids"].to("cuda"), attention_mask=inputs["attention_mask"], max_new_tokens=256,do_sample=True, temperature=0.8,num_return_sequences=num_return_sequences)
                 len_prompt=inputs["input_ids"][0].shape[0]
@@ -79,6 +82,7 @@ with torch.no_grad():
                 pass_k=0.
                 continue
             cor_puz=0
+            list_code_to_test=[]
             for i in range(len(outputs)):
                 
                 # out ="def g("
@@ -88,23 +92,22 @@ with torch.no_grad():
                 extract_g=out.split("```")[0].split("assert")[0]
                 extract_g = extract_g+"\nassert f(g()) == True\n"
                 test_fg= prompt_f+extract_g 
+                list_code_to_test.append(test_fg)
                 list_puzzle.append(test_fg)
                 if i<1:
                     print("\n-------------------\n")
                     print(test_fg)
-                if test_puzzle(test_fg):
-                    if cor_puz==0:
-                        print("\n-------------------\n")
-                        print(test_fg)
-                    cor_puz+=1
+                    
+            
+            list_valid_puzzles = judge_parallel(list_code_to_test)                    
 
-                    list_puzzle_idx.append(test_fg)
-                n_sample, n_correct=10,cor_puz
-                pass_k = pass_at_k(n_sample, n_correct, k=10)
+            cor_puz= np.sum(list_valid_puzzles)
 
+            n_sample, n_correct=10,cor_puz
+            pass_k = pass_at_k(n_sample, n_correct, k=10)
 
 
-        list_puzzle_correct.append(list_puzzle_idx)   
+
 
         if cor_puz>=1:
             print("\n=================\n")

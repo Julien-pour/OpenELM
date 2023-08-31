@@ -309,6 +309,10 @@ def add_return_bool_2_f(f):
     return ast.unparse(tree)
 
 
+def return_header_g(f):
+    args_f = extract_args_f(f)
+    return "def g("+args_f+"):"
+    
 def return_g(puzzle_json,f):
     if puzzle_json["sol_bodies"] == []:
         print("no solution in json")
@@ -398,5 +402,60 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512, load_embedding
         if debug:
             for puzz in (puzzles_set):
                 puzz["emb"] = np.random.randint(0, 2, 10)
+        return puzzles_set
+    
+def preprocessing_P3_no_test(split: str = "train", n_token_max: int =512, load_embedding = False,debug=False) -> list[dict]:
+    """
+    dl puzzles from P3 dataset and give train or test puzzles
+    split = "train" or "test"
+    """
+    import sys 
+    sys.set_int_max_str_digits(10_000)
+    puzzles = requests.get(
+        "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/v0.2/puzzles/puzzles.json"
+    ).json()
+    data_split = requests.get(
+        "https://raw.githubusercontent.com/microsoft/PythonProgrammingPuzzles/main/puzzles/split.json"
+    ).json()
+    enc = tiktoken.encoding_for_model("gpt-4")
+    puzzles_set=[]
+    generated_programs=[]
+    for i in puzzles:
+        if i["name"][:-2] in data_split[split] and i["sol_bodies"]!=[]:
+            puzzle_2_add={}
+            puzzle_2_add["f"] = add_return_bool_2_f(return_f(i))
+            puzzle_2_add["g"] = return_g(i,puzzle_2_add["f"])
+            puzzle_2_add['attempts'] = 1 # 
+            puzzle_2_add["program_str"] = merge_Q_and_A([(puzzle_2_add["f"],puzzle_2_add["g"])])[0]
+            puzzle_2_add["g_firstline"]= return_header_g(puzzle_2_add["f"])
+            generated_programs.append(puzzle_2_add["program_str"])
+            
+            
+            puzzles_set.append(puzzle_2_add)
+    
+    else:
+        List_len_embedding = []
+        for puzz in puzzles_set:
+            List_len_embedding.append(len(enc.encode(puzz["program_str"])))
+        index=np.array(List_len_embedding)<=n_token_max
+        #remove item where index is False
+        puzzles_set = [item for i, item in enumerate(puzzles_set) if index[i]]
+        # if load_embedding:            
+        #     import os
+        #     script_dir = os.path.dirname(__file__) 
+        #     path_embed = script_dir+"/preprocess_p3_emb.json"
+        #     with open(path_embed, "r") as f:
+        #         list_emb = json.load(f)
+        #         list_program = [puzz["program_str"] for puzz in list_emb]
+        #         # list_keys=list(list_emb.keys())
+        #     for puzz in (puzzles_set):
+        #         code = puzz["program_str"]
+        #         if code in list_program:
+        #             idx = list_program.index(code)
+        #             emb = list_emb[idx]["emb"]
+        #             puzz["emb"] = emb
+        # if debug:
+        #     for puzz in (puzzles_set):
+        #         puzz["emb"] = np.random.randint(0, 2, 10)
         return puzzles_set
     
