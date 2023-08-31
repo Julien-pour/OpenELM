@@ -13,7 +13,13 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
 
+import os
+os.environ['TRANSFORMERS_CACHE'] = "models"
+
 from openelm import ELM
+os.environ["TOKENIZERS_PARALLELISM"] = "True"
+                        
+os.environ["HYDRA_FULL_ERROR"] = "1"
 
 
 @hydra.main(
@@ -36,3 +42,4 @@ def main(config):
 
 if __name__ == "__main__":
     main()
+    

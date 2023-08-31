@@ -90,6 +90,7 @@ def eval_completions(
         raise ValueError(f"Unknown task: {task}")
 
 
+
 def mutate_code(
     n_bugs: int = 5, task: str = "parity", mutate_method="prompt"
 ) -> tuple[str, str]:
@@ -166,6 +167,66 @@ def pass_at_k(n, c, k):
         return 1.0
     return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
 
+
+def get_inputs(sat: str):
+    """Extacts arguments past the first from a function string
+    def f(a: Dict[int, str], b=12):
+       test
+
+    should give 'b=12'
+    """
+    sat = sat.replace(" -> bool", "")
+    first_line = sat.split("\n")[0].strip()
+    if not(first_line.startswith("def")): #good idea to handle problem if parsing fails
+        sat = move_import_inside_function(sat)
+        first_line = sat.split("\n")[0].strip()
+
+    if not first_line.endswith("):") and "#" in first_line:
+        if "):" in first_line:
+            n = first_line.index("):")
+            if "#"  in first_line[n:]:
+                first_line = first_line[:n + first_line[n:].index("#")].strip()
+        else:
+            first_line = "" # raises exception below
+    if not (first_line.endswith("):") and first_line.startswith("def")):
+        print("====================== /!\  Warning  /!\=====================")
+        print("Weird puzzle, cannot extract inputs", json.dumps(sat))
+        print("====================== /!\  Warning  /!\=====================")
+        # raise WeirdInputsException("Weird puzzle, cannot extract inputs", json.dumps(sat))        
+    arg_str = first_line[first_line.index("("):-len("):")]
+    depth = 0
+    for i, c in enumerate(arg_str):
+        if c == "," and depth == 0:
+            return arg_str[i + 1:].strip()
+        elif c == "[":
+            depth += 1
+        elif c == "]":
+            depth -= 1
+    return ""
+
+def move_import_inside_function(code):
+    """
+    move all import and import from to the inside of a function (to avoid problem when parsing args)
+    """
+    # Parse the code into an AST
+    tree = ast.parse(code)
+
+    # Find all top-level import statements
+    imports = [node for node in tree.body if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom)]
+
+    # Find the function definitions
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
+
+    # Remove top-level import statements
+    tree.body = [node for node in tree.body if (not isinstance(node, ast.Import)) and (not isinstance(node, ast.ImportFrom))]
+
+    # Move the import statements inside each function
+    for function in functions:
+        function.body = imports + function.body
+
+    # Generate the modified code
+    modified_code = ast.unparse(tree)
+    return modified_code
 
 def type_check(typ, obj):
     """
@@ -326,11 +387,13 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512, load_embedding
             path_embed = script_dir+"/preprocess_p3_emb.json"
             with open(path_embed, "r") as f:
                 list_emb = json.load(f)
-                list_keys=list(list_emb.keys())
+                list_program = [puzz["program_str"] for puzz in list_emb]
+                # list_keys=list(list_emb.keys())
             for puzz in (puzzles_set):
                 code = puzz["program_str"]
-                if code in list_keys:
-                    emb = list_emb[code]
+                if code in list_program:
+                    idx = list_program.index(code)
+                    emb = list_emb[idx]["emb"]
                     puzz["emb"] = emb
         if debug:
             for puzz in (puzzles_set):

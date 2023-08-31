@@ -23,7 +23,7 @@ class ModelConfig(BaseConfig):
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "gpt-3.5-turbo-0613"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 15
+    processes: int = 13
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
@@ -53,7 +53,7 @@ class QDConfig(BaseConfig):
     total_steps: int = 400#256 #2500 
     history_length: int = 128
     save_history: bool = False
-    save_snapshot_interval: int = 1#5
+    save_snapshot_interval: int = 5#5
     loading_snapshot_map: bool = False # load map located at log_snapshot_dir
     log_snapshot_dir: str = ""#"/media/data/flowers/OpenELM/logs/elm/23-08-24_18:26/step_25" 
     seed: Optional[int] = 42
@@ -178,9 +178,10 @@ class P3ProbSolChatEnvConfig(EnvConfig):
     eval_k: int = -1 #100  # k for pass@k for fitness
     embedding_model_type: str = "hf"#"openai" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
     embedding_model_path: str = "Salesforce/codet5p-110m-embedding"#"ChatGPT" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
-    model_name: str = "openai" # model used for mutation, not used ? (if not used should be removed from the config) 
+    model_name: str = "hf" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = False # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
+    N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
     
     
 @dataclass
