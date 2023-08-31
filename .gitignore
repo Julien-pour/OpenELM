@@ -140,3 +140,5 @@ outputs
 # generated dot files and tree graphs
 .gv
 .png
+
+models/
