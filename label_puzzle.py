@@ -5,9 +5,13 @@ from joblib import Parallel, delayed
 import pickle
 import numpy as np
 from tqdm import tqdm
-path = "/media/data/flowers/OpenELM/run_saved/elm/step_399_1/maps.pkl"
+path = "/media/data/flowers/OpenELM/run_saved/elm/23-09-13_23:04/step_499/maps.pkl"
+
+
 path_save = path.split("maps.pkl")[0]+"_phenotype.npy"
+
 n_jobs=5
+
 cfg: dict = {
     "max_tokens": 1024,
     "temperature": 0.7,
@@ -22,11 +26,45 @@ def gen_response(prompt):
     response=chatGPT.generate([[HumanMessage(content=prompt)]])
     return response.generations[0][0].text  
 
-def label_puzzle(program_str,n_attempts=0):
+
+    
+    
+def getallitems(maps):
+    """
+    Returns all the phenotypes that are in the Map."""
+    genomes = maps["genomes"]
+    valid_phenotype=[]
+    for gen in np.ndindex(genomes.shape):
+        value_gen = type(genomes[gen])
+        if value_gen!=float and value_gen!=int:
+            valid_phenotype.append(genomes[gen])
+    return valid_phenotype
+    
+
+# if need to relabel the last iteration of the elm run (here from step 399 to 499)
+# path_2 = "/media/data/flowers/OpenELM/run_saved/elm/step_399_1/maps.pkl"
+
+# with open(path_2, 'rb') as f:
+#     maps_2 = pickle.load(f)
+# path_load_2 = path_2.split("maps.pkl")[0]+"_phenotype.npy"
+# allitems_2 = getallitems(maps_2)
+# items_gen_2 = [item for item in allitems_2 if item.idx_generation!=-1]
+# labels_2=np.load(path_load_2)
+
+# list_prgrm_str=[puz.program_str for puz in items_gen_2]
+# path_load_npy = "/media/data/flowers/OpenELM/run_saved/elm/step_399_1/_phenotype.npy"
+# labels_2=np.load(path_load_npy)
+
+
+
+def label_puzzle(program_str,n_attempts=0):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
     """
     Label a puzzle with the skills it requires
     TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
     """
+    # if program_str in list_prgrm_str:
+    #     idx_prgm=list_prgrm_str.index(program_str)
+    #     return list(labels_2[idx_prgm])
     prompt,n_skills = skills_evaluation(program_str)
     if n_attempts > 5: # should not append but just in case
         # raise ValueError("too many attempts to label the puzzle")
@@ -55,23 +93,18 @@ def label_puzzle(program_str,n_attempts=0):
         
     else: 
         return label_puzzle(program_str,n_attempts=n_attempts+1)
-    
-def getallitems(maps):
-    """
-    Returns all the phenotypes that are in the Map."""
-    genomes = maps["genomes"]
-    valid_phenotype=[]
-    for gen in np.ndindex(genomes.shape):
-        value_gen = type(genomes[gen])
-        if value_gen!=float and value_gen!=int:
-            valid_phenotype.append(genomes[gen])
-    return valid_phenotype
+
 
 with open(path, 'rb') as f:
     maps = pickle.load(f)
 
+
+
 allitems = getallitems(maps)
 items_gen = [item for item in allitems if item.idx_generation!=-1]
+
+
+
 # list_phenotype_correct_puzzle=[]
 # for puzzl in tqdm(list_correct_puzzle[:10]):
 #     list_phenotype_correct_puzzle.append(label_puzzle(puzzl.program_str))

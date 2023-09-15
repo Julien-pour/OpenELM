@@ -420,6 +420,7 @@ class MAPElitesBase:
         print("number of niched filled from the training set ",self.niches_filled())
         start_step = int(self.start_step)
         total_steps = int(total_steps)
+        print(f"start step = {start_step}, total step ={total_steps}, init steps {init_steps}")
         tbar = trange(start_step, total_steps, initial=start_step, total=total_steps)
         if self.niches_filled() == 0:
             max_fitness = -np.inf
@@ -647,7 +648,7 @@ class MAPElitesBase:
         if self.save_all_individual:
             try :
                 with open((output_folder / "save_all.json"), "w") as f:
-                    json.dump(self.list_of_all_individuals, f)
+                    json.dump(self.list_of_all_individuals, f,indent=4)
             except Exception:
                 pass          
                   

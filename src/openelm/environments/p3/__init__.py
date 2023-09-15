@@ -330,7 +330,9 @@ def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], co
     if len(code_batch)>0:
         elm_mode = True
         mutate_pb = code_batch[0]
-        "Here is a new puzzle:"
+        N_python_problem= N_python_problem-1
+        list_few_shot_example=list_few_shot_example[:-1]
+        # "Here is a new puzzle:"
     # prompt_elm = "Please mutate this new puzzle into a related but different puzzle that requires similar"
     # for puzz in range(len(list_few_shot_example)):
         
@@ -341,27 +343,32 @@ def P3_probsol_chat_med_seed(list_few_shot_example :Optional[List[str]] = [], co
     for idx_puzz in range(len(list_few_shot_example)):
         all_puzzle_str += f"Puzzle {idx_puzz}:\n```\n{list_few_shot_example[idx_puzz]}\n```\n---\n"
         
-    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. Make sure to define and set values for all arguments of function 'f' (excluding the first argument, which will be provided by function 'g'). Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Failing to set and provide values for all arguments may result in an incorrect solution. Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."
-    prompt = f'''You will be given {N_python_problem+elm_mode} (Puzzle 0 to Puzzle {N_python_problem-1+elm_mode}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem+elm_mode} to Puzzle {N_python_problem+new_puzzles+elm_mode-1}). {instruction_p3_puzzle}
+    # additional_instruct = "If you give examples, make sure that these are with different arguments than the arguments of the function."
+
+    instruction_p3_puzzle= """Note that the first argument of f is the output g(). Make sure to define and set values for all arguments of the function 'f' (excluding the first argument, as it is the solution that needs to be found and given by g).
+Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Please provide all values (value1, value2, ... ) for all arguments. For example f(solution,arg1=1, arg2=2, ...) and g(arg1=1, arg2=2, ...). And you should not use f inside g.
+Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."""
+    prompt = f'''I will give you {N_python_problem+elm_mode} (Puzzle 0 to Puzzle {N_python_problem-1+elm_mode}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to write {new_puzzles} new puzzles (Puzzle {N_python_problem+elm_mode} to Puzzle {N_python_problem+new_puzzles+elm_mode-1}). {instruction_p3_puzzle}
 ----
 {all_puzzle_str}'''
     if elm_mode:
         prompt += "Here is the puzzle to mutate:\n"
         prompt += f"Puzzle {len(list_few_shot_example)}:\n"
         prompt += f"```\n{mutate_pb}\n```\n---\n"
-        prompt += f"Could you please mutate the Puzzle {len(list_few_shot_example)} into {new_puzzles} new interesting correct Python Programming Puzzles? Please, ensure the mutated puzzles are meaningfully different from the existing puzzles."
+        prompt += f"Could you please mutate the Puzzle {len(list_few_shot_example)} into {new_puzzles} new correct Python Programming Puzzles (from Puzzle {N_python_problem+elm_mode} to Puzzle {N_python_problem+new_puzzles+elm_mode-1})? Please, ensure the mutated puzzles are meaningfully different from the existing puzzles."
     return prompt
 
 def P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example, skill_targeted: List[bool],new_puzzles = 3) -> str: 
     """
     prompt for guided goal mutation
+    list_few_shot_example: list of Phenotype
     new_puzzles: how many puzzles to generate should pass it as parameters
     skill_targeted: list of boolean indicating if the skill is targeted or not  e.g [0,1,0,0,1,...]
     elm_mode
+    
     """
     idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
-    
-
+        
     N_python_problem = len(list_few_shot_example)
     print()
     skill_list_str=""
@@ -385,17 +392,20 @@ def P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example, skill_targeted
 7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming approaches to solve problems by breaking them down into smaller subproblems and building solutions incrementally.
 8 - Stacks and Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
 9 - Optimization Algorithms: These algorithms aim to find the best possible solution for a given problem by minimizing or maximizing an objective function. They involve searching for optimal values within a given solution space, considering various constraints and parameters. For example, brute-force search (checks all possible solutions to a problem without using heuristics) and greedy search (locally optimal choices at each step to find the best solution) are examples of optimization algorithms in this category.
+
 """
-    instruction_p3_puzzle= "Note that the first argument of f is the output g(), so you must not give the first argument of f to g. Make sure to define and set values for all arguments of function 'f' (excluding the first argument, which will be provided by function 'g'). Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Failing to set and provide values for all arguments may result in an incorrect solution. Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."
+    instruction_p3_puzzle= """Note that the first argument of f is the output g(). Make sure to define and set values for all arguments of the function 'f' (excluding the first argument, as it is the solution that needs to be found and given by g).
+Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Please provide all values (value1, value2, ... ) for all arguments. For example f(solution,arg1=1, arg2=2, ...) and g(arg1=1, arg2=2, ...). And you should not use f inside g.
+Additionally, make sure to import any necessary libraries to ensure your code runs smoothly."""
 
-    prompt_skills = f"""In addition each of those puzzles are associated with a list skills. Here is a details description of those skills: {skills}Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}) that require those skills: {idx_skill_targeted}.
-{instruction_p3_puzzle}. Please, ensure the mutated puzzles fall into all those skills: {idx_skill_targeted}."""
+    prompt_skills = f"""In addition each of those puzzles are associated with a list of skills. Here is a detailed description of those skills: {skills}Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}) that require those skills: {idx_skill_targeted}.
+{instruction_p3_puzzle} Please ensure the mutated puzzles fall into all those skills: {idx_skill_targeted}."""
 
-    prompt = f'''You will be given {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate new puzzles according to the instruction given.
+    prompt = f'''I will give you {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate new puzzles according to the instructions given.
 {prompt_skills}
 ----
 {all_puzzle_str}
-Your task is to create {new_puzzles} new puzzles, spanning from Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}, each of which must necessitates the utilization of the following skills (required skills {idx_skill_targeted}):
+Could you please write {new_puzzles} new interesting correct Python Programming Puzzles (from Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1})? Please, ensure the new puzzles must necessitates the utilization of the following skills (required skills {idx_skill_targeted}):
 {skill_list_str}
 '''
     return prompt

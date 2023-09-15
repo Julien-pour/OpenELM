@@ -28,11 +28,11 @@ class ModelConfig(BaseConfig):
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
-    request_timeout: int = 40 # timeout for API call
+    request_timeout: int = 65 # timeout for API call
 
 @dataclass
 class PromptModelConfig(ModelConfig):
-    request_timeout: int = 40 # timeout for API call
+    request_timeout: int = 65 # timeout for API call
     model_name: str = "prompt"
     model_path: str = "gpt-3.5-turbo-0613"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
@@ -50,12 +50,12 @@ class QDConfig(BaseConfig):
     """
     model_path: str = "gpt-3.5-turbo-0613" # just for register the model
     init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 400#256 #2500 
-    history_length: int = 128
+    total_steps: int = 500#256 #2500 
+    history_length: int = 4096 #128 #2048   
     save_history: bool = False
-    save_snapshot_interval: int = 5#5
+    save_snapshot_interval: int = 5
     loading_snapshot_map: bool = False # load map located at log_snapshot_dir
-    log_snapshot_dir: str = ""#"/media/data/flowers/OpenELM/logs/elm/23-08-24_18:26/step_25" 
+    log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -67,14 +67,20 @@ class QDConfig(BaseConfig):
 @dataclass
 class MAPElitesConfig(QDConfig):
     qd_name: str = "mapelites"
-    map_grid_size: tuple[int, ...] = field(default_factory=lambda: (2,))
+    map_grid_size: tuple[int, ...] = field(default_factory=lambda: (2,)) # 2 for P3 NLP space
 
+@dataclass
+class MAPElitesConfig_random(QDConfig): # without mutation just random gen
+    qd_name: str = "mapelites"
+    init_steps: int = 500
+    total_steps: int = 500
+    map_grid_size: tuple[int, ...] = field(default_factory=lambda: (2,)) # 2 for P3 NLP space
 
 @dataclass
 class CVTMAPElitesConfig(QDConfig):
     qd_name: str = "cvtmapelites"
     n_niches: int = 1024
-    cvt_samples: int = 42000
+    cvt_samples: int = 40000
     load_centroids: bool = False # load centroids from log_snapshot_dir
 
 
@@ -87,7 +93,7 @@ class EnvConfig(BaseConfig):
     batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
-    seed: Optional[int] = 42
+    seed: Optional[int] = 43 #[42, 43, 44, 45, 46] #None
 
 
 @dataclass
@@ -168,21 +174,158 @@ class P3ProbSolChatEnvConfig(EnvConfig):
     
     """
     env_name: str = "p3_probsol_Chat"
-    prompt_size: str = "med"  # med or long
+    prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
-    use_preprocessed_trainset_emb: bool = False
+    use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
     eval_k: int = -1 #100  # k for pass@k for fitness
-    embedding_model_type: str = "hf"#"openai" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
-    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"#"ChatGPT" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
-    model_name: str = "hf" # model used for mutation, not used ? (if not used should be removed from the config) 
+    embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
+    GPT_feedback: bool = True # use GPT for feedback (MapElites)  
+    IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
+    N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
+    remove_doc = True # remove doc in f 
+    
+@dataclass
+class P3ProbSolChatEnv_IMGEP_smart_Config(EnvConfig):
+
+    env_name: str = "p3_probsol_Chat"
+    prompt_size: str = "med"  # med  
+    use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
+    use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    timeout: float = 1.0  # timeout for running a solution
+    starting_seed: int = field(
+        default_factory=lambda: 3
+    )  # index of p3 dataset to use as puzzle to mutate
+    eval_k: int = -1 #100  # k for pass@k for fitness
+    embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
+    GPT_feedback: bool = True # use GPT for feedback (MapElites)  
+    IMGEP_mode: str = "smart" # guided exploration mode, option: "random" "smart" "none"
+    N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
+    remove_doc = True # remove doc in f 
+
+@dataclass
+class P3ProbSolChatEnv_IMGEP_random_Config(EnvConfig):
+    """
+    IMGEP random:
+    embedding_model_type: str = "openai"
+    embedding_model_path: str = "ChatGPT"
+    IMGEP_mode: str = "random"
+    GPT_feedback: bool = True
+    
+    IMGEP smart: IMGEP random + IMGEP_mode: str = "smart" 
+    
+    ELM-NLP: IMGEP random + IMGEP_mode: str = "none" 
+    
+    rd-gen: same as ELM-NLP
+    
+    ELM:
+    embedding_model_type: str = "hf"
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"
+    GPT_feedback: bool = False
+    use_preprocessed_trainset_emb = False
+    
+    """
+    env_name: str = "p3_probsol_Chat"
+    prompt_size: str = "med"  # med  
+    use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
+    use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    timeout: float = 1.0  # timeout for running a solution
+    starting_seed: int = field(
+        default_factory=lambda: 3
+    )  # index of p3 dataset to use as puzzle to mutate
+    eval_k: int = -1 #100  # k for pass@k for fitness
+    embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
+    GPT_feedback: bool = True # use GPT for feedback (MapElites)  
+    IMGEP_mode: str = "random" # guided exploration mode, option: "random" "smart" "none"
+    N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
+    remove_doc = True # remove doc in f 
+
+@dataclass
+class P3ProbSolChatEnv_ELM_Config(EnvConfig):
+    """
+    IMGEP random:
+    embedding_model_type: str = "openai"
+    embedding_model_path: str = "ChatGPT"
+    IMGEP_mode: str = "random"
+    GPT_feedback: bool = True
+    
+    IMGEP smart: IMGEP random + IMGEP_mode: str = "smart" 
+    
+    ELM-NLP: IMGEP random + IMGEP_mode: str = "none" 
+    
+    rd-gen: same as ELM-NLP
+    
+    ELM:
+    embedding_model_type: str = "hf"
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"
+    GPT_feedback: bool = False
+    use_preprocessed_trainset_emb = False
+    
+    """
+    env_name: str = "p3_probsol_Chat"
+    prompt_size: str = "med"  # med  
+    use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
+    use_preprocessed_trainset_emb: bool = False # True if using NLP feedback
+    timeout: float = 1.0  # timeout for running a solution
+    starting_seed: int = field(
+        default_factory=lambda: 3
+    )  # index of p3 dataset to use as puzzle to mutate
+    eval_k: int = -1 #100  # k for pass@k for fitness
+    embedding_model_type: str = "hf" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = False # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
+    remove_doc = True # remove doc in f 
     
+@dataclass
+class P3ProbSolChatEnv_ELM_NLP_Config(EnvConfig):
+    """
+    IMGEP random:
+    embedding_model_type: str = "openai"
+    embedding_model_path: str = "ChatGPT"
+    IMGEP_mode: str = "random"
+    GPT_feedback: bool = True
+    
+    IMGEP smart: IMGEP random + IMGEP_mode: str = "smart" 
+    
+    ELM-NLP: IMGEP random + IMGEP_mode: str = "none" 
+    
+    rd-gen: same as ELM-NLP
+    
+    ELM:
+    embedding_model_type: str = "hf"
+    embedding_model_path: str = "Salesforce/codet5p-110m-embedding"
+    GPT_feedback: bool = False
+    use_preprocessed_trainset_emb = False
+    
+    """
+    env_name: str = "p3_probsol_Chat"
+    prompt_size: str = "med"  # med  
+    use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
+    use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    timeout: float = 1.0  # timeout for running a solution
+    starting_seed: int = field(
+        default_factory=lambda: 3
+    )  # index of p3 dataset to use as puzzle to mutate
+    eval_k: int = -1 #100  # k for pass@k for fitness
+    embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
+    embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
+    GPT_feedback: bool = True # use GPT for feedback (MapElites)  
+    IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
+    N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
+    remove_doc = True # remove doc in f 
     
 @dataclass
 class QDEnvConfig(EnvConfig):
@@ -225,7 +368,7 @@ ELM: "qd": "cvtmapelites"
 """
 defaults_elm = [
     {"model": "prompt"},
-    {"qd": "cvtmapelites"}, #"mapelites"},
+    {"qd": "mapelites"}, #"cvtmapelites"},
     {"env": "p3_probsol_Chat"}, #sodarace"},p3_probsol_Chat
     "_self_",
 ]
@@ -291,11 +434,16 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="image_evolution", node=ImageEnvConfig)
     cs.store(group="env", name="string_evolution", node=StringEnvConfig)
     cs.store(group="env", name="p3_probsol", node=P3ProbSolEnvConfig)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart", node=P3ProbSolChatEnv_IMGEP_smart_Config)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_random", node=P3ProbSolChatEnv_IMGEP_random_Config)
+    cs.store(group="env", name="P3ProbSolChatEnv_ELM", node=P3ProbSolChatEnv_ELM_Config)
+    cs.store(group="env", name="P3ProbSolChatEnv_ELM_NLP", node=P3ProbSolChatEnv_ELM_NLP_Config)
     cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolChatEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
     cs.store(group="env", name="prompt_evolution", node=PromptEnvConfig)
     cs.store(group="env", name="qdaif", node=QDEnvConfig)
     cs.store(group="qd", name="mapelites", node=MAPElitesConfig)
+    cs.store(group="qd", name="mapelites_rd", node=MAPElitesConfig_random)
     cs.store(group="qd", name="cvtmapelites", node=CVTMAPElitesConfig)
     cs.store(group="model", name="prompt", node=PromptModelConfig)
     cs.store(group="model", name="diff", node=DiffModelConfig)

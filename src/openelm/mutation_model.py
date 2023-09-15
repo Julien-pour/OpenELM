@@ -33,6 +33,7 @@ def get_model(config: ModelConfig):
             # TODO: rename config option?
             "model_name": config.model_path,
             "request_timeout": config.request_timeout,
+            "max_retries": 20,
         }
         if config.gen_max_len!=-1:
             cfg["max_tokens"]=config.gen_max_len

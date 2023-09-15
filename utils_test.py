@@ -1,6 +1,10 @@
 import numpy as np
 from pebble import ProcessPool
 
+import ast
+import copy
+import tiktoken
+import json
 def test_puzzle(test_fg):
     test_fg= "from typing import *\n"+test_fg
     try:
@@ -121,3 +125,105 @@ def pass_at_k(n, c, k):
     if n - c < k:
         return 1.0
     return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+
+
+def return_f(puzzle_json):
+    puzzle_json = copy.deepcopy(puzzle_json)
+    f = puzzle_json["sat"]
+    #  add 'sol_docstring' (description of the problem) to the function f
+    f = f.replace("sat(", "f(")
+    idx_add_problem_description = f.find("\n")
+
+    if type(puzzle_json["sol_docstring"]) == str:
+        f=f[:idx_add_problem_description+1]+ puzzle_json["sol_docstring"]+"\n"+f[idx_add_problem_description+1:]
+    return f
+
+def extract_args_f(f):
+    """
+    extract arguments of f, for g
+    """
+    str_arg=""
+    parsed_ast = ast.parse(f)
+    func=parsed_ast.body[0]
+    name_args = [a.arg for a in func.args.args][1:] # remove the first arg as it isn't necessary for g (because it is the output return by g)
+    assert len(func.args.defaults) == len(name_args)
+    for i in range(len(name_args)):
+        def_values = ast.literal_eval(func.args.defaults[i])
+        if type(def_values) == str:
+            def_values = "'"+def_values+"'"
+        str_arg += name_args[i] + " = " + str(def_values)
+        if i < len(name_args)-1:
+            str_arg+=", "
+    return str_arg
+
+def add_return_bool_2_f(f):
+    tree = ast.parse(f)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            node.returns = ast.Name(id='bool', ctx=ast.Load())
+
+    return ast.unparse(tree)
+
+
+def return_header_g(f):
+    args_f = extract_args_f(f)
+    return "def g("+args_f+"):"
+    
+def return_g(puzzle_json,f):
+    if puzzle_json["sol_bodies"] == []:
+        print("no solution in json")
+        return "def g(""):\n    pass"
+    args_f = extract_args_f(f)
+    g = "def g("+args_f+"):\n"+copy.deepcopy(puzzle_json["sol_bodies"])[0]
+    return g
+
+def merge_Q_and_A(liste_fg):
+    parsed = copy.deepcopy(liste_fg) # format [(f,g),(f,g),...]
+
+    judge_srcs = [f"{f}\n{g}\nassert f(g())" for (f, g) in parsed] # format the code to be judged
+    return judge_srcs
+
+
+def preprocessing_P3_no_test(split: str = "train", n_token_max: int = 512, load_embedding = False,debug=False) -> list[dict]:
+    """
+    dl puzzles from P3 dataset and give train or test puzzles
+    split = "train" or "test"
+    """
+    import os
+    # os.environ['HF_DATASETS_CACHE'] = "/projets/flowers/julien/hf/datasets"
+    # os.environ['TRANSFORMERS_CACHE'] = "/projets/flowers/julien/models/"
+    # from transformers import AutoTokenizer
+    # model_id="codellama/CodeLlama-7b-Python-hf"
+    # # tokenizer = AutoTokenizer.from_pretrained(model_id,trust_remote_code=True)
+    import sys 
+    sys.set_int_max_str_digits(10_000)
+    with open("/media/data/flowers/OpenELM/puzzles.json",mode='r') as f:
+        puzzles = json.load(f)
+    with open("/media/data/flowers/OpenELM/split.json",mode='r') as f:
+        data_split = json.load(f)
+    
+    
+    puzzles_set=[]
+    generated_programs=[]
+    for i in puzzles:
+        if i["name"][:-2] in data_split[split] and i["sol_bodies"]!=[]:
+            puzzle_2_add={}
+            puzzle_2_add["f"] = add_return_bool_2_f(return_f(i))
+            puzzle_2_add["g"] = return_g(i,puzzle_2_add["f"]) 
+            puzzle_2_add["program_str"] = merge_Q_and_A([(puzzle_2_add["f"],puzzle_2_add["g"])])[0]
+            puzzle_2_add["g_firstline"]= return_header_g(puzzle_2_add["f"])
+            generated_programs.append(puzzle_2_add["program_str"])
+            puzzles_set.append(puzzle_2_add)
+    
+    enc = tiktoken.encoding_for_model("gpt-4")
+    List_len_embedding = []
+    for puzz in puzzles_set:
+        len_puzz=len(enc.encode(puzz["program_str"]))
+        # print(len_puzz)
+        List_len_embedding.append(len_puzz)
+    index=np.array(List_len_embedding)<=n_token_max
+    #remove item where index is False
+    puzzles_set = [item for i, item in enumerate(puzzles_set) if index[i]]
+    print("puzzle found =",len(puzzles_set))
+    return puzzles_set

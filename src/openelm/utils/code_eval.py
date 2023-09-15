@@ -9,6 +9,76 @@ import numpy as np
 import requests
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult, unsafe_execute
 import json
+import os
+
+import re
+
+def just_remove_example_in_docstring(source_code: str) -> str:
+    puzzle_formated= source_code
+
+    # Parse the source code into an AST
+    tree = ast.parse(source_code)
+
+    # Extract the docstring from function f and remove it
+    f_docstring = None
+    for item in tree.body:
+        if isinstance(item, ast.FunctionDef) and item.name == 'f':
+            if ast.get_docstring(item):
+                f_docstring = ast.get_docstring(item)
+                if (f_docstring != None):
+                    delimiters ="example","Example","For example","Example:"
+                    regex_pattern = '|'.join(map(re.escape, delimiters))
+                    f_docstring_split = re.split(regex_pattern, f_docstring)[0]
+                    item.body[0].value.s = f_docstring_split
+    if (f_docstring != None):
+        # Convert the modified AST back to source code
+        puzzle_formated=ast.unparse(tree)
+    puzzle_formated=puzzle_formated.replace('""""""',"")
+    puzzle_formated = os.linesep.join([s for s in puzzle_formated.splitlines() if s.strip()]) # remove empty line
+
+    return puzzle_formated
+# def just_remove_example_in_docstring(source_code: str) -> str: # remove all docstring, oh no wrong copy paste
+#     puzzle_formated= source_code
+
+#     # Parse the source code into an AST
+#     tree = ast.parse(source_code)
+
+#     # Extract the docstring from function f and remove it
+#     f_docstring = None
+#     for item in tree.body:
+#         if isinstance(item, ast.FunctionDef) and item.name == 'f':
+#             if ast.get_docstring(item):
+#                 f_docstring = ast.get_docstring(item)
+#                 item.body[0].value.s = ""
+#     if (f_docstring != None):
+#         # Convert the modified AST back to source code
+#         puzzle_formated=ast.unparse(tree)
+#     puzzle_formated=puzzle_formated.replace('""""""',"")
+#     puzzle_formated = os.linesep.join([s for s in puzzle_formated.splitlines() if s.strip()]) # remove empty line
+
+#     return puzzle_formated
+
+def remove_docstring(source_code: str) -> str:
+    puzzle_formated= source_code
+
+    # Parse the source code into an AST
+    tree = ast.parse(source_code)
+
+    # Extract the docstring from function f and remove it
+    f_docstring = None
+    for item in tree.body:
+        if isinstance(item, ast.FunctionDef) and item.name == 'f':
+            if ast.get_docstring(item):
+                f_docstring = ast.get_docstring(item)
+                if (f_docstring != None):
+                    item.body[0].value.s = ""
+        # Convert the modified AST back to source code
+    if (f_docstring != None):
+        puzzle_formated=ast.unparse(tree)
+    puzzle_formated=puzzle_formated.replace('""""""',"")
+    puzzle_formated = os.linesep.join([s for s in puzzle_formated.splitlines() if s.strip()]) # remove empty line
+
+    return puzzle_formated
 
 def pool_exec_processes(
     prompts: Union[str, Iterable[str]],

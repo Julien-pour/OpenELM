@@ -29,8 +29,10 @@ from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import preprocessing_P3,return_f,extract_args_f,return_g,merge_Q_and_A,scrap_f_g
-from joblib import Parallel, delayed
+from openelm.utils.code_eval import preprocessing_P3,remove_docstring,just_remove_example_in_docstring
+from joblib import Parallel, delayed, parallel_config
+# from joblib import parallel_config
+
 from tqdm import tqdm
 class P3Solution(Genotype):
     def __init__(self, program_str: str, result_obj: dict, config: P3ProblemEnvConfig):
@@ -736,6 +738,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         """
         self.mutation_model = mutation_model
         self.config = config
+        print(f" \n\n ======================\n\n ======================\n\n{self.config.IMGEP_mode} \n\n ======================\n\n\n ======================\n\n")
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
         self.rng = np.random.default_rng(self.config.seed)
@@ -878,6 +881,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             puz["config"] = self.config
             if not load_embedding and not debug:
                 puz["emb"]=self.to_phenotype(puz["program_str"])
+                
+            
+            puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring 
+                
+                
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
         
         correct_pb=0
@@ -934,7 +942,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         """
         code batch only used for non guided search, it is used  
         """
-        n_few_shot_example=3
+        n_few_shot_example=3 # that are in the prompt to gen puzzle
+        n_few_shot_example_from_trainset =  1
+        n_few_shot_example_from_archive = n_few_shot_example - n_few_shot_example_from_trainset
+        
         skill_targeted=None
         # prompt with prob+sol that is given (one that was the output of a prev mutation)
         if isinstance(code_batch, list):
@@ -944,46 +955,121 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             code_batch = [code_batch]
             
         # choose few shot example
-        if random:
+        if random: 
             #random: only use example from trainset
             list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example))
-        else:
+        else: 
             # use example from archive (and so trainset)
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example))
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example_from_trainset))
+            list_few_shot_example_phenotypes_archive = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example))
+            for puzzz_archive in list_few_shot_example_phenotypes_archive:
+                 list_few_shot_example_phenotypes.append(puzzz_archive)
+                 
+                 
+            
         
         
         if self.config.IMGEP_mode == "random":
             # target are chosen randomly 
+            # choose few shot example that are close in embed space
+            
+            # target radom skill 
             skill_targeted = np.random.randint(0, 2, self.n_skills,dtype=int).tolist()
-            prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
-        elif self.config.IMGEP_mode == "smart":
-            # target are chosen smartly + few shot example are chosen smartly
-            # maybe just target a cell that is close to the few shot example
+            
+            
+            # choose example that are close in embed space
+
+            
             all_emb=[]
+            all_emb_trainset=[]
+            
             for puzz in self.all_phenotypes:    
                 all_emb.append(puzz.emb)
                 
-            all_emb = np.array(copy.deepcopy(all_emb))
+            for puzz in self.archive_P3puzzle:    
+                all_emb_trainset.append(puzz.emb)
+            all_emb_trainset = np.array(copy.deepcopy(all_emb_trainset))
+            all_emb = np.array(copy.deepcopy(all_emb))            
 
+            
+            
+            list_few_shot_example_phenotypes= []
+            # choose puzzle from closest niches half from trainset
+            dists = cdist([skill_targeted], all_emb_trainset)[0]
+            nearest = np.argsort(dists)[:n_few_shot_example_from_trainset]
+            for idx in nearest:
+                list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
+
+            # choose puzzle from closest niches half from archive 
+            dists = cdist([skill_targeted], all_emb)[0]
+            nearest = np.argsort(dists)[:n_few_shot_example_from_archive]
+            
+            for idx in nearest:
+                list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
+            
+
+
+            prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
+            # skill_targeted.dtype=int
+            # check if skill_targeted is a list
+            if not isinstance(skill_targeted, list):
+                skill_targeted=skill_targeted.tolist()
+
+            
+            
+            
+            
+        elif self.config.IMGEP_mode == "smart":
+            # target are chosen smartly + few shot example are chosen smartly
+            # target a cell that is close to existing example
+            # choose few shot example that are close in embed space
+            
+            
+            
+            all_emb=[]
+            all_emb_trainset=[]
+            
+            for puzz in self.all_phenotypes:    
+                all_emb.append(puzz.emb)
+                
+            for puzz in self.archive_P3puzzle:    
+                all_emb_trainset.append(puzz.emb)
+            all_emb_trainset = np.array(copy.deepcopy(all_emb_trainset))
+            all_emb = np.array(copy.deepcopy(all_emb))
+            
+            # target skill close from explored space
+            
             flag = True
-            while flag:
+            while flag: # mutate puzzle until
                 idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
-                vec=all_emb[idx]
-                k = self.rng.choice([1,2,3], 1, replace=False,p=[3/4,1/8,1/8]) # change proba distrib? 1/2 1/4 1/4
+                vec = all_emb[idx]
+                k = self.rng.choice([1,2,3], 1, replace=False,p=[1/2,1/4,1/4]) # change proba distrib? 1/2 1/4 1/4
                 skill_targeted = self.mutate_vec(vec, k=k)
                 # check if sampled niched is already filled 
                 result = np.any(np.all(all_emb == skill_targeted, axis=1))
                 if not result:
                     flag=False
 
-            # choose puzzle from closest niches
-            dists = cdist([skill_targeted], all_emb)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example]
+
             list_few_shot_example_phenotypes= []
+            # choose puzzle from closest niches half from trainset
+            dists = cdist([skill_targeted], all_emb_trainset)[0]
+            nearest = np.argsort(dists)[:n_few_shot_example_from_trainset]
+            for idx in nearest:
+                list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
+
+            # choose puzzle from closest niches half from archive 
+            dists = cdist([skill_targeted], all_emb)[0]
+            nearest = np.argsort(dists)[:n_few_shot_example_from_archive]
+            
             for idx in nearest:
                 list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
-            
-
+            # if self.config.remove_doc:
+            # remove example given in docstring  
+            list_few_shot_example_phenotypes=copy.deepcopy(list_few_shot_example_phenotypes)
+            for puzzz in list_few_shot_example_phenotypes:
+                puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
+                
             prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
             skill_targeted.dtype=int
             skill_targeted=skill_targeted.tolist()
@@ -995,6 +1081,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         template = f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         return {"prompt": prompt_str, "template": template},skill_targeted
+
 
     def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model and evaluate them."""
@@ -1008,10 +1095,19 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_pb=[]
         # parse the generated code 
         for gen_prog in _generated_programs:
+            # should probably use regex (faster)
             split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("``` python","```").replace("```\n","```").split("```"))
             for idx in range(len(split_pb)):
                 if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
                     list_pb.append(split_pb[idx])
+                    # if self.config.remove_doc:
+                    #     try:
+                    #         puzzle_wo_docstring=remove_docstring(split_pb[idx])
+                    #         list_pb.append(puzzle_wo_docstring)
+                    #     except:
+                    #         list_pb.append(split_pb[idx])
+                    # else:
+                    #     list_pb.append(split_pb[idx])
         for idx_assert in range(len(list_pb)):
         #     list_pb[idx] = list_pb[idx].split("assert")[0]+"assert f(g()) == True"
             if not "assert f(" in list_pb[idx_assert]:
@@ -1109,7 +1205,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
         start_t6 = time.time()
-        list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
+        with parallel_config(n_jobs=self.config.processes): #backend='threading', 
+            list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
+        # list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
         list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
