@@ -11,9 +11,11 @@ matplotlib
 langchain==0.0.225
 typing_extensions==4.5
 openai
+pandas
 plotly
-sklearn
+scikit-learn
 scipy
-joblib
+joblib>=1.3.2
 tqdm
 tiktoken
+pandas

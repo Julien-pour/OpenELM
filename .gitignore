@@ -147,3 +147,23 @@ models/
 
 wandb/
 >>>>>>> Stashed changes
+
+fig/
+
+last_fig/
+
+good_res/
+
+run_saved/
+
+save_feat/
+
+save_result_full_run/
+
+save_results/
+
+save_results_aa/
+
+save_results_old/
+
+Untitled-1.ipynb

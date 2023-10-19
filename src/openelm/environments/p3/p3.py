@@ -953,6 +953,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             code_batch = code_batch
         elif isinstance(code_batch, str):
             code_batch = [code_batch]
+        
+        if len(code_batch) >=1:
+            skill_targeted = code_batch
             
         # choose few shot example
         if random: 
@@ -963,11 +966,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example_from_trainset))
             list_few_shot_example_phenotypes_archive = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example))
             for puzzz_archive in list_few_shot_example_phenotypes_archive:
-                 list_few_shot_example_phenotypes.append(puzzz_archive)
+                 list_few_shot_example_phenotypes.append(puzzz_archive)    
+            
                  
                  
             
-        
         
         if self.config.IMGEP_mode == "random":
             # target are chosen randomly 
@@ -1006,7 +1009,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
             for idx in nearest:
                 list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
-            
+            for puzzz in list_few_shot_example_phenotypes: # remove example in doc
+                puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
+
 
 
             prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
@@ -1043,7 +1048,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             while flag: # mutate puzzle until
                 idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
                 vec = all_emb[idx]
-                k = self.rng.choice([1,2,3], 1, replace=False,p=[1/2,1/4,1/4]) # change proba distrib? 1/2 1/4 1/4
+                k = self.rng.choice([1,2,3], 1, replace=False,p=[1/3,1/3,1/3]) # change proba distrib? maybe 1/2 1/4 1/4
                 skill_targeted = self.mutate_vec(vec, k=k)
                 # check if sampled niched is already filled 
                 result = np.any(np.all(all_emb == skill_targeted, axis=1))
@@ -1076,6 +1081,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
         else:
             list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
+            skill_targeted=code_batch
             prompt_str = self.prompt_seed_function(list_few_shot_example, code_batch)
 
 

@@ -5,12 +5,12 @@ from joblib import Parallel, delayed
 import pickle
 import numpy as np
 from tqdm import tqdm
-path = "/media/data/flowers/OpenELM/run_saved/elm/23-09-13_23:04/step_499/maps.pkl"
+path = "/media/data/flowers/OpenELM/run_saved/elm/23-09-24_01-49/step_1499/maps.pkl"
 
 
 path_save = path.split("maps.pkl")[0]+"_phenotype.npy"
 
-n_jobs=5
+n_jobs=4
 
 cfg: dict = {
     "max_tokens": 1024,
@@ -42,7 +42,7 @@ def getallitems(maps):
     
 
 # if need to relabel the last iteration of the elm run (here from step 399 to 499)
-# path_2 = "/media/data/flowers/OpenELM/run_saved/elm/step_399_1/maps.pkl"
+# path_2 = "/media/data/flowers/OpenELM/run_saved/elm/23-09-13_23:04/step_499/maps.pkl"
 
 # with open(path_2, 'rb') as f:
 #     maps_2 = pickle.load(f)
@@ -52,8 +52,6 @@ def getallitems(maps):
 # labels_2=np.load(path_load_2)
 
 # list_prgrm_str=[puz.program_str for puz in items_gen_2]
-# path_load_npy = "/media/data/flowers/OpenELM/run_saved/elm/step_399_1/_phenotype.npy"
-# labels_2=np.load(path_load_npy)
 
 
 
@@ -109,7 +107,7 @@ items_gen = [item for item in allitems if item.idx_generation!=-1]
 # for puzzl in tqdm(list_correct_puzzle[:10]):
 #     list_phenotype_correct_puzzle.append(label_puzzle(puzzl.program_str))
 #     print(list_phenotype_correct_puzzle)
-list_phenotype_correct_puzzle = Parallel(n_jobs=5)(delayed(label_puzzle)(puzzl.program_str) for puzzl in tqdm(items_gen))
+list_phenotype_correct_puzzle = Parallel(n_jobs=7)(delayed(label_puzzle)(puzzl.program_str) for puzzl in tqdm(items_gen))
 list_phenotype_correct_puzzle= np.array(list_phenotype_correct_puzzle)
  
 np.save(path_save,list_phenotype_correct_puzzle)

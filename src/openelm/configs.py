@@ -23,16 +23,16 @@ class ModelConfig(BaseConfig):
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "gpt-3.5-turbo-0613"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 13
+    processes: int = 6
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
-    request_timeout: int = 65 # timeout for API call
+    request_timeout: int = 85 # timeout for API call
 
 @dataclass
 class PromptModelConfig(ModelConfig):
-    request_timeout: int = 65 # timeout for API call
+    request_timeout: int = 100 # timeout for API call
     model_name: str = "prompt"
     model_path: str = "gpt-3.5-turbo-0613"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
@@ -50,12 +50,12 @@ class QDConfig(BaseConfig):
     """
     model_path: str = "gpt-3.5-turbo-0613" # just for register the model
     init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 500#256 #2500 
+    total_steps: int = 1500#256 #2500 
     history_length: int = 4096 #128 #2048   
     save_history: bool = False
     save_snapshot_interval: int = 5
-    loading_snapshot_map: bool = False # load map located at log_snapshot_dir
-    log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
+    loading_snapshot_map: bool = True # load map located at log_snapshot_dir
+    log_snapshot_dir: str = "/media/data/flowers/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM,qd=cvtmapelites/23-09-23_20:18/step_1160"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -72,8 +72,8 @@ class MAPElitesConfig(QDConfig):
 @dataclass
 class MAPElitesConfig_random(QDConfig): # without mutation just random gen
     qd_name: str = "mapelites"
-    init_steps: int = 500
-    total_steps: int = 500
+    init_steps: int = 1500
+    total_steps: int = 1500
     map_grid_size: tuple[int, ...] = field(default_factory=lambda: (2,)) # 2 for P3 NLP space
 
 @dataclass
@@ -89,7 +89,7 @@ class EnvConfig(BaseConfig):
     timeout: float = 5.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
-    processes: int = 15
+    processes: int = 6
     batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
