@@ -943,8 +943,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         code batch only used for non guided search, it is used  
         """
         n_few_shot_example=3 # that are in the prompt to gen puzzle
-        n_few_shot_example_from_trainset =  1
-        n_few_shot_example_from_archive = n_few_shot_example - n_few_shot_example_from_trainset
+        # n_few_shot_example_from_trainset =  1
+        # n_few_shot_example_from_archive = n_few_shot_example - n_few_shot_example_from_trainset
         
         skill_targeted=None
         # prompt with prob+sol that is given (one that was the output of a prev mutation)
@@ -960,13 +960,13 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # choose few shot example
         if random: 
             #random: only use example from trainset
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example))
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example+1))
         else: 
             # use example from archive (and so trainset)
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example_from_trainset))
-            list_few_shot_example_phenotypes_archive = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example))
-            for puzzz_archive in list_few_shot_example_phenotypes_archive:
-                 list_few_shot_example_phenotypes.append(puzzz_archive)    
+            # list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example_from_trainset))
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example+1))
+            # for puzzz_archive in list_few_shot_example_phenotypes_archive:
+            #      list_few_shot_example_phenotypes.append(puzzz_archive)    
             
                  
                  
@@ -998,20 +998,19 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
             list_few_shot_example_phenotypes= []
             # choose puzzle from closest niches half from trainset
-            dists = cdist([skill_targeted], all_emb_trainset)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example_from_trainset]
-            for idx in nearest:
-                list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
+            # dists = cdist([skill_targeted], all_emb_trainset)[0]
+            # nearest = np.argsort(dists)[:n_few_shot_example+1]
+            # for idx in nearest:
+            #     list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
 
             # choose puzzle from closest niches half from archive 
             dists = cdist([skill_targeted], all_emb)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example_from_archive]
+            nearest = np.argsort(dists)[:n_few_shot_example+1]
             
             for idx in nearest:
                 list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
             for puzzz in list_few_shot_example_phenotypes: # remove example in doc
-                puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
-
+                puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)
 
 
             prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
@@ -1058,14 +1057,14 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
             list_few_shot_example_phenotypes= []
             # choose puzzle from closest niches half from trainset
-            dists = cdist([skill_targeted], all_emb_trainset)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example_from_trainset]
-            for idx in nearest:
-                list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
+            # dists = cdist([skill_targeted], all_emb_trainset)[0]
+            # nearest = np.argsort(dists)[:n_few_shot_example_from_trainset]
+            # for idx in nearest:
+            #     list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
 
             # choose puzzle from closest niches half from archive 
             dists = cdist([skill_targeted], all_emb)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example_from_archive]
+            nearest = np.argsort(dists)[:n_few_shot_example+1]
             
             for idx in nearest:
                 list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
