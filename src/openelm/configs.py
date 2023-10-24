@@ -54,8 +54,8 @@ class QDConfig(BaseConfig):
     history_length: int = 4096 #128 #2048   
     save_history: bool = False
     save_snapshot_interval: int = 5
-    loading_snapshot_map: bool = True # load map located at log_snapshot_dir
-    log_snapshot_dir: str = "/media/data/flowers/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM,qd=cvtmapelites/23-09-23_20:18/step_1160"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
+    loading_snapshot_map: bool = False # load map located at log_snapshot_dir
+    log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -369,7 +369,7 @@ ELM: "qd": "cvtmapelites"
 defaults_elm = [
     {"model": "prompt"},
     {"qd": "mapelites"}, #"cvtmapelites"},
-    {"env": "p3_probsol_Chat"}, #sodarace"},p3_probsol_Chat
+    {"env": "p3_probsol_Chat_IMGEP_random"}, #sodarace"},p3_probsol_Chat
     "_self_",
 ]
 

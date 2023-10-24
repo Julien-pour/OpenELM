@@ -1284,23 +1284,25 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if not probsol.fitness == None:
             return probsol.fitness
 
-        if "g(" in probsol.program_str.split("assert f")[1]:
-            extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
-        else:
-            extract_run_eval_1 = "f(*g())"
-        extract_run_eval_2 = "f(g())"
+        # if "g(" in probsol.program_str.split("assert f")[1]:
+        #     extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
+        # else: # "error"
+        #     extract_run_eval_1 = "f(*g())"
+        # extract_run_eval_2 = ""
         
-        eval_code_1 = str(
+        # eval_code_1 = str(
+        #     f"{probsol.program_str}\n"
+        #     f"def run_eval():\n"
+        #     f"    return {extract_run_eval_1}"
+        # )
+        prog = probsol.program_str.split("\nassert f")
+        probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+        eval_code_ = str(
             f"{probsol.program_str}\n"
             f"def run_eval():\n"
-            f"    return {extract_run_eval_1}"
+            f"    return f(g())"
         )
-        eval_code_2 = str(
-            f"{probsol.program_str}\n"
-            f"def run_eval():\n"
-            f"    return {extract_run_eval_2}"
-        )
-        eval_codes =[eval_code_1, eval_code_2]
+        eval_codes =[eval_code_]#1, eval_code_2]
         # Run code to see if g6_2 solves f6_2
         try:
             result = pool_exec_processes(
@@ -1311,32 +1313,35 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 debug=self.config.debug,
             )
         except:
-            result = [False,False]
-            for idx_eval_code in range(len(eval_codes)):
-                try: 
-                    result_i = pool_exec_processes(
-                        [eval_codes[idx_eval_code]],
-                        func_name="run_eval",
-                        timeout=self.config.timeout,
-                        processes=self.config.processes,
-                        debug=self.config.debug,
-                    )
-                    result[idx_eval_code] = result_i[0]
-                except:
-                    pass
+            result = [False]
+            # for idx_eval_code in range(len(eval_codes)):
+            #     try: 
+            #         result_i = pool_exec_processes(
+            #             [eval_codes[idx_eval_code]],
+            #             func_name="run_eval",
+            #             timeout=self.config.timeout,
+            #             processes=self.config.processes,
+            #             debug=self.config.debug,
+            #         )
+            #         result[idx_eval_code] = result_i[0]
+            #     except:
+            #         pass
                     
         # if result[0] is True: what  result[0]== True is the problem is solved
             # return -np.inf
         
-        # if just one try more like
-        if self.config.eval_k<=1 :
-            if result[1] == True:
-                # if f(g())== True
-                prog = probsol.program_str.split("\nassert f")
-                probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+        # 
+        if self.config.eval_k<=1 : # one try doesn't compute pass@k
+            if result[0] == True:
                 return 1.0
-            elif result[0] == True: 
-                return 1.0
+            
+            # if result[1] == True:
+            #     # if f(g())== True
+            #     prog = probsol.program_str.split("\nassert f")
+            #     probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+            #     return 1.0
+            # elif result[0] == True: 
+            #     return 1.0
             else:
                 return -np.inf
             
