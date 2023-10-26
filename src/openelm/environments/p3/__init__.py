@@ -313,7 +313,7 @@ You should keep in mind that finding an element in a set with a certain property
 
     puzzle_prompt = "The puzzle is:\n```\n" +puzzle + "\n```\n"
     full_prompt = start_prompt + str("skills: ")+ skills + puzzle_prompt + end_prompt_v2
-    return full_prompt,n_skills
+    return full_prompt, n_skills
 
 
 
