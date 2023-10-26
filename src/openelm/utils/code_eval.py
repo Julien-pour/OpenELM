@@ -552,7 +552,7 @@ def sample_target_skill_smart(all_emb) -> list[bool]:
 def sample_fewshot_example(skill_targeted, all_emb, all_phenotypes, n_few_shot_example=3):
     """
     sample n_few_shot_example examples from closest example in the embedding space (from the archive)
-    details: it sample each example are from different niches  
+    details: sample n_few_shot_example closest niches and sample one example with uniform probabilty from each niche  
     
     skill_targeted: bool vector
     all_emb: list of embedding associated to all_phenotypes
@@ -568,7 +568,9 @@ def sample_fewshot_example(skill_targeted, all_emb, all_phenotypes, n_few_shot_e
         emb_2_add = all_phenotypes[idx].emb
         if not(emb_2_add in list_coord_niches_sampled):
             list_coord_niches_sampled.append(emb_2_add)
-            list_few_shot_example_phenotypes.append(all_phenotypes[idx])
+            list_2_sample = [i for i in all_phenotypes if emb_2_add == i.emb]
+            idx_sample=np.random.choice(len(list_2_sample))
+            list_few_shot_example_phenotypes.append(list_2_sample[idx_sample])
         if len(list_few_shot_example_phenotypes)>=n_few_shot_example:
             break
     return list_few_shot_example_phenotypes

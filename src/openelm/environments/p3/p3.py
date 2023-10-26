@@ -1057,8 +1057,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
                 
             prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
-            skill_targeted.dtype=int
-            skill_targeted=skill_targeted.tolist()
             
         else:
             list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
