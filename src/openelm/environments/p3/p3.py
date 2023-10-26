@@ -31,6 +31,8 @@ from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import preprocessing_P3,remove_docstring,just_remove_example_in_docstring
 from joblib import Parallel, delayed, parallel_config
+import itertools
+
 # from joblib import parallel_config
 
 from tqdm import tqdm
@@ -1042,17 +1044,27 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             all_emb = np.array(copy.deepcopy(all_emb))
             
             # target skill close from explored space
-            
-            flag = True
-            while flag: # mutate puzzle until
-                idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
-                vec = all_emb[idx]
-                k = self.rng.choice([1,2,3], 1, replace=False,p=[1/3,1/3,1/3]) # change proba distrib? maybe 1/2 1/4 1/4
-                skill_targeted = self.mutate_vec(vec, k=k)
-                # check if sampled niched is already filled 
-                result = np.any(np.all(all_emb == skill_targeted, axis=1))
-                if not result:
-                    flag=False
+            # Generate all possible binary vectors of dimension 10
+            n_niches=10
+            binary_vectors = list(itertools.product([0, 1], repeat=n_niches))#list of all possible niches
+            out=cdist(binary_vectors, np.array(all_emb), metric='cityblock')
+            density=(out==1).sum(axis=1) # find every niches within a distance of 1
+            density=density*(out.min(axis=1)!=0) # remove already explored niches (sampling weight = 0)
+            density_norm=density/np.sum(density)
+            idx_niches_sampled=np.random.choice(len(binary_vectors),p=density_norm)
+            skill_targeted=list(binary_vectors[idx_niches_sampled])
+
+            #old version
+            # flag = True
+            # while flag: # mutate puzzle until
+            #     idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
+            #     vec = all_emb[idx]
+            #     k = self.rng.choice([1,2,3], 1, replace=False,p=[1/3,1/3,1/3]) # change proba distrib? maybe 1/2 1/4 1/4
+            #     skill_targeted = self.mutate_vec(vec, k=k)
+            #     # check if sampled niched is already filled 
+            #     result = np.any(np.all(all_emb == skill_targeted, axis=1))
+            #     if not result:
+            #         flag=False
 
 
             list_few_shot_example_phenotypes= []
