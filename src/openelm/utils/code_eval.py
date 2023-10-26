@@ -537,12 +537,12 @@ def sample_target_skill_smart(all_emb) -> list[bool]:
     target_skill: bool vector (same length as last dim of all_emb)
     """
     n_niches = np.shape(all_emb)[-1]
-    binary_vectors = list(itertools.product([0, 1], repeat=n_niches))#list of all possible niches
-    out=cdist(binary_vectors, np.array(all_emb), metric='cityblock')
-    np.shape(binary_vectors),np.shape(all_emb),np.shape(out)
+    all_emb_2_set= [tuple(emb) for emb in all_emb]
+    all_emb_set = list(set(all_emb_2_set))
+    binary_vectors = np.array(list(itertools.product([0, 1], repeat=n_niches)))#list of all possible niches
+    out=cdist(binary_vectors, np.array(all_emb_set), metric='cityblock')
     density=(out==1).sum(axis=1) # find every niches within a distance of 1
     density=density*(out.min(axis=1)!=0) # remove already explored niches (sampling weight = 0)
-    density_norm=density/np.sum(density)
     density_norm=density/np.sum(density)
     idx_niches_sampled=np.random.choice(len(binary_vectors),p=density_norm)
     target_skill=list(binary_vectors[idx_niches_sampled])
@@ -562,10 +562,15 @@ def sample_fewshot_example(skill_targeted, all_emb, all_phenotypes, n_few_shot_e
     list_few_shot_example_phenotypes= []
     list_coord_niches_sampled = []
     # choose puzzle from closest niches half from trainset
-    dists = cdist([skill_targeted], all_emb)[0]
-    nearest = np.argsort(dists)
-    for idx in nearest:
-        emb_2_add = all_phenotypes[idx].emb
+    all_emb_2_set= [tuple(emb) for emb in all_emb]
+    all_emb_set = list(set(all_emb_2_set))
+    dists = cdist([skill_targeted], all_emb_set)[0]
+    # shuffle indices to have true uniform sampling of closest niches
+    shuffled_indices = np.arange(len(dists))
+    np.random.shuffle(shuffled_indices)
+    nearest_niches = shuffled_indices[np.argsort(dists[shuffled_indices])]
+    for idx in nearest_niches:
+        emb_2_add = list(all_emb_set[idx])
         if not(emb_2_add in list_coord_niches_sampled):
             list_coord_niches_sampled.append(emb_2_add)
             list_2_sample = [i for i in all_phenotypes if emb_2_add == i.emb]
