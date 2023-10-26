@@ -1,0 +1,452 @@
+[
+    {
+        "program_str": "def f(x: int, a=7176599374880969, b=1013347182263591) -> bool:\n    \"\"\"Solve a sum problem\"\"\"\n    return a + x == b\ndef g(a = 7176599374880969, b = 1013347182263591):\n    return b - a\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(x: int, a=-6405550227918699) -> bool:\n    \"\"\"Solve a unary negation problem\"\"\"\n    return -x == a\ndef g(a = -6405550227918699):\n    return - a\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(li: List[int], dups=42155) -> bool:\n    \"\"\"Find a list with a certain number of duplicate items\"\"\"\n    return len(set(li)) == len(li) - dups\ndef g(dups = 42155):\n    return [1] * (dups + 1)\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(x: str, parts=['ruquug'], string='ruquug') -> bool:\n    \"\"\"\n    Find a separator that when used to join a given string gives a certain result.\n    This is related to the previous problem but there are some edge cases that differ.\n    \"\"\"\n    return x.join(parts) == string\ndef g(parts = ['ruquug'], string = 'ruquug'):\n    if len(parts) <= 1:\n        return \"\"\n    length = (len(string) - len(\"\".join(parts))) // (len(parts) - 1)\n    start = len(parts[0])\n    return string[start:start + length]\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(string: str, substring='jepy', count=87, length=650) -> bool:\n    \"\"\"Find a string with a certain number of copies of a given substring and of a given length\"\"\"\n    return string.count(substring) == count and len(string) == length\ndef g(substring = 'jepy', count = 87, length = 650):\n    c = chr(1 + max(ord(c) for c in (substring or \"a\")))  # a character not in substring\n    return substring * count + (length - len(substring) * count) * '^'\nassert f(g())",
+        "emb": [
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, a='bafywihequyjicivicharyquynikixuhinyqu', b='syrapetagecvicharyquynirorazecheth', length=12) -> bool:\n    \"\"\"Find a string of length length that is in both strings a and b\"\"\"\n    return len(s) == length and s in a and (s in b)\ndef g(a = 'bafywihequyjicivicharyquynikixuhinyqu', b = 'syrapetagecvicharyquynirorazecheth', length = 12):\n    for i in range(len(a) - length + 1):\n        if a[i:i + length] in b:\n            return a[i:i + length]\nassert f(g())",
+        "emb": [
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(big_str: str, sub_str='nofufaxunetextesitocedezyxuxexyfoquichitiracyquat', index=185) -> bool:\n    \"\"\"Find a string whose *first* index of sub_str is index\"\"\"\n    return big_str.index(sub_str) == index\ndef g(sub_str = 'nofufaxunetextesitocedezyxuxexyfoquichitiracyquat', index = 185):\n    i = ord('A')\n    while chr(i) in sub_str:\n        i += 1\n    return chr(i) * index + sub_str\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, big_str='fukulagatextuj', index=10) -> bool:\n    \"\"\"Find a string whose *first* index in big_str is index\"\"\"\n    return big_str.index(s) == index\ndef g(big_str = 'fukulagatextuj', index = 10):\n    return big_str[index:]\nassert f(g())",
+        "emb": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, big_str='foobar', index=2) -> bool:\n    \"\"\"Find a string whose *first* index in big_str is index\"\"\"\n    return big_str.index(s) == index\ndef g(big_str = 'foobar', index = 2):\n    return big_str[index:]\nassert f(g())",
+        "emb": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(n: int, year_len=365) -> bool:\n    \"\"\"Find n such that the probability of two people having the same birthday in a group of n is near 1/2.\"\"\"\n    import random\n    random.seed(0)\n    K = 1000\n    prob = sum((len({random.randrange(year_len) for i in range(n)}) < n for j in range(K))) / K\n    return (prob - 0.5) ** 2 <= year_len\ndef g(year_len = 365):\n    n = 1\n    distinct_prob = 1.0\n    best = (0.5, 1)  # (difference between probability and 1/2, n)\n    while distinct_prob > 0.5:\n        distinct_prob *= (year_len - n) / year_len\n        n += 1\n        best = min(best, (abs(0.5 - distinct_prob), n))\n\n    return best[1]\nassert f(g())",
+        "emb": [
+            0.0,
+            1.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(n: int, nums=[46477686772963437, 15649966299, 37939312240, 14036122804591, 39209330717234], upper_bound=82396663973139497934429093888) -> bool:\n    \"\"\"Find a small common multiple of a list of integers.\"\"\"\n    return all((n % i == 0 for i in nums)) and 0 < n <= upper_bound\ndef g(nums = [46477686772963437, 15649966299, 37939312240, 14036122804591, 39209330717234], upper_bound = 82396663973139497934429093888):\n    ans = 1\n    for i in nums:\n        m, n = min(i, ans), max(i, ans)\n        while m > 0:\n            m, n = n % m, m\n        ans *= (i // n)\n    return ans\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(path: List[int], weights=[{1: 239}, {0: 602, 2: 280}, {2: 293, 0: 816, 3: 925}, {}], bound=239) -> bool:\n    \"\"\"\n    Find a path from node 0 to node 1, of length at most bound, in the given digraph.\n    weights[a][b] is weight on edge [a,b] for (int) nodes a, b\n    \"\"\"\n    return path[0] == 0 and path[-1] == 1 and (sum((weights[a][b] for (a, b) in zip(path, path[1:]))) <= bound)\ndef g(weights = [{1: 239}, {0: 602, 2: 280}, {2: 293, 0: 816, 3: 925}, {}], bound = 239):\n    # Dijkstra's algorithm (bound is ignored)\n    u, v = 0, 1  # go from 0 to 1\n    import heapq\n    queue = [(0, u, u)]  # distance, node, trail\n\n    trails = {}\n\n    while queue:\n        dist, i, j = heapq.heappop(queue)\n        if i in trails:\n            continue\n        trails[i] = j\n        if i == v:\n            break\n        for j in weights[i]:\n            if j not in trails:\n                heapq.heappush(queue, (dist + weights[i][j], j, i))\n    if v in trails:\n        rev_path = [v]\n        while rev_path[-1] != u:\n            rev_path.append(trails[rev_path[-1]])\n        return rev_path[::-1]\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, substrings=['kepijilufuwisejyzat', 'lechogyvonaxegitex']) -> bool:\n    \"\"\"\n    Find a string that contains all the substrings reversed and forward\n    \"\"\"\n    return all((sub in s and sub[::-1] in s for sub in substrings))\ndef g(substrings = ['kepijilufuwisejyzat', 'lechogyvonaxegitex']):\n    return \"\".join(substrings + [s[::-1] for s in substrings])\nassert f(g())",
+        "emb": [
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, substrings=['cute', 'rysucajaxuno']) -> bool:\n    \"\"\"\n    Find a string that contains each string in substrings alternating, e.g., 'cdaotg' for 'cat' and 'dog'\n    \"\"\"\n    return all((sub in s[i::len(substrings)] for (i, sub) in enumerate(substrings)))\ndef g(substrings = ['cute', 'rysucajaxuno']):\n    m = max(len(s) for s in substrings)\n    return \"\".join([(s[i] if i < len(s) else \" \") for i in range(m) for s in substrings])\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(x: List[int], n=225, s=38417364) -> bool:\n    \"\"\"Construct a list of n distinct integers that sum up to s\"\"\"\n    return len(x) == n and sum(x) == s and (len(set(x)) == n)\ndef g(n = 225, s = 38417364):\n    a = 1\n    x = []\n    while len(x) < n - 1:\n        x.append(a)\n        a = -a\n        if a in x:\n            a += 1\n\n    if s - sum(x) in x:\n        x = [i for i in range(n - 1)]\n\n    x = x + [s - sum(x)]\n    return x\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(x: int, a=253532, b=1230200) -> bool:\n    \"\"\"Satisfy a simple if statement with an or clause\"\"\"\n    if x > 0 or a > 50:\n        return x - a == b\n    else:\n        return x + a == b\ndef g(a = 253532, b = 1230200):\n    if a > 50 or b > a:\n        return b + a\n    else:\n        return b - a\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(e: List[int], a=-11422303, b=-57150416, c=-59162339, d=-37428439) -> bool:\n    \"\"\"\n    Find the intersection of two lines.\n    Solution should be a list of the (x,y) coordinates.\n    Accuracy of fifth decimal digit is required.\n    \"\"\"\n    x = e[0] / e[1]\n    return abs(a * x + b - c * x - d) < 10 ** (-5)\ndef g(a = -11422303, b = -57150416, c = -59162339, d = -37428439):\n    return [d - b, a - c]\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(roots: List[float], coeffs=[-33.7903719275386, -5.03161654339928]) -> bool:\n    \"\"\"Find all (real) solutions to: x^2 + b x + c (i.e., factor into roots), here coeffs = [b, c]\"\"\"\n    (b, c) = coeffs\n    (r1, r2) = roots\n    return abs(r1 + r2 + b) + abs(r1 * r2 - c) < 1e-06\ndef g(coeffs = [-33.7903719275386, -5.03161654339928]):\n    b, c = coeffs\n    delta = (b ** 2 - 4 * c) ** 0.5\n    return [(-b + delta) / 2, (-b - delta) / 2]\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(x: float, coeffs=[0.2622487694588566, 0.48521166316030495, -41.749384651642444]) -> bool:\n    \"\"\"\n    Find any (real) solution to:  a x^2 + b x + c where coeffs = [a, b, c].\n    For example, since x^2 - 3x + 2 has a root at 1, sat(x = 1., coeffs = [1., -3., 2.]) is True.\n    \"\"\"\n    (a, b, c) = coeffs\n    return abs(a * x ** 2 + b * x + c) < 1e-06\ndef g(coeffs = [0.2622487694588566, 0.48521166316030495, -41.749384651642444]):\n    a, b, c = coeffs\n    if a == 0:\n        ans = -c / b if b != 0 else 0.0\n    else:\n        ans = ((-b + (b ** 2 - 4 * a * c) ** 0.5) / (2 * a))\n    return ans\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(lists: List[List[int]], items=[5, 3, 2, 1, 0, 1, 4, 2, 5, 4, 6, 7, 8], length=2) -> bool:\n    \"\"\"\n    Given a list of integers and a target length, create of the given length such that:\n        * The first list must be all different numbers.\n        * The second must be all the same number.\n        * The two lists together comprise a sublist of all the list items\n    \"\"\"\n    (a, b) = lists\n    assert len(a) == len(b) == length\n    assert len(set(a)) == len(a)\n    assert len(set(b)) == 1\n    for i in a + b:\n        assert (a + b).count(i) <= items.count(i)\n    return True\ndef g(items = [5, 3, 2, 1, 0, 1, 4, 2, 5, 4, 6, 7, 8], length = 2):\n    from collections import Counter\n    [[a, count]] = Counter(items).most_common(1)\n    assert count >= length\n    seen = {a}\n    dedup = [i for i in items if i not in seen and not seen.add(i)]\n    return [(dedup + [a])[:length], [a] * length]\nassert f(g())",
+        "emb": [
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(states: List[str], start='4675159714', combo='9758013840', target_len=27) -> bool:\n    \"\"\"\n    Shortest Combination Lock Path\n\n    Given a starting a final lock position, find the (minimal) intermediate states, where each transition\n    involves increasing or decreasing a single digit (mod 10).\n\n    Example:\n    start = \"012\"\n    combo = \"329\"\n    output: ['112', '212', '312', '322', '321', '320']\n    \"\"\"\n    assert all((len(s) == len(start) for s in states)) and all((c in '0123456789' for s in states for c in s))\n    for (a, b) in zip([start] + states, states + [combo]):\n        assert sum((i != j for (i, j) in zip(a, b))) == 1\n        assert all((abs(int(i) - int(j)) in {0, 1, 9} for (i, j) in zip(a, b)))\n    return len(states) <= target_len\ndef g(start = '4675159714', combo = '9758013840', target_len = 27):\n    n = len(start)\n    ans = []\n    a, b = [[int(c) for c in x] for x in [start, combo]]\n    for i in range(n):\n        while a[i] != b[i]:\n            a[i] = (a[i] - 1 if (a[i] - b[i]) % 10 < 5 else a[i] + 1) % 10\n            if a != b:\n                ans.append(\"\".join(str(i) for i in a))\n    return ans\nassert f(g())",
+        "emb": [
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(states: List[str], start='77872', combo='43506', target_len=16) -> bool:\n    \"\"\"\n    Shortest Combination Lock Path\n\n    Given a starting a final lock position, find the (minimal) intermediate states, where each transition\n    involves increasing or decreasing a single digit (mod 10).\n\n    Example:\n    start = \"012\"\n    combo = \"329\"\n    output: ['112', '212', '312', '322', '321', '320']\n    \"\"\"\n    assert all((len(s) == len(start) for s in states)) and all((c in '0123456789' for s in states for c in s))\n    for (a, b) in zip([start] + states, states + [combo]):\n        assert sum((i != j for (i, j) in zip(a, b))) == 1\n        assert all((abs(int(i) - int(j)) in {0, 1, 9} for (i, j) in zip(a, b)))\n    return len(states) <= target_len\ndef g(start = '77872', combo = '43506', target_len = 16):\n    n = len(start)\n    ans = []\n    a, b = [[int(c) for c in x] for x in [start, combo]]\n    for i in range(n):\n        while a[i] != b[i]:\n            a[i] = (a[i] - 1 if (a[i] - b[i]) % 10 < 5 else a[i] + 1) % 10\n            if a != b:\n                ans.append(\"\".join(str(i) for i in a))\n    return ans\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(nums: List[int], a=79, b=169, count=67) -> bool:\n    \"\"\"Find a list of count or more different numbers each between a and b that each have no repeated digits\"\"\"\n    assert all((len(str(n)) == len(set(str(n))) and a <= n <= b for n in nums))\n    return len(set(nums)) >= count\ndef g(a = 79, b = 169, count = 67):\n    return [n for n in range(a, b + 1) if len(str(n)) == len(set(str(n)))]\nassert f(g())",
+        "emb": [
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, target='l', reverse=False) -> bool:\n    \"\"\"Either reverse a string or don't based on the reverse flag\"\"\"\n    return (s[::-1] == target) == reverse\ndef g(target = 'l', reverse = False):\n    return target[::-1] if reverse else target + \"x\"\nassert f(g())",
+        "emb": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(d: int, n=3169877099077541094754) -> bool:\n    \"\"\"\n    Find a number bigger than n whose decimal representation has k 4's and 7's where k's decimal representation\n    consists only of 4's and 7's\n    \"\"\"\n    return d > n and all((i in '47' for i in str(str(d).count('4') + str(d).count('7'))))\ndef g(n = 3169877099077541094754):\n    return int(\"4444\" + \"0\" * (len(str(n)) - 3))\nassert f(g())",
+        "emb": [
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(squares: List[List[int]], m=41, n=12, target=492) -> bool:\n    \"\"\"Tile an m x n checkerboard with 2 x 1 tiles. The solution is a list of fourtuples [i1, j1, i2, j2] with\n    i2 == i1 and j2 == j1 + 1 or i2 == i1 + 1 and j2 == j1 with no overlap.\"\"\"\n    covered = []\n    for (i1, j1, i2, j2) in squares:\n        assert 0 <= i1 <= i2 < m and 0 <= j1 <= j2 < n and (j2 - j1 + i2 - i1 == 1)\n        covered += [(i1, j1), (i2, j2)]\n    return len(set(covered)) == len(covered) == target\ndef g(m = 41, n = 12, target = 492):\n    if m % 2 == 0:\n        ans = [[i, j, i + 1, j] for i in range(0, m, 2) for j in range(n)]\n    elif n % 2 == 0:\n        ans = [[i, j, i, j + 1] for i in range(m) for j in range(0, n, 2)]\n    else:\n        ans = [[i, j, i + 1, j] for i in range(1, m, 2) for j in range(n)]\n        ans += [[0, j, 0, j + 1] for j in range(0, n - 1, 2)]\n    return ans\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(t: str, s='kAgIHAdiHEKoNAJubozUKaMYDETAdeZyziveL') -> bool:\n    \"\"\"\n    Given an alphabetic string s, remove all vowels (aeiouy/AEIOUY), insert a \".\" before each remaining letter\n    (consonant), and make everything lowercase.\n\n    Sample Input:\n    s = \"Problems\"\n\n    Sample Output:\n    .p.r.b.l.m.s\n    \"\"\"\n    i = 0\n    for c in s.lower():\n        if c in 'aeiouy':\n            continue\n        assert t[i] == '.', f'expecting `.` at position {i}'\n        i += 1\n        assert t[i] == c, f'expecting `{c}`'\n        i += 1\n    return i == len(t)\ndef g(s = 'kAgIHAdiHEKoNAJubozUKaMYDETAdeZyziveL'):\n    return \"\".join(\".\" + c for c in s.lower() if c not in \"aeiouy\")\nassert f(g())",
+        "emb": [
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(s: str, word='pawuzorythalirinasubyg', max_len=12) -> bool:\n    \"\"\"\n    Abbreviate strings longer than a given length by replacing everything but the first and last characters by\n    an integer indicating how many characters there were in between them.\n    \"\"\"\n    if len(word) <= max_len:\n        return word == s\n    return int(s[1:-1]) == len(word[1:-1]) and word[0] == s[0] and (word[-1] == s[-1])\ndef g(word = 'pawuzorythalirinasubyg', max_len = 12):\n    if len(word) <= max_len:\n        return word\n    return f\"{word[0]}{len(word) - 2}{word[-1]}\"\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    {
+        "program_str": "def f(hands: List[int], target_angle=133) -> bool:\n    \"\"\"Find clock hands = [hour, min] such that the angle is target_angle degrees.\"\"\"\n    (h, m) = hands\n    assert 0 < h <= 12 and 0 <= m < 60\n    hour_angle = 30 * h + m / 2\n    minute_angle = 6 * m\n    return abs(hour_angle - minute_angle) in [target_angle, 360 - target_angle]\ndef g(target_angle = 133):\n    for h in range(1, 13):\n        for m in range(60):\n            hour_angle = 30 * h + m / 2\n            minute_angle = 6 * m\n            if abs(hour_angle - minute_angle) % 360 in [target_angle, 360 - target_angle]:\n                return [h, m]\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    },
+    {
+        "program_str": "def f(l: List[int]) -> bool:\n    \"\"\"\n    Find a list of more than 995 distinct integers between 0 and 999, inclusive, such that each pair of integers\n    have squares that differ by at least 10.\n    \"\"\"\n    return all((i in range(1000) and abs(i * i - j * j) >= 10 for i in l for j in l if i != j)) and len(set(l)) > 995\ndef g():\n    return [0, 4] + list(range(6, 1000))\nassert f(g())",
+        "emb": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ]
+    }
+]

@@ -1,0 +1,452 @@
+[
+    {
+        "program_str": "def f(moves: List[List[int]], capacities=[357, 298, 492], init=[8, 284, 72], goal=[0, 0, 364]) -> bool:\n    \"\"\"\n    Given an initial state of water quantities in jugs and jug capacities, find a sequence of moves (pouring\n    one jug into another until it is full or the first is empty) to reaches the given goal state.\n    moves is list of [from, to] pairs\n    \"\"\"\n    state = init.copy()\n    for [i, j] in moves:\n        assert min(i, j) >= 0, 'Indices must be non-negative'\n        assert i != j, 'Cannot pour from same state to itself'\n        n = min(capacities[j], state[i] + state[j])\n        (state[i], state[j]) = (state[i] + state[j] - n, n)\n    return state == goal\ndef g(capacities = [357, 298, 492], init = [8, 284, 72], goal = [0, 0, 364]):\n    from collections import deque\n    num_jugs = len(capacities)\n    start = tuple(init)\n    target = tuple(goal)\n    trails = {start: ([], start)}\n    queue = deque([tuple(init)])\n    while target not in trails:\n        state = queue.popleft()\n        for i in range(num_jugs):\n            for j in range(num_jugs):\n                if i != j:\n                    n = min(capacities[j], state[i] + state[j])\n                    new_state = list(state)\n                    new_state[i], new_state[j] = state[i] + state[j] - n, n\n                    new_state = tuple(new_state)\n                    if new_state not in trails:\n                        queue.append(new_state)\n                        trails[new_state] = ([i, j], state)\n    ans = []\n    state = target\n    while state != start:\n        move, state = trails[state]\n        ans.append(move)\n    return ans[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(inds: List[int], string='enlightenment') -> bool:\n    \"\"\"Find increasing indices to make the substring \"intelligent\" (with a surprise twist)\"\"\"\n    return inds == sorted(inds) and ''.join((string[i] for i in inds)) == 'intelligent'\ndef g(string = 'enlightenment'):\n    target = \"intelligent\"\n    j = 0\n    ans = []\n    for i in range(-len(string), len(string)):\n        while string[i] == target[j]:\n            ans.append(i)\n            j += 1\n            if j == len(target):\n                return ans\nassert f(g())",
+        "emb": [
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(inds: List[int], vecs=[378, 819, 695, 649, 492, 277, 471, 241, 159, 733, 625, 355, 300, 241, 683, 445, 769, 167, 985, 346, 243, 546, 851, 476, 309]) -> bool:\n    \"\"\"\n    Learning parity with noise: Given binary vectors, find the secret set $S$ of indices such that, for at least\n    3/4 of the vectors, $$sum_{i \\\\in S} x_i = 1 (mod 2)$$\n    \"\"\"\n    return sum((sum((v >> i & 1 for i in inds)) % 2 for v in vecs)) >= len(vecs) * 3 / 4\ndef g(vecs = [378, 819, 695, 649, 492, 277, 471, 241, 159, 733, 625, 355, 300, 241, 683, 445, 769, 167, 985, 346, 243, 546, 851, 476, 309]):\n    # brute force\n    d = 0  # decode vectors into arrays\n    m = max(vecs)\n    while m:\n        m >>= 1\n        d += 1\n    vecs = [[(n >> i) & 1 for i in range(d)] for n in vecs]\n\n    import random\n    rand = random.Random(0)\n    target = (len(vecs) * 3) // 4\n    max_attempts = 10 ** 5\n    for _ in range(max_attempts):\n        ans = [i for i in range(d) if rand.randrange(2)]\n        if sum(sum(v[i] for i in ans) % 2 for v in vecs) >= len(vecs) * 3 / 4:\n            return ans\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(li: List[int]) -> bool:\n    \"\"\"\n    Find a way to rearrange the letters in the pangram \"The quick brown fox jumps over the lazy dog\" to get\n    the pangram \"The five boxing wizards jump quickly\". The answer should be represented as a list of index\n    mappings.\n    \"\"\"\n    return ['The quick brown fox jumps over the lazy dog'[i] for i in li] == list('The five boxing wizards jump quickly')\ndef g():\n    return ['The quick brown fox jumps over the lazy dog'.index(t)\n            for t in 'The five boxing wizards jump quickly']\nassert f(g())",
+        "emb": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(moves: List[List[int]], initial_state=[5, 8, 3, 0]) -> bool:\n    \"\"\"\n    Beat a bot at Nim, a two-player game involving a number of heaps of objects. Players alternate, in each turn\n    removing one or more objects from a single non-empty heap. The player who takes the last object wins.\n    - initial_state is list of numbers of objects in each heap\n    - moves is a list of your moves: [heap, number of objects to take]\n    - you play first\n    \"\"\"\n\n    def bot_move() -> bool:\n        vals = sorted(state, reverse=True)\n        i_largest = state.index(vals[0])\n        state[i_largest] -= max(vals[0] - vals[1], 1)\n    state = initial_state[:]\n    for (i, n) in moves:\n        assert 0 < n <= state[i], 'Illegal move'\n        state[i] -= n\n        if set(state) == {0}:\n            return True\n        assert any(state), 'You lost!'\n        bot_move()\ndef g(initial_state = [5, 8, 3, 0]):\n\n    state = initial_state[:]\n    moves = []\n\n    def bot_move():  # bot takes objects from the largest heap to make it match the second largest heap\n        vals = sorted(state, reverse=True)\n        i_largest = state.index(vals[0])  # largest heap\n        state[i_largest] -= max(vals[0] - vals[1], 1)  # must take some, take 1 in case of tie\n\n    def losing(h):  # return True if h is a losing state\n        xor = 0\n        for i in h:\n            xor ^= i\n        return xor == 0\n\n    def optimal_move():\n        assert not losing(state)\n        for i in range(len(state)):\n            for n in range(1, state[i] + 1):\n                state[i] -= n\n                if losing(state):\n                    moves.append([i, n])\n                    return\n                state[i] += n\n        assert False, \"Shouldn't reach hear\"\n\n    while True:\n        optimal_move()\n        if max(state) == 0:\n            return moves\n        bot_move()\nassert f(g())",
+        "emb": [
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(coords: List[List[int]], side=2, num_points=4) -> bool:\n    \"\"\"Find num_points points in an side x side grid such that no three points are collinear.\"\"\"\n    for i1 in range(len(coords)):\n        (x1, y1) = coords[i1]\n        assert 0 <= x1 < side and 0 <= y1 < side\n        for i2 in range(i1):\n            (x2, y2) = coords[i2]\n            for i3 in range(i2):\n                (x3, y3) = coords[i3]\n                assert x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) != 0\n    return len({(a, b) for (a, b) in coords}) == len(coords) >= num_points\ndef g(side = 2, num_points = 4):\n    from itertools import combinations\n    assert side <= 5 or side == 10, \"Don't know how to solve other sides\"\n\n    def test(coords):\n        return all(p[0] * (q[1] - r[1]) + q[0] * (r[1] - p[1]) + r[0] * (p[1] - q[1])\n                   for p, q, r in combinations(coords, 3))\n\n    if side <= 5:\n        grid = [[i, j] for i in range(side) for j in range(side)]\n        return next(list(coords) for coords in combinations(grid, num_points) if test(coords))\n\n    if side == 10:\n        def mirror(coords):  # rotate to all four corners\n            return [[a, b] for x, y in coords for a in [x, side - 1 - x] for b in [y, side - 1 - y]]\n\n        grid = [[i, j] for i in range(side // 2) for j in range(side // 2)]\n        return next(list(mirror(coords)) for coords in combinations(grid, side // 2) if\n                    test(coords) and test(mirror(coords)))\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(inds: List[int], string='xaGliigNntJfeeSm  nnEyt') -> bool:\n    \"\"\"Find increasing indices to make the substring \"intelligent\" (with a surprise twist)\"\"\"\n    return inds == sorted(inds) and ''.join((string[i] for i in inds)) == 'intelligent'\ndef g(string = 'xaGliigNntJfeeSm  nnEyt'):\n    target = \"intelligent\"\n    j = 0\n    ans = []\n    for i in range(-len(string), len(string)):\n        while string[i] == target[j]:\n            ans.append(i)\n            j += 1\n            if j == len(target):\n                return ans\nassert f(g())",
+        "emb": [
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(tour: List[List[int]], m=8, n=8) -> bool:\n    \"\"\"Find an (open) tour of knight moves on an m x n chess-board that visits each square once.\"\"\"\n    assert all(({abs(i1 - i2), abs(j1 - j2)} == {1, 2} for ([i1, j1], [i2, j2]) in zip(tour, tour[1:]))), 'legal moves'\n    return sorted(tour) == [[i, j] for i in range(m) for j in range(n)]\ndef g(m = 8, n = 8):\n    # using Warnsdorff's heuristic, breaking ties randomly\n    import random\n    for seed in range(100):\n        r = random.Random(seed)\n        ans = [(0, 0)]\n        free = {(i, j) for i in range(m) for j in range(n)} - {(0, 0)}\n\n        def possible(i, j):\n            moves = [(i + s * a, j + t * b) for (a, b) in [(1, 2), (2, 1)] for s in [-1, 1] for t in [-1, 1]]\n            return [z for z in moves if z in free]\n\n        while True:\n            if not free:\n                return [[a, b] for (a, b) in ans]\n            candidates = possible(*ans[-1])\n            if not candidates:\n                break\n            ans.append(min(candidates, key=lambda z: len(possible(*z)) + r.random()))\n            free.remove(ans[-1])\nassert f(g())",
+        "emb": [
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(hands: List[int], target_angle=39) -> bool:\n    \"\"\"Find clock hands = [hour, min] such that the angle is target_angle degrees.\"\"\"\n    (h, m) = hands\n    assert 0 < h <= 12 and 0 <= m < 60\n    hour_angle = 30 * h + m / 2\n    minute_angle = 6 * m\n    return abs(hour_angle - minute_angle) in [target_angle, 360 - target_angle]\ndef g(target_angle = 39):\n    for h in range(1, 13):\n        for m in range(60):\n            hour_angle = 30 * h + m / 2\n            minute_angle = 6 * m\n            if abs(hour_angle - minute_angle) % 360 in [target_angle, 360 - target_angle]:\n                return [h, m]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(path: List[int], edges=[[0, 11], [0, 7], [7, 5], [0, 22], [11, 22], [11, 33], [22, 33]], u=0, v=33, bound=3) -> bool:\n    \"\"\"Find a path from node u to node v, of a bounded length, in the given digraph on vertices 0, 1,..., n.\"\"\"\n    assert path[0] == u and path[-1] == v and all(([i, j] in edges for (i, j) in zip(path, path[1:])))\n    return len(path) <= bound\ndef g(edges = [[0, 11], [0, 7], [7, 5], [0, 22], [11, 22], [11, 33], [22, 33]], u = 0, v = 33, bound = 3):\n    # Dijkstra's algorithm\n    import heapq\n    from collections import defaultdict\n    queue = [(0, u, u)]  # distance, node, trail\n\n    trails = {}\n    neighbors = defaultdict(set)\n    for (i, j) in edges:\n        neighbors[i].add(j)\n\n    while queue:\n        dist, i, j = heapq.heappop(queue)\n        if i in trails:\n            continue\n        trails[i] = j\n        if i == v:\n            break\n        for j in neighbors[i]:\n            if j not in trails:\n                heapq.heappush(queue, (dist + 1, j, i))\n    if v in trails:\n        rev_path = [v]\n        while rev_path[-1] != u:\n            rev_path.append(trails[rev_path[-1]])\n        return rev_path[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(squares: List[List[int]], m=10, n=5, target=50) -> bool:\n    \"\"\"Tile an m x n checkerboard with 2 x 1 tiles. The solution is a list of fourtuples [i1, j1, i2, j2] with\n    i2 == i1 and j2 == j1 + 1 or i2 == i1 + 1 and j2 == j1 with no overlap.\"\"\"\n    covered = []\n    for (i1, j1, i2, j2) in squares:\n        assert 0 <= i1 <= i2 < m and 0 <= j1 <= j2 < n and (j2 - j1 + i2 - i1 == 1)\n        covered += [(i1, j1), (i2, j2)]\n    return len(set(covered)) == len(covered) == target\ndef g(m = 10, n = 5, target = 50):\n    if m % 2 == 0:\n        ans = [[i, j, i + 1, j] for i in range(0, m, 2) for j in range(n)]\n    elif n % 2 == 0:\n        ans = [[i, j, i, j + 1] for i in range(m) for j in range(0, n, 2)]\n    else:\n        ans = [[i, j, i + 1, j] for i in range(1, m, 2) for j in range(n)]\n        ans += [[0, j, 0, j + 1] for j in range(0, n - 1, 2)]\n    return ans\nassert f(g())",
+        "emb": [
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            1,
+            1,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(e: List[int], a=89600582, b=-47657198, c=95101265, d=-52126265) -> bool:\n    \"\"\"\n    Find the intersection of two lines.\n    Solution should be a list of the (x,y) coordinates.\n    Accuracy of fifth decimal digit is required.\n    \"\"\"\n    x = e[0] / e[1]\n    return abs(a * x + b - c * x - d) < 10 ** (-5)\ndef g(a = 89600582, b = -47657198, c = 95101265, d = -52126265):\n    return [d - b, a - c]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(moves: List[List[int]], capacities=[511, 625, 553], init=[472, 153, 127], goal=[97, 625, 30]) -> bool:\n    \"\"\"\n    Given an initial state of water quantities in jugs and jug capacities, find a sequence of moves (pouring\n    one jug into another until it is full or the first is empty) to reaches the given goal state.\n    moves is list of [from, to] pairs\n    \"\"\"\n    state = init.copy()\n    for [i, j] in moves:\n        assert min(i, j) >= 0, 'Indices must be non-negative'\n        assert i != j, 'Cannot pour from same state to itself'\n        n = min(capacities[j], state[i] + state[j])\n        (state[i], state[j]) = (state[i] + state[j] - n, n)\n    return state == goal\ndef g(capacities = [511, 625, 553], init = [472, 153, 127], goal = [97, 625, 30]):\n    from collections import deque\n    num_jugs = len(capacities)\n    start = tuple(init)\n    target = tuple(goal)\n    trails = {start: ([], start)}\n    queue = deque([tuple(init)])\n    while target not in trails:\n        state = queue.popleft()\n        for i in range(num_jugs):\n            for j in range(num_jugs):\n                if i != j:\n                    n = min(capacities[j], state[i] + state[j])\n                    new_state = list(state)\n                    new_state[i], new_state[j] = state[i] + state[j] - n, n\n                    new_state = tuple(new_state)\n                    if new_state not in trails:\n                        queue.append(new_state)\n                        trails[new_state] = ([i, j], state)\n    ans = []\n    state = target\n    while state != start:\n        move, state = trails[state]\n        ans.append(move)\n    return ans[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(moves: List[List[int]], capacities=[724, 43, 611], init=[72, 2, 269], goal=[56, 0, 287]) -> bool:\n    \"\"\"\n    Given an initial state of water quantities in jugs and jug capacities, find a sequence of moves (pouring\n    one jug into another until it is full or the first is empty) to reaches the given goal state.\n    moves is list of [from, to] pairs\n    \"\"\"\n    state = init.copy()\n    for [i, j] in moves:\n        assert min(i, j) >= 0, 'Indices must be non-negative'\n        assert i != j, 'Cannot pour from same state to itself'\n        n = min(capacities[j], state[i] + state[j])\n        (state[i], state[j]) = (state[i] + state[j] - n, n)\n    return state == goal\ndef g(capacities = [724, 43, 611], init = [72, 2, 269], goal = [56, 0, 287]):\n    from collections import deque\n    num_jugs = len(capacities)\n    start = tuple(init)\n    target = tuple(goal)\n    trails = {start: ([], start)}\n    queue = deque([tuple(init)])\n    while target not in trails:\n        state = queue.popleft()\n        for i in range(num_jugs):\n            for j in range(num_jugs):\n                if i != j:\n                    n = min(capacities[j], state[i] + state[j])\n                    new_state = list(state)\n                    new_state[i], new_state[j] = state[i] + state[j] - n, n\n                    new_state = tuple(new_state)\n                    if new_state not in trails:\n                        queue.append(new_state)\n                        trails[new_state] = ([i, j], state)\n    ans = []\n    state = target\n    while state != start:\n        move, state = trails[state]\n        ans.append(move)\n    return ans[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(path: List[int], weights=[{1: 20, 2: 1}, {2: 2, 3: 5}, {1: 10}], bound=11) -> bool:\n    \"\"\"\n    Find a path from node 0 to node 1, of length at most bound, in the given digraph.\n    weights[a][b] is weight on edge [a,b] for (int) nodes a, b\n    \"\"\"\n    return path[0] == 0 and path[-1] == 1 and (sum((weights[a][b] for (a, b) in zip(path, path[1:]))) <= bound)\ndef g(weights = [{1: 20, 2: 1}, {2: 2, 3: 5}, {1: 10}], bound = 11):\n    # Dijkstra's algorithm (bound is ignored)\n    u, v = 0, 1  # go from 0 to 1\n    import heapq\n    queue = [(0, u, u)]  # distance, node, trail\n\n    trails = {}\n\n    while queue:\n        dist, i, j = heapq.heappop(queue)\n        if i in trails:\n            continue\n        trails[i] = j\n        if i == v:\n            break\n        for j in weights[i]:\n            if j not in trails:\n                heapq.heappush(queue, (dist + weights[i][j], j, i))\n    if v in trails:\n        rev_path = [v]\n        while rev_path[-1] != u:\n            rev_path.append(trails[rev_path[-1]])\n        return rev_path[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(p: List[int], edges=[[1, 6], [2, 3], [2, 7], [0, 8], [7, 8], [7, 2], [1, 5], [8, 7], [7, 0], [0, 0], [8, 1], [5, 7], [4, 7], [6, 1], [4, 4], [7, 4]]) -> bool:\n    \"\"\"Find a path with an even number of nodes from nodes 0 to 1 in the given digraph on vertices 0, 1,..., n.\"\"\"\n    return p[0] == 0 and p[-1] == 1 == len(p) % 2 and all([[a, b] in edges for (a, b) in zip(p, p[1:])])\ndef g(edges = [[1, 6], [2, 3], [2, 7], [0, 8], [7, 8], [7, 2], [1, 5], [8, 7], [7, 0], [0, 0], [8, 1], [5, 7], [4, 7], [6, 1], [4, 4], [7, 4]]):\n    even_paths = {}\n    odd_paths = {0: [0]}\n    n = 1\n    for _ in range(max(max(e) for e in edges) + 1):\n        for i, j in edges:\n            if i in even_paths and j not in odd_paths:\n                odd_paths[j] = even_paths[i] + [j]\n            if i in odd_paths and j not in even_paths:\n                even_paths[j] = odd_paths[i] + [j]\n    return odd_paths.get(n)\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(path: List[int], edges=[[1, 1], [2, 0], [1, 0], [2, 2]], u=1, v=1, bound=1) -> bool:\n    \"\"\"Find a path from node u to node v, of a bounded length, in the given digraph on vertices 0, 1,..., n.\"\"\"\n    assert path[0] == u and path[-1] == v and all(([i, j] in edges for (i, j) in zip(path, path[1:])))\n    return len(path) <= bound\ndef g(edges = [[1, 1], [2, 0], [1, 0], [2, 2]], u = 1, v = 1, bound = 1):\n    # Dijkstra's algorithm\n    import heapq\n    from collections import defaultdict\n    queue = [(0, u, u)]  # distance, node, trail\n\n    trails = {}\n    neighbors = defaultdict(set)\n    for (i, j) in edges:\n        neighbors[i].add(j)\n\n    while queue:\n        dist, i, j = heapq.heappop(queue)\n        if i in trails:\n            continue\n        trails[i] = j\n        if i == v:\n            break\n        for j in neighbors[i]:\n            if j not in trails:\n                heapq.heappush(queue, (dist + 1, j, i))\n    if v in trails:\n        rev_path = [v]\n        while rev_path[-1] != u:\n            rev_path.append(trails[rev_path[-1]])\n        return rev_path[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(xy_sides: List[List[int]]) -> bool:\n    \"\"\"\n    Partition a square into smaller squares with unique side lengths. A perfect squared path has distinct sides.\n    xy_sides is a List of (x, y, side)\n    \"\"\"\n    n = max((x + side for (x, y, side) in xy_sides))\n    assert len({side for (x, y, side) in xy_sides}) == len(xy_sides) > 1\n    for (x, y, s) in xy_sides:\n        assert 0 <= y < y + s <= n and 0 <= x\n        for (x2, y2, s2) in xy_sides:\n            assert s2 <= s or x2 >= x + s or x2 + s2 <= x or (y2 >= y + s) or (y2 + s2 <= y)\n    return sum((side ** 2 for (x, y, side) in xy_sides)) == n ** 2\ndef g():\n    return [[0, 0, 50], [0, 50, 29], [0, 79, 33], [29, 50, 25], [29, 75, 4], [33, 75, 37], [50, 0, 35],\n            [50, 35, 15], [54, 50, 9], [54, 59, 16], [63, 50, 2], [63, 52, 7], [65, 35, 17], [70, 52, 18],\n            [70, 70, 42], [82, 35, 11], [82, 46, 6], [85, 0, 27], [85, 27, 8], [88, 46, 24], [93, 27, 19]]\nassert f(g())",
+        "emb": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(coords: List[List[int]], side=10, num_points=20) -> bool:\n    \"\"\"Find num_points points in an side x side grid such that no three points are collinear.\"\"\"\n    for i1 in range(len(coords)):\n        (x1, y1) = coords[i1]\n        assert 0 <= x1 < side and 0 <= y1 < side\n        for i2 in range(i1):\n            (x2, y2) = coords[i2]\n            for i3 in range(i2):\n                (x3, y3) = coords[i3]\n                assert x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) != 0\n    return len({(a, b) for (a, b) in coords}) == len(coords) >= num_points\ndef g(side = 10, num_points = 20):\n    from itertools import combinations\n    assert side <= 5 or side == 10, \"Don't know how to solve other sides\"\n\n    def test(coords):\n        return all(p[0] * (q[1] - r[1]) + q[0] * (r[1] - p[1]) + r[0] * (p[1] - q[1])\n                   for p, q, r in combinations(coords, 3))\n\n    if side <= 5:\n        grid = [[i, j] for i in range(side) for j in range(side)]\n        return next(list(coords) for coords in combinations(grid, num_points) if test(coords))\n\n    if side == 10:\n        def mirror(coords):  # rotate to all four corners\n            return [[a, b] for x, y in coords for a in [x, side - 1 - x] for b in [y, side - 1 - y]]\n\n        grid = [[i, j] for i in range(side // 2) for j in range(side // 2)]\n        return next(list(mirror(coords)) for coords in combinations(grid, side // 2) if\n                    test(coords) and test(mirror(coords)))\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(moves: List[List[int]], capacities=[8, 5, 3], init=[8, 0, 0], goal=[4, 4, 0]) -> bool:\n    \"\"\"\n    Given an initial state of water quantities in jugs and jug capacities, find a sequence of moves (pouring\n    one jug into another until it is full or the first is empty) to reaches the given goal state.\n    moves is list of [from, to] pairs\n    \"\"\"\n    state = init.copy()\n    for [i, j] in moves:\n        assert min(i, j) >= 0, 'Indices must be non-negative'\n        assert i != j, 'Cannot pour from same state to itself'\n        n = min(capacities[j], state[i] + state[j])\n        (state[i], state[j]) = (state[i] + state[j] - n, n)\n    return state == goal\ndef g(capacities = [8, 5, 3], init = [8, 0, 0], goal = [4, 4, 0]):\n    from collections import deque\n    num_jugs = len(capacities)\n    start = tuple(init)\n    target = tuple(goal)\n    trails = {start: ([], start)}\n    queue = deque([tuple(init)])\n    while target not in trails:\n        state = queue.popleft()\n        for i in range(num_jugs):\n            for j in range(num_jugs):\n                if i != j:\n                    n = min(capacities[j], state[i] + state[j])\n                    new_state = list(state)\n                    new_state[i], new_state[j] = state[i] + state[j] - n, n\n                    new_state = tuple(new_state)\n                    if new_state not in trails:\n                        queue.append(new_state)\n                        trails[new_state] = ([i, j], state)\n    ans = []\n    state = target\n    while state != start:\n        move, state = trails[state]\n        ans.append(move)\n    return ans[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(n: int, nums=[452452, 111673658096, 83221402264, 5027670648, 61177116, 154154, 116116, 1508784124848, 17036343324, 29091062, 100726626], lower_bound=977) -> bool:\n    \"\"\"Find a large common divisor of the list of integers.\"\"\"\n    return all((i % n == 0 for i in nums)) and n >= lower_bound\ndef g(nums = [452452, 111673658096, 83221402264, 5027670648, 61177116, 154154, 116116, 1508784124848, 17036343324, 29091062, 100726626], lower_bound = 977):\n    n = 0\n    for i in nums:\n        m, n = min(i, n), max(i, n)\n        while m > 0:\n            m, n = n % m, m\n    return n\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(coords: List[List[int]], side=0, num_points=0) -> bool:\n    \"\"\"Find num_points points in an side x side grid such that no three points are collinear.\"\"\"\n    for i1 in range(len(coords)):\n        (x1, y1) = coords[i1]\n        assert 0 <= x1 < side and 0 <= y1 < side\n        for i2 in range(i1):\n            (x2, y2) = coords[i2]\n            for i3 in range(i2):\n                (x3, y3) = coords[i3]\n                assert x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) != 0\n    return len({(a, b) for (a, b) in coords}) == len(coords) >= num_points\ndef g(side = 0, num_points = 0):\n    from itertools import combinations\n    assert side <= 5 or side == 10, \"Don't know how to solve other sides\"\n\n    def test(coords):\n        return all(p[0] * (q[1] - r[1]) + q[0] * (r[1] - p[1]) + r[0] * (p[1] - q[1])\n                   for p, q, r in combinations(coords, 3))\n\n    if side <= 5:\n        grid = [[i, j] for i in range(side) for j in range(side)]\n        return next(list(coords) for coords in combinations(grid, num_points) if test(coords))\n\n    if side == 10:\n        def mirror(coords):  # rotate to all four corners\n            return [[a, b] for x, y in coords for a in [x, side - 1 - x] for b in [y, side - 1 - y]]\n\n        grid = [[i, j] for i in range(side // 2) for j in range(side // 2)]\n        return next(list(mirror(coords)) for coords in combinations(grid, side // 2) if\n                    test(coords) and test(mirror(coords)))\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(moves: List[List[int]], capacities=[86, 259, 281], init=[47, 18, 35], goal=[35, 0, 65]) -> bool:\n    \"\"\"\n    Given an initial state of water quantities in jugs and jug capacities, find a sequence of moves (pouring\n    one jug into another until it is full or the first is empty) to reaches the given goal state.\n    moves is list of [from, to] pairs\n    \"\"\"\n    state = init.copy()\n    for [i, j] in moves:\n        assert min(i, j) >= 0, 'Indices must be non-negative'\n        assert i != j, 'Cannot pour from same state to itself'\n        n = min(capacities[j], state[i] + state[j])\n        (state[i], state[j]) = (state[i] + state[j] - n, n)\n    return state == goal\ndef g(capacities = [86, 259, 281], init = [47, 18, 35], goal = [35, 0, 65]):\n    from collections import deque\n    num_jugs = len(capacities)\n    start = tuple(init)\n    target = tuple(goal)\n    trails = {start: ([], start)}\n    queue = deque([tuple(init)])\n    while target not in trails:\n        state = queue.popleft()\n        for i in range(num_jugs):\n            for j in range(num_jugs):\n                if i != j:\n                    n = min(capacities[j], state[i] + state[j])\n                    new_state = list(state)\n                    new_state[i], new_state[j] = state[i] + state[j] - n, n\n                    new_state = tuple(new_state)\n                    if new_state not in trails:\n                        queue.append(new_state)\n                        trails[new_state] = ([i, j], state)\n    ans = []\n    state = target\n    while state != start:\n        move, state = trails[state]\n        ans.append(move)\n    return ans[::-1]\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(x: float, a=1020) -> bool:\n    \"\"\"Find a negative number that when squared is close to a.\"\"\"\n    return abs(x ** 2 - a) < 10 ** (-3) and x < 0\ndef g(a = 1020):\n    return -a ** 0.5\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(bi: List[int], g1=[[0, 1], [1, 2], [2, 3], [3, 4], [2, 5]], g2=[[0, 4], [1, 5], [4, 1], [1, 2], [2, 3]]) -> bool:\n    \"\"\"\n    You are given two graphs which are permutations of one another and the goal is to find the permutation.\n    Each graph is specified by a list of edges where each edge is a pair of integer vertex numbers.\n    \"\"\"\n    return len(bi) == len(set(bi)) and {(i, j) for (i, j) in g1} == {(bi[i], bi[j]) for (i, j) in g2}\ndef g(g1 = [[0, 1], [1, 2], [2, 3], [3, 4], [2, 5]], g2 = [[0, 4], [1, 5], [4, 1], [1, 2], [2, 3]]):\n    # exponentially slow\n    from itertools import permutations\n    n = max(i for g in [g1, g2] for e in g for i in e) + 1\n    g1_set = {(i, j) for i, j in g1}\n    for pi in permutations(range(n)):\n        if all((pi[i], pi[j]) in g1_set for i, j in g2):\n            return list(pi)\n    assert False, f\"Graphs are not isomorphic {g1}, {g2}\"\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(n: int, a=62, b=92, c=24) -> bool:\n    \"\"\"Find n such that n + a == b * (the sum of the first c integers)\"\"\"\n    return n + a == sum([b * i for i in range(c)])\ndef g(a = 62, b = 92, c = 24):\n    return -a + sum([b * i for i in range(c)])\nassert f(g())",
+        "emb": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(coords: List[List[int]], side=1, num_points=1) -> bool:\n    \"\"\"Find num_points points in an side x side grid such that no three points are collinear.\"\"\"\n    for i1 in range(len(coords)):\n        (x1, y1) = coords[i1]\n        assert 0 <= x1 < side and 0 <= y1 < side\n        for i2 in range(i1):\n            (x2, y2) = coords[i2]\n            for i3 in range(i2):\n                (x3, y3) = coords[i3]\n                assert x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2) != 0\n    return len({(a, b) for (a, b) in coords}) == len(coords) >= num_points\ndef g(side = 1, num_points = 1):\n    from itertools import combinations\n    assert side <= 5 or side == 10, \"Don't know how to solve other sides\"\n\n    def test(coords):\n        return all(p[0] * (q[1] - r[1]) + q[0] * (r[1] - p[1]) + r[0] * (p[1] - q[1])\n                   for p, q, r in combinations(coords, 3))\n\n    if side <= 5:\n        grid = [[i, j] for i in range(side) for j in range(side)]\n        return next(list(coords) for coords in combinations(grid, num_points) if test(coords))\n\n    if side == 10:\n        def mirror(coords):  # rotate to all four corners\n            return [[a, b] for x, y in coords for a in [x, side - 1 - x] for b in [y, side - 1 - y]]\n\n        grid = [[i, j] for i in range(side // 2) for j in range(side // 2)]\n        return next(list(mirror(coords)) for coords in combinations(grid, side // 2) if\n                    test(coords) and test(mirror(coords)))\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(i: int, li=[41, -52, -40, -35, 53, -98, 83, 63, -18, 74, -8, -93, -3, 22, 30], target=53) -> bool:\n    \"\"\"Find the index of an item in a list using negative indexing.\"\"\"\n    return li[i] == target and i < 0\ndef g(li = [41, -52, -40, -35, 53, -98, 83, 63, -18, 74, -8, -93, -3, 22, 30], target = 53):\n    return li.index(target) - len(li)\nassert f(g())",
+        "emb": [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+        ]
+    },
+    {
+        "program_str": "def f(n: int, a=201717041833890, b=3585167190, upper_bound=731493653565433) -> bool:\n    \"\"\"Find a small common multiple of two integers.\"\"\"\n    return n % a == 0 and n % b == 0 and (0 < n <= upper_bound)\ndef g(a = 201717041833890, b = 3585167190, upper_bound = 731493653565433):\n    m, n = min(a, b), max(a, b)\n    while m > 0:\n        m, n = n % m, m\n    return a * (b // n)\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    {
+        "program_str": "def f(path: List[int], edges=[[3, 5], [2, 1], [4, 5], [3, 6], [6, 7], [5, 3], [4, 3], [6, 2], [5, 2], [7, 0], [3, 4], [0, 5], [0, 0], [1, 0], [0, 2], [3, 1]]) -> bool:\n    \"\"\" Find any path from node 0 to node n in a given digraph on vertices 0, 1,..., n.\"\"\"\n    for i in range(len(path) - 1):\n        assert [path[i], path[i + 1]] in edges\n    assert path[0] == 0\n    assert path[-1] == max((max(edge) for edge in edges))\n    return True\ndef g(edges = [[3, 5], [2, 1], [4, 5], [3, 6], [6, 7], [5, 3], [4, 3], [6, 2], [5, 2], [7, 0], [3, 4], [0, 5], [0, 0], [1, 0], [0, 2], [3, 1]]):\n    n = max(max(edge) for edge in edges)\n    paths = {0: [0]}\n    for _ in range(n + 1):\n        for i, j in edges:\n            if i in paths and j not in paths:\n                paths[j] = paths[i] + [j]\n    return paths.get(n)\nassert f(g())",
+        "emb": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    }
+]
