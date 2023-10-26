@@ -29,8 +29,10 @@ from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import preprocessing_P3,remove_docstring,just_remove_example_in_docstring
+from openelm.utils.code_eval import preprocessing_P3,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
 from joblib import Parallel, delayed, parallel_config
+import itertools
+
 # from joblib import parallel_config
 
 from tqdm import tqdm
@@ -992,23 +994,12 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             for puzz in self.archive_P3puzzle:    
                 all_emb_trainset.append(puzz.emb)
             all_emb_trainset = np.array(copy.deepcopy(all_emb_trainset))
+            
             all_emb = np.array(copy.deepcopy(all_emb))            
 
-            
-            
-            list_few_shot_example_phenotypes= []
             # choose puzzle from closest niches half from trainset
-            # dists = cdist([skill_targeted], all_emb_trainset)[0]
-            # nearest = np.argsort(dists)[:n_few_shot_example+1]
-            # for idx in nearest:
-            #     list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
-
-            # choose puzzle from closest niches half from archive 
-            dists = cdist([skill_targeted], all_emb)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example+1]
+            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=3)
             
-            for idx in nearest:
-                list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
             for puzzz in list_few_shot_example_phenotypes: # remove example in doc
                 puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)
 
@@ -1019,10 +1010,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             if not isinstance(skill_targeted, list):
                 skill_targeted=skill_targeted.tolist()
 
-            
-            
-            
-            
+                        
         elif self.config.IMGEP_mode == "smart":
             # target are chosen smartly + few shot example are chosen smartly
             # target a cell that is close to existing example
@@ -1042,41 +1030,33 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             all_emb = np.array(copy.deepcopy(all_emb))
             
             # target skill close from explored space
-            
-            flag = True
-            while flag: # mutate puzzle until
-                idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
-                vec = all_emb[idx]
-                k = self.rng.choice([1,2,3], 1, replace=False,p=[1/3,1/3,1/3]) # change proba distrib? maybe 1/2 1/4 1/4
-                skill_targeted = self.mutate_vec(vec, k=k)
-                # check if sampled niched is already filled 
-                result = np.any(np.all(all_emb == skill_targeted, axis=1))
-                if not result:
-                    flag=False
+            # Generate all possible binary vectors of dimension 10
+
+            skill_targeted=sample_target_skill_smart(all_emb)
+
+            #old version
+            # flag = True
+            # while flag: # mutate puzzle until
+            #     idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
+            #     vec = all_emb[idx]
+            #     k = self.rng.choice([1,2,3], 1, replace=False,p=[1/3,1/3,1/3]) # change proba distrib? maybe 1/2 1/4 1/4
+            #     skill_targeted = self.mutate_vec(vec, k=k)
+            #     # check if sampled niched is already filled 
+            #     result = np.any(np.all(all_emb == skill_targeted, axis=1))
+            #     if not result:
+            #         flag=False
 
 
             list_few_shot_example_phenotypes= []
             # choose puzzle from closest niches half from trainset
-            # dists = cdist([skill_targeted], all_emb_trainset)[0]
-            # nearest = np.argsort(dists)[:n_few_shot_example_from_trainset]
-            # for idx in nearest:
-            #     list_few_shot_example_phenotypes.append(self.archive_P3puzzle[idx])
+            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=3)
 
-            # choose puzzle from closest niches half from archive 
-            dists = cdist([skill_targeted], all_emb)[0]
-            nearest = np.argsort(dists)[:n_few_shot_example+1]
-            
-            for idx in nearest:
-                list_few_shot_example_phenotypes.append(self.all_phenotypes[idx])
-            # if self.config.remove_doc:
             # remove example given in docstring  
             list_few_shot_example_phenotypes=copy.deepcopy(list_few_shot_example_phenotypes)
             for puzzz in list_few_shot_example_phenotypes:
                 puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
                 
             prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
-            skill_targeted.dtype=int
-            skill_targeted=skill_targeted.tolist()
             
         else:
             list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
@@ -1177,25 +1157,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                         results.append("Error") #pb when g output a class aaaa:... def g(): return aaaa()
                         
                 
-                # print(f"An exception occurred when generating puzzles: {str(e)}")
-                # print("========================Warning======================")
-                # for idx_code in range(len(generated_programs)):
-                #     try:
-                #         results = pool_exec_processes(
-                #                 generated_programs[idx_code],
-                #                 func_name="g",
-                #                 timeout=self.config.timeout,
-                #                 processes=self.config.processes,
-                #                 debug=self.config.debug,
-                #             )
-                #     except Exception as ebis:
-                #         print(f"An exception occurred when generating puzzles : {str(ebis)}")
-                #         print("\n=======\npuzzle :"+str(generated_programs[idx_code]))
-                #     # print("\n=======\npuzzle :"+str(generated_programs[idx_code]))
-                    
-                # print("retrying to generate puzzles")
-                # return self.generate_programs(code_batch,skill_targeted_list)
-        
         # trick: just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
@@ -1284,23 +1245,25 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if not probsol.fitness == None:
             return probsol.fitness
 
-        if "g(" in probsol.program_str.split("assert f")[1]:
-            extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
-        else:
-            extract_run_eval_1 = "f(*g())"
-        extract_run_eval_2 = "f(g())"
+        # if "g(" in probsol.program_str.split("assert f")[1]:
+        #     extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
+        # else: # "error"
+        #     extract_run_eval_1 = "f(*g())"
+        # extract_run_eval_2 = ""
         
-        eval_code_1 = str(
+        # eval_code_1 = str(
+        #     f"{probsol.program_str}\n"
+        #     f"def run_eval():\n"
+        #     f"    return {extract_run_eval_1}"
+        # )
+        prog = probsol.program_str.split("\nassert f")
+        probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+        eval_code_ = str(
             f"{probsol.program_str}\n"
             f"def run_eval():\n"
-            f"    return {extract_run_eval_1}"
+            f"    return f(g())"
         )
-        eval_code_2 = str(
-            f"{probsol.program_str}\n"
-            f"def run_eval():\n"
-            f"    return {extract_run_eval_2}"
-        )
-        eval_codes =[eval_code_1, eval_code_2]
+        eval_codes =[eval_code_]#1, eval_code_2]
         # Run code to see if g6_2 solves f6_2
         try:
             result = pool_exec_processes(
@@ -1311,32 +1274,12 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 debug=self.config.debug,
             )
         except:
-            result = [False,False]
-            for idx_eval_code in range(len(eval_codes)):
-                try: 
-                    result_i = pool_exec_processes(
-                        [eval_codes[idx_eval_code]],
-                        func_name="run_eval",
-                        timeout=self.config.timeout,
-                        processes=self.config.processes,
-                        debug=self.config.debug,
-                    )
-                    result[idx_eval_code] = result_i[0]
-                except:
-                    pass
-                    
-        # if result[0] is True: what  result[0]== True is the problem is solved
-            # return -np.inf
-        
-        # if just one try more like
-        if self.config.eval_k<=1 :
-            if result[1] == True:
-                # if f(g())== True
-                prog = probsol.program_str.split("\nassert f")
-                probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+            result = [False]
+
+        if self.config.eval_k<=1 : # one try doesn't compute pass@k
+            if result[0] == True:
                 return 1.0
-            elif result[0] == True: 
-                return 1.0
+            
             else:
                 return -np.inf
             

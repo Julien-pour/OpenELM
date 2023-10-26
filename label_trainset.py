@@ -8,19 +8,20 @@ import json
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.messages import HumanMessage
 from joblib import Parallel, delayed
+from openelm.environments.p3 import skills_evaluation
 from tqdm import tqdm
 import os
 from tenacity import *
-import numpy as np
-from openelm.environments.p3 import P3_probsol_chat_med_seed,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted,P3_IMPORTS
 
-n_jobs=5
+n_jobs=6
 cfg: dict = {
     "max_tokens": 1024,
-    "temperature": 0.9,
+    "temperature": 0.0,
     "top_p": 0.95,
     # TODO: rename config option?
     "model_name": "gpt-3.5-turbo-0613",
+    "request_timeout": 70,
+    "max_retries": 20
 }
 
 chatGPT = ChatOpenAI(**cfg)    
@@ -28,37 +29,10 @@ script_dir = os.path.dirname(__file__)
 
 # @retry(stop=stop_after_attempt(10),wait=wait_random_exponential(min=1, max=40))
 def gen_response(prompt):
-    out=chatGPT.generate([[HumanMessage(content=prompt)]])
+    return chatGPT.generate([[HumanMessage(content=prompt)]])
 
-path = "/media/data/flowers/OpenELM/logs/elm/23-08-21_18:50/step_9/save_all.json"
-import copy
-
-def extract_puzzle(responses):
-    list_pb=[]
-    # parse the generated code 
-    for gen_prog in responses:
-        split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("``` python","```").replace("```\n","```").split("```"))
-        for idx in range(len(split_pb)):
-            if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
-                list_pb.append(split_pb[idx])
-    for idx_assert in range(len(list_pb)):
-    #     list_pb[idx] = list_pb[idx].split("assert")[0]+"assert f(g()) == True"
-        if not "assert f(" in list_pb[idx_assert]:
-            list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
-    generated_programs = list_pb
-    
-    list_lib = ["math", "random", "itertools"]
-    
-    for idx in range(len(generated_programs)):
-        if not P3_IMPORTS in generated_programs[idx]:
-            generated_programs[idx] = P3_IMPORTS+ generated_programs[idx]
-            
-        # check if lib are correctly imported (if not import them)
-        for lib in list_lib:
-            if lib in generated_programs[idx]:
-                if not f"import {lib}" in  generated_programs[idx].split("def f")[0]:
-                    generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
-
+path_embed = script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
+print(script_dir)
 def label_puzzle(program_str,n_attempts=0):
     """
     Label a puzzle with the skills it requires"""
@@ -96,34 +70,17 @@ with initialize(version_base="1.2"):
     # print(cfg)
 config = OmegaConf.to_object(cfg)
 
-path = "/media/data/flowers/OpenELM/logs/elm/23-08-21_18:50/step_9/save_all.json"
-with open(path, 'r') as f:
-    data = json.load(f)
+out = preprocessing_P3(load_embedding = False)
 
-class P3Solution:
-    def __init__(self,program_str,emb):
-        """
-        Genotype for a programming puzzle solution.
-        Args:
-            program_str: the solution program string (the g6() function).
-            result_obj: dict.
-            config: environment config
-        """
-        self.program_str = program_str
-        self.emb = emb
-archive_puzz=[]
-for puzz in data:
-    archive_puzz.append(P3Solution(puzz["program_str"],puzz["emb"]))
+# results = [
+#     {"program_str": gen_prog, "result_obj": res_obj, "config": self.config}
+#     for (gen_prog, res_obj) in zip(generated_programs, results)
+# ]
+for i in out:
+    del i["f"], i["g"],i["attempts"]
+    i["config"] = config.env
 
-list_fullprompt=[]
-for _ in range(10):
-    skill_targeted = np.random.randint(0, 2, 10).tolist()
-    llist_pb =  list(np.random.choice(archive_puzz,size=3))
-    prompt = P3_probsol_chat_med_seed_goal_targeted(llist_pb,skill_targeted)
-    response = gen_response(prompt)
-    resp_str = response.generations[0][0].text
-    # list_fullprompt
-    
+out=out
 # compute embedding in NLP space
 results = Parallel(n_jobs=n_jobs)(delayed(label_puzzle)(puzz["program_str"]) for puzz in tqdm(out))
 for i,r in enumerate(results):

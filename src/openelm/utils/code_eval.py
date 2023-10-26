@@ -1,5 +1,6 @@
 import functools
 import itertools
+from scipy.spatial.distance import cdist
 import multiprocessing as mp
 from typing import Any, Iterable, Optional, Union
 import copy
@@ -529,3 +530,47 @@ def preprocessing_P3_no_test(split: str = "train", n_token_max: int =512, load_e
         #         puzz["emb"] = np.random.randint(0, 2, 10)
         return puzzles_set
     
+def sample_target_skill_smart(all_emb) -> list[bool]:
+    """ 
+    sample an skill to target for p3 problem
+    all_emb: list of binary vector 
+    target_skill: bool vector (same length as last dim of all_emb)
+    """
+    n_niches = np.shape(all_emb)[-1]
+    binary_vectors = list(itertools.product([0, 1], repeat=n_niches))#list of all possible niches
+    out=cdist(binary_vectors, np.array(all_emb), metric='cityblock')
+    np.shape(binary_vectors),np.shape(all_emb),np.shape(out)
+    density=(out==1).sum(axis=1) # find every niches within a distance of 1
+    density=density*(out.min(axis=1)!=0) # remove already explored niches (sampling weight = 0)
+    density_norm=density/np.sum(density)
+    density_norm=density/np.sum(density)
+    idx_niches_sampled=np.random.choice(len(binary_vectors),p=density_norm)
+    target_skill=list(binary_vectors[idx_niches_sampled])
+    return target_skill
+
+
+def sample_fewshot_example(skill_targeted, all_emb, all_phenotypes, n_few_shot_example=3):
+    """
+    sample n_few_shot_example examples from closest example in the embedding space (from the archive)
+    details: sample n_few_shot_example closest niches and sample one example with uniform probabilty from each niche  
+    
+    skill_targeted: bool vector
+    all_emb: list of embedding associated to all_phenotypes
+    all_phenotypes: list of P3 phenotypes object 
+    n_few_shot_example: int, number of example to sample
+    """
+    list_few_shot_example_phenotypes= []
+    list_coord_niches_sampled = []
+    # choose puzzle from closest niches half from trainset
+    dists = cdist([skill_targeted], all_emb)[0]
+    nearest = np.argsort(dists)
+    for idx in nearest:
+        emb_2_add = all_phenotypes[idx].emb
+        if not(emb_2_add in list_coord_niches_sampled):
+            list_coord_niches_sampled.append(emb_2_add)
+            list_2_sample = [i for i in all_phenotypes if emb_2_add == i.emb]
+            idx_sample=np.random.choice(len(list_2_sample))
+            list_few_shot_example_phenotypes.append(list_2_sample[idx_sample])
+        if len(list_few_shot_example_phenotypes)>=n_few_shot_example:
+            break
+    return list_few_shot_example_phenotypes
