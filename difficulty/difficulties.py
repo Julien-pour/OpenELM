@@ -4,6 +4,7 @@ import sys
 import wandb
 import torch
 import copy
+import ast
 import numpy as np
 import json
 from difficulty.judge import test_puzzle, judge_parallel
@@ -16,12 +17,31 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List, Dict, Any, Union
 
 
+def extract_sol(gen_text):
+    # return text of the solution and text of the body
+    if not gen_text.count('```') == 2:
+        sol_text = gen_text.split('```')[1]
+        try:
+            sol_text = ast.unparse([el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)][0])
+            return sol_text
+        except SyntaxError:
+            return ''
+    else:
+        sol_text = gen_text.split('```')[1]
+        # parse the function
+        try:
+            sol_text = ast.unparse([el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)][0])
+            return sol_text
+        except SyntaxError:
+            return ''
+
+
 def eval_puzzle_loop(
         puzzle_path,
         solver_prompt_path,
         model_id="facebook/opt-1.3b",  # "codellama/CodeLlama-7b-Python-hf"
         batch_size=2,
-        num_return_sequences=10,
+        num_return_sequences=3,
         out_file_name='eval_model',
         cur_idx=0,  # to resume
         stop_on_first_success=False
@@ -30,7 +50,6 @@ def eval_puzzle_loop(
     # os.environ['HF_DATASETS_CACHE'] = "/projets/flowers/julien/hf/datasets"
     # os.environ['TRANSFORMERS_CACHE'] = "/projets/flowers/julien/models/"
 
-    model_id = "facebook/opt-1.3b"  # "codellama/CodeLlama-7b-Python-hf"
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -63,7 +82,6 @@ def eval_puzzle_loop(
 
     list_trainset = [[x["program_str"], x["g_firstline"]] for x in all_puzzles]
     curr_idx = 0
-    num_return_sequences = 10  # n_try
     list_passk = []
     list_passk_1 = []
     list_passk_2 = []
@@ -113,8 +131,13 @@ def eval_puzzle_loop(
                     prompt_f = list_prompt_f[i]
                     g_firstline = list_prompt_g_firstline[i]
 
-                    extract_g = list_puzzle_gen[i][j].split("```")[0].split("assert")[0]
-                    extract_g = g_firstline + extract_g + "\nassert f(g()) == True\n"
+                    print(list_puzzle_gen[i][j])
+                    extract_g = extract_sol(list_puzzle_gen[i][j])
+                    if extract_g:
+                        extract_g = extract_g.splitlines()
+                        extract_g[0] = g_firstline
+                        extract_g = '\n'.join(extract_g)
+                    extract_g = extract_g + "\n\nassert f(g()) == True"
                     test_fg = prompt_f + extract_g
                     list_puzzle_gen[i][j] = test_fg
                     list_puzzle.append(test_fg)
@@ -126,20 +149,20 @@ def eval_puzzle_loop(
 
                 cor_puz = np.sum(list_valid_puzzles)
 
-                n_sample, n_correct = num_return_sequences, cor_puz
+                n_sample, n_correct = num_return_sequences, int(cor_puz)
                 pass_k = pass_at_k(n_sample, n_correct, k=num_return_sequences)
                 list_passk.append(pass_k)
 
                 list_passk_1.append(pass_at_k(n_sample, n_correct, k=1))
                 list_passk_2.append(pass_at_k(n_sample, n_correct, k=2))
                 list_passk_3.append(pass_at_k(n_sample, n_correct, k=3))
-                list_passk_4.append(pass_at_k(n_sample, n_correct, k=4))
-                list_passk_5.append(pass_at_k(n_sample, n_correct, k=5))
-                list_passk_6.append(pass_at_k(n_sample, n_correct, k=6))
-                list_passk_7.append(pass_at_k(n_sample, n_correct, k=7))
-                list_passk_8.append(pass_at_k(n_sample, n_correct, k=8))
-                list_passk_9.append(pass_at_k(n_sample, n_correct, k=9))
-                list_passk_10.append(pass_at_k(n_sample, n_correct, k=10))
+                # list_passk_4.append(pass_at_k(n_sample, n_correct, k=4))
+                # list_passk_5.append(pass_at_k(n_sample, n_correct, k=5))
+                # list_passk_6.append(pass_at_k(n_sample, n_correct, k=6))
+                # list_passk_7.append(pass_at_k(n_sample, n_correct, k=7))
+                # list_passk_8.append(pass_at_k(n_sample, n_correct, k=8))
+                # list_passk_9.append(pass_at_k(n_sample, n_correct, k=9))
+                # list_passk_10.append(pass_at_k(n_sample, n_correct, k=10))
 
                 proba_solved = n_correct / n_sample
                 probas_solved.append(proba_solved)
@@ -173,7 +196,8 @@ def eval_puzzle_loop(
         # json_content = [dic_passk]
         # with open(out_file_name + "_e" + str(num_train_epochs) + ".json", "w") as outfile:
         #     json.dump(json_content, outfile, indent=4)
-        wandb.log(dic_passk)
+        json.dump(all_puzzles, open(out_file_name + '_puzzles_solved.json', 'w'))
+        # wandb.log(dic_passk)
 
 
 def eval_puzzles(puzzle_path: str, model_id: str):
@@ -201,6 +225,6 @@ def eval_puzzles(puzzle_path: str, model_id: str):
 if __name__ == "__main__":
     model_id = "facebook/opt-1.3b"
 
-    eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md')
+    eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md', model_id=model_id)
 
-    wandb.finish()
+    # wandb.finish()
