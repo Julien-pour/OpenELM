@@ -1,6 +1,6 @@
 import numpy as np
 import json
-path = "/home/laetitia/work/OpenELM/tests/subset2label_lae.json"
+path = "/home/laetitia/work/OpenELM/tests/subset2label_jul.json"
 with open(path, 'r') as f:
     data2label = json.load(f)
 
@@ -16,7 +16,7 @@ for idx in range(0,len(data2label)):
         true_label = inp.split(",")
         true_label_parsed = [int(idx) for idx in true_label]
         #convert to multi-hot
-        true_label = np.zeros(10,dtype=int)
+        true_label = np.zeros(10, dtype=int)
         true_label[true_label_parsed] = 1
         data2label[idx]["GT_emb_lae"] = true_label.tolist()
         with open(path, 'w') as f:
