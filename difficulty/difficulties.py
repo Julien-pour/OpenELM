@@ -41,7 +41,7 @@ def eval_puzzle_loop(
         solver_prompt_path,
         model_id="facebook/opt-1.3b",  # "codellama/CodeLlama-7b-Python-hf"
         batch_size=2,
-        num_return_sequences=3,
+        num_return_sequences=10,
         out_file_name='eval_model',
         cur_idx=0,  # to resume
         stop_on_first_success=False
@@ -153,16 +153,17 @@ def eval_puzzle_loop(
                 pass_k = pass_at_k(n_sample, n_correct, k=num_return_sequences)
                 list_passk.append(pass_k)
 
+                # todo make this depend on number of generated sequences
                 list_passk_1.append(pass_at_k(n_sample, n_correct, k=1))
                 list_passk_2.append(pass_at_k(n_sample, n_correct, k=2))
                 list_passk_3.append(pass_at_k(n_sample, n_correct, k=3))
-                # list_passk_4.append(pass_at_k(n_sample, n_correct, k=4))
-                # list_passk_5.append(pass_at_k(n_sample, n_correct, k=5))
-                # list_passk_6.append(pass_at_k(n_sample, n_correct, k=6))
-                # list_passk_7.append(pass_at_k(n_sample, n_correct, k=7))
-                # list_passk_8.append(pass_at_k(n_sample, n_correct, k=8))
-                # list_passk_9.append(pass_at_k(n_sample, n_correct, k=9))
-                # list_passk_10.append(pass_at_k(n_sample, n_correct, k=10))
+                list_passk_4.append(pass_at_k(n_sample, n_correct, k=4))
+                list_passk_5.append(pass_at_k(n_sample, n_correct, k=5))
+                list_passk_6.append(pass_at_k(n_sample, n_correct, k=6))
+                list_passk_7.append(pass_at_k(n_sample, n_correct, k=7))
+                list_passk_8.append(pass_at_k(n_sample, n_correct, k=8))
+                list_passk_9.append(pass_at_k(n_sample, n_correct, k=9))
+                list_passk_10.append(pass_at_k(n_sample, n_correct, k=10))
 
                 proba_solved = n_correct / n_sample
                 probas_solved.append(proba_solved)
