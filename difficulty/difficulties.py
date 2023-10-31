@@ -275,7 +275,7 @@ if __name__ == "__main__":
     model_id = MODEL_IDS[args.model]
     dataset_path = f"puzzles_{args.dataset}.json"
 
-    eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md', model_id=model_id,
+    eval_puzzle_loop(dataset_path, 'difficulty/solver_prompt_default.md', model_id=model_id,
                      batch_size=args.batch_size, world_size=args.world_size, process_number=args.process_number)
 
     # wandb.finish()
