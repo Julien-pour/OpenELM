@@ -24,7 +24,7 @@ parser.add_argument('-m', '--model', default='openllama', choices=['openllama', 
 parser.add_argument('-d', '--dataset', default='dev', choices=['train', 'test', 'dev'])  # add generated datasets
 parser.add_argument('-b', '--batch-size', default=2, type=int)  # add generated datasets
 parser.add_argument('-p', '--process-number', default=-1, type=int)
-parser.add_argument('-w', '--world_size', default=1, type=int)
+parser.add_argument('-w', '--world-size', default=1, type=int)
 
 
 MODEL_IDS = {
