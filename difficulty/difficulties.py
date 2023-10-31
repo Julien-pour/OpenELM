@@ -105,7 +105,7 @@ def eval_puzzle_loop(
     model.eval()
     model.config.use_cache = True
     model = torch.compile(model)
-    print(model.hf_device_map)
+    # print(model.hf_device_map)
 
     sys.set_int_max_str_digits(10_000)
     print('loading puzzles')
