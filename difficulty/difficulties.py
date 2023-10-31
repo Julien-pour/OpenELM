@@ -22,6 +22,7 @@ parser = ArgumentParser()
 
 parser.add_argument('-m', '--model', default='openllama', choices=['openllama', 'codellama', 'opt', 'mistral7b'])
 parser.add_argument('-d', '--dataset', default='dev', choices=['train', 'test', 'dev'])  # add generated datasets
+parser.add_argument('-b', '--batch-size', default=2, type=int)  # add generated datasets
 
 
 MODEL_IDS = {
@@ -243,6 +244,7 @@ if __name__ == "__main__":
     model_id = MODEL_IDS[args.model]
     dataset_path = f"puzzles_{args.dataset}.json"
 
-    eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md', model_id=model_id)
+    eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md', model_id=model_id,
+                     batch_size=args.batch_size)
 
     # wandb.finish()
