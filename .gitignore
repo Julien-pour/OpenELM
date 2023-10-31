@@ -172,3 +172,7 @@ Untitled-1.ipynb
 old/
 
 notebook/baseline_analysis.ipynb
+*.slurm
+run_imgep_smart.sh
+eval_model_opt-1.3b_puzzles_solved.json
+runscripts

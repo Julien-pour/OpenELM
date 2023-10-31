@@ -17,6 +17,21 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List, Dict, Any, Union
 
 
+from argparse import ArgumentParser
+parser = ArgumentParser()
+
+parser.add_argument('-m', '--model', default='openllama', choices=['openllama', 'codellama', 'opt', 'mistral7b'])
+parser.add_argument('-d', '--dataset', default='dev', choices=['train', 'test', 'dev'])  # add generated datasets
+
+
+MODEL_IDS = {
+    "openllama": "openlm-research/open_llama_3b",
+    "codellama": "codellama/CodeLlama-7b-Python-hf",
+    "mistral7b": "mistralai/Mistral-7B-v0.1",
+    "opt": "facebook/opt-1.3b",
+}
+
+
 def extract_sol(gen_text):
     # return text of the solution and text of the body
     if not gen_text.count('```') == 2:
@@ -224,7 +239,9 @@ def eval_puzzles(puzzle_path: str, model_id: str):
 
 
 if __name__ == "__main__":
-    model_id = "facebook/opt-1.3b"
+    args = parser.parse_args()
+    model_id = MODEL_IDS[args.model]
+    dataset_path = f"puzzles_{args.dataset}.json"
 
     eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md', model_id=model_id)
 
