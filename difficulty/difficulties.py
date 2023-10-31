@@ -23,6 +23,8 @@ parser = ArgumentParser()
 parser.add_argument('-m', '--model', default='openllama', choices=['openllama', 'codellama', 'opt', 'mistral7b'])
 parser.add_argument('-d', '--dataset', default='dev', choices=['train', 'test', 'dev'])  # add generated datasets
 parser.add_argument('-b', '--batch-size', default=2, type=int)  # add generated datasets
+parser.add_argument('-p', '--process-number', default=-1, type=int)
+parser.add_argument('-w', '--world_size', default=1, type=int)
 
 
 MODEL_IDS = {
@@ -33,12 +35,29 @@ MODEL_IDS = {
 }
 
 
+def split_samples(samples, world_size, process_number):
+    num_samples = len(samples)
+    divisor = num_samples // world_size
+    remainder = num_samples % world_size
+    if process_number < remainder:
+        start_idx = process_number * (divisor + 1)
+        end_idx = start_idx + divisor + 1
+    else:
+        over_remainder = process_number - remainder
+        start_idx = remainder * (divisor + 1) + over_remainder * divisor
+        end_idx = start_idx + divisor
+    return samples[start_idx:end_idx]
+
+
 def extract_sol(gen_text):
     # return text of the solution and text of the body
     if not gen_text.count('```') == 2:
         sol_text = gen_text.split('```')[1]
         try:
-            sol_text = ast.unparse([el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)][0])
+            to_unparse = [el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)]
+            if not to_unparse:
+                return ''
+            sol_text = ast.unparse(to_unparse[0])
             return sol_text
         except SyntaxError:
             return ''
@@ -46,7 +65,10 @@ def extract_sol(gen_text):
         sol_text = gen_text.split('```')[1]
         # parse the function
         try:
-            sol_text = ast.unparse([el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)][0])
+            to_unparse = [el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)]
+            if not to_unparse:
+                return ''
+            sol_text = ast.unparse(to_unparse[0])
             return sol_text
         except SyntaxError:
             return ''
@@ -60,7 +82,9 @@ def eval_puzzle_loop(
         num_return_sequences=10,
         out_file_name='eval_model',
         cur_idx=0,  # to resume
-        stop_on_first_success=False
+        stop_on_first_success=False,
+        process_number=-1,
+        world_size=1,
 ):
     # change this?
     # os.environ['HF_DATASETS_CACHE'] = "/projets/flowers/julien/hf/datasets"
@@ -72,9 +96,10 @@ def eval_puzzle_loop(
         model_id,
         torch_dtype=torch.bfloat16,
         # quantization_config=quantization_config,
-        device_map="auto",
+        # device_map="auto",
         local_files_only=True
     )
+    model.cuda()
     tokenizer.padding_side = 'left'
     tokenizer.pad_token = tokenizer.eos_token
     model.eval()
@@ -90,6 +115,11 @@ def eval_puzzle_loop(
 
     # files and paths, load puzzles
     out_file_name = '_'.join([out_file_name, model_id.split('/')[-1]])
+    if process_number != -1:
+        out_file_name += f'_p{process_number}'
+        # only load part of the puzzles
+        puzzles = split_samples(puzzles, world_size, process_number)
+
     print('preprocessing puzzles')
     all_puzzles = preprocessing_p3(puzzles, tokenizer=tokenizer)
     print('done')
@@ -246,6 +276,6 @@ if __name__ == "__main__":
     dataset_path = f"puzzles_{args.dataset}.json"
 
     eval_puzzle_loop('puzzles_dev.json', 'difficulty/solver_prompt_default.md', model_id=model_id,
-                     batch_size=args.batch_size)
+                     batch_size=args.batch_size, world_size=args.world_size, process_number=args.process_number)
 
     # wandb.finish()
