@@ -28,7 +28,7 @@ parser.add_argument('-w', '--world-size', default=1, type=int)
 
 
 MODEL_IDS = {
-    "openllama": "openlm-research/open_llama_3b",
+    "openllama": "openlm-research/open_llama_3b_v2",
     "codellama": "codellama/CodeLlama-7b-Python-hf",
     "mistral7b": "mistralai/Mistral-7B-v0.1",
     "opt": "facebook/opt-1.3b",
