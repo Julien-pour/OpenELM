@@ -25,6 +25,7 @@ parser.add_argument('-d', '--dataset', default='dev', choices=['train', 'test', 
 parser.add_argument('-b', '--batch-size', default=2, type=int)  # add generated datasets
 parser.add_argument('-p', '--process-number', default=-1, type=int)
 parser.add_argument('-w', '--world-size', default=1, type=int)
+parser.add_argument('--prompt-config', default=0, type=int)
 
 
 MODEL_IDS = {
@@ -49,7 +50,7 @@ def split_samples(samples, world_size, process_number):
     return samples[start_idx:end_idx]
 
 
-def extract_sol(gen_text):
+def extract_sol_0(gen_text):
     # return text of the solution and text of the body
     if not gen_text.count('```') == 2:
         sol_text = gen_text.split('```')
@@ -76,9 +77,30 @@ def extract_sol(gen_text):
             return ''
 
 
+def extract_sol_1(gen_text):
+    if not gen_text.count('assert f(g())'):
+        return ''
+    gen_text = gen_text.split('assert f(g())')[0].strip()
+    try:
+        parsed_fns = [p for p in ast.parse(gen_text).body if isinstance(p, ast.FunctionDef)]
+    except SyntaxError:
+        return ''
+    if not parsed_fns:
+        return ''
+    else:
+        return ast.unparse(parsed_fns[0])
+
+
+PROMPT_CONFIGS = {
+    0: {'prompt': 'solver_prompt_0.md', 'extract_sol': extract_sol_0},  # instruct-like prompt
+    1: {'prompt': 'solver_prompt_1.md', 'extract_sol': extract_sol_1},
+    2: {'prompt': 'solver_prompt_2.md', 'extract_sol': extract_sol_1},
+    3: {'prompt': 'solver_prompt_3.md', 'extract_sol': extract_sol_1},
+}
+
+
 def eval_puzzle_loop(
         puzzle_path,
-        solver_prompt_path,
         model_id="facebook/opt-1.3b",  # "codellama/CodeLlama-7b-Python-hf"
         batch_size=2,
         num_return_sequences=10,
@@ -87,6 +109,7 @@ def eval_puzzle_loop(
         stop_on_first_success=False,
         process_number=-1,
         world_size=1,
+        prompt_config=0,
 ):
     # change this?
     # os.environ['HF_DATASETS_CACHE'] = "/projets/flowers/julien/hf/datasets"
@@ -127,7 +150,6 @@ def eval_puzzle_loop(
     print('done')
 
     torch._dynamo.config.suppress_errors = True
-    solver_prompt = open(solver_prompt_path, 'r').read()
 
     list_trainset = [[x["program_str"], x["g_firstline"]] for x in all_puzzles]
     curr_idx = 0
@@ -145,6 +167,10 @@ def eval_puzzle_loop(
 
     list_puzzle = []
     probas_solved = []
+
+    extract_sol = PROMPT_CONFIGS[prompt_config]['extract_sol']
+    solver_prompt_path = os.path.join("difficulty", PROMPT_CONFIGS[prompt_config]['extract_sol'])
+    solver_prompt = open(solver_prompt_path, 'r').read()
 
     print(f'Evaluating {len(list_trainset)} puzzles.')
 
@@ -277,7 +303,13 @@ if __name__ == "__main__":
     model_id = MODEL_IDS[args.model]
     dataset_path = f"puzzles_{args.dataset}.json"
 
-    eval_puzzle_loop(dataset_path, 'difficulty/solver_prompt_default.md', model_id=model_id,
-                     batch_size=args.batch_size, world_size=args.world_size, process_number=args.process_number)
+    eval_puzzle_loop(
+        dataset_path,
+        model_id=model_id,
+        batch_size=args.batch_size,
+        world_size=args.world_size,
+        process_number=args.process_number,
+        prompt_config=args.prompt_config
+    )
 
     # wandb.finish()

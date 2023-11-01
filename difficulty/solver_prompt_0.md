@@ -36,7 +36,7 @@ Solution 1:
 ```
 def g(target = 2):
     return [[0, 2]] * target 
-assert f(g()) == True
+assert f(g())
 ```
 Problem 2:
 ```
@@ -57,7 +57,7 @@ def g(v=313946483, w=806690290):
         w *= 2
         i += 1
     return i 
-assert f(g()) == True
+assert f(g())
 ```
 Problem 3:
 ```
