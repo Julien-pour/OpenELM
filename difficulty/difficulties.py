@@ -26,6 +26,8 @@ parser.add_argument('-b', '--batch-size', default=2, type=int)  # add generated 
 parser.add_argument('-p', '--process-number', default=-1, type=int)
 parser.add_argument('-w', '--world-size', default=1, type=int)
 parser.add_argument('--prompt-config', default=0, type=int)
+parser.add_argument('--orig', action='store_true')
+parser.set_defaults(orig=False)
 
 
 MODEL_IDS = {
@@ -99,6 +101,162 @@ PROMPT_CONFIGS = {
 }
 
 
+def eval_puzzle_loop_orig(
+        puzzle_path,
+        model_id="facebook/opt-1.3b",  # "codellama/CodeLlama-7b-Python-hf"
+        batch_size=2,
+        num_return_sequences=10,
+        out_file_name='eval_model',
+        cur_idx=0,  # to resume
+        stop_on_first_success=False,
+        process_number=-1,
+        world_size=1,
+        prompt_config=0,
+):
+    # version used by Julien
+
+    tokenizer = AutoTokenizer.from_pretrained(model_id,
+                                              local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16,
+
+        # quantization_config=quantization_config,
+        device_map="auto",
+        local_files_only=True
+    )
+    tokenizer.padding_side = 'left'
+    tokenizer.pad_token = tokenizer.eos_token
+    model.eval()
+    model.config.use_cache = True
+    model = torch.compile(model)
+
+    sys.set_int_max_str_digits(10_000)
+    print('loading puzzles')
+    with open(puzzle_path, mode='r') as f:
+        puzzles = json.load(f)
+    print('done')
+
+    # files and paths, load puzzles
+    out_file_name = '_'.join([out_file_name, model_id.split('/')[-1]])
+    if process_number != -1:
+        out_file_name += f'_p{process_number}'
+        # only load part of the puzzles
+        puzzles = split_samples(puzzles, world_size, process_number)
+
+    print('preprocessing puzzles')
+    all_puzzles = preprocessing_p3(puzzles, tokenizer=tokenizer)
+    print('done')
+
+    list_trainset = [[x["program_str"], x["g_firstline"]] for x in all_puzzles]
+    list_puzzle_correct = []
+    correct_puzz = 0
+    curr_idx = 0
+    num_return_sequences = 10  # n_try
+    list_passk = []
+    list_passk_1 = []
+    list_passk_2 = []
+    list_passk_3 = []
+    list_passk_4 = []
+    list_passk_5 = []
+    list_passk_6 = []
+    list_passk_7 = []
+    list_passk_8 = []
+    list_passk_9 = []
+    list_passk_10 = []
+
+    list_puzzle = []
+
+    solver_prompt_path = os.path.join("difficulty", PROMPT_CONFIGS[prompt_config]['prompt'])
+    solver_prompt = open(solver_prompt_path, 'r').read()
+
+    bs = batch_size
+    with torch.no_grad():
+
+        for idx in tqdm(range(curr_idx, len(list_trainset), bs)):  # len(dataset["test"])
+            curr_idx = idx
+            # idx=0
+            print(f"\n\n============ idx {idx} ==================\n")
+            flag = True
+            attempt = 0
+            list_puzzle_idx = []
+            list_prompt = []
+            list_prompt_f = []
+            list_prompt_g_firstline = []
+            subset_train = list_trainset[idx:idx + bs]
+            for (puzzle, g_firstline) in subset_train:
+                prompt_f = puzzle.split("def g(")[0]
+                list_prompt_g_firstline.append(g_firstline)
+                list_prompt_f.append(prompt_f)
+                prompt = solver_prompt.format(pb=prompt_f, g_firstline=g_firstline)
+                list_prompt.append(prompt)
+            inputs = tokenizer(list_prompt, return_tensors="pt", padding=True).to("cuda")
+            # for idx_inp in range(len(inputs)):
+            len_prompt = inputs["input_ids"].shape[1]
+            list_puzzle_gen = [[] for _ in range(len(list_prompt))]
+            for idx_gen in range(num_return_sequences):
+                outputs = model.generate(**inputs, max_new_tokens=512, do_sample=True, temperature=0.8)
+                generated_texts = tokenizer.batch_decode(outputs[:, len_prompt:], skip_special_tokens=True)
+                for idx_out_gen in range(len(outputs)):
+                    list_puzzle_gen[idx_out_gen].append(generated_texts[idx_out_gen])
+
+            for i in range(len(list_puzzle_gen)):  # along the bs
+                for j in range(len(list_puzzle_gen[i])):
+                    prompt_f = list_prompt_f[i]
+                    g_firstline = list_prompt_g_firstline[i]
+
+                    extract_g = list_puzzle_gen[i][j].split("```")[0].split("assert")[0]
+                    extract_g = g_firstline + extract_g + "\nassert f(g()) == True\n"
+                    test_fg = prompt_f + extract_g
+                    list_puzzle_gen[i][j] = test_fg
+                    list_puzzle.append(test_fg)
+                    if j < 1:
+                        print("\n-------------------\n")
+                        print(test_fg)
+
+                list_valid_puzzles = judge_parallel(list_puzzle_gen[i])
+
+                cor_puz = np.sum(list_valid_puzzles)
+
+                n_sample, n_correct = num_return_sequences, cor_puz
+                pass_k = pass_at_k(n_sample, n_correct, k=num_return_sequences)
+                list_passk.append(pass_k)
+                list_passk_1.append(pass_at_k(n_sample, n_correct, k=1))
+                list_passk_2.append(pass_at_k(n_sample, n_correct, k=2))
+                list_passk_3.append(pass_at_k(n_sample, n_correct, k=3))
+                list_passk_4.append(pass_at_k(n_sample, n_correct, k=4))
+                list_passk_5.append(pass_at_k(n_sample, n_correct, k=5))
+                list_passk_6.append(pass_at_k(n_sample, n_correct, k=6))
+                list_passk_7.append(pass_at_k(n_sample, n_correct, k=7))
+                list_passk_8.append(pass_at_k(n_sample, n_correct, k=8))
+                list_passk_9.append(pass_at_k(n_sample, n_correct, k=9))
+                list_passk_10.append(pass_at_k(n_sample, n_correct, k=10))
+            print(f"correct puzzles: {int(np.sum(list_passk))}/{len(list_passk)}")
+            with open(out_file_name + ".json", "w") as outfile:
+                json.dump(list_passk, outfile)
+
+        print(f"pass 1: {np.sum(list_passk_1)}/{len(list_passk)}")
+        print(f"pass 3: {np.sum(list_passk_3)}/{len(list_passk)}")
+        print(f"pass 5: {np.sum(list_passk_5)}/{len(list_passk)}")
+        print(f"pass 7: {np.sum(list_passk_7)}/{len(list_passk)}")
+        print(f"pass 10: {np.sum(list_passk_10)}/{len(list_passk)}")
+        dic_passk = {"pass_1": float(np.sum(list_passk_1))}
+        dic_passk["pass_2"] = float(np.sum(list_passk_2))
+        dic_passk["pass_3"] = float(np.sum(list_passk_3))
+        dic_passk["pass_4"] = float(np.sum(list_passk_4))
+        dic_passk["pass_5"] = float(np.sum(list_passk_5))
+        dic_passk["pass_6"] = float(np.sum(list_passk_6))
+        dic_passk["pass_7"] = float(np.sum(list_passk_7))
+        dic_passk["pass_8"] = float(np.sum(list_passk_8))
+        dic_passk["pass_9"] = float(np.sum(list_passk_9))
+        dic_passk["pass_10"] = float(np.sum(list_passk_10))
+
+        json_content = [dic_passk]
+        with open(out_file_name + "_passk" + ".json", "w") as outfile:
+            json.dump(json_content, outfile, indent=4)
+        json.dump(all_puzzles, open(out_file_name + '_puzzles_solved.json', 'w'))
+
+
 def eval_puzzle_loop(
         puzzle_path,
         model_id="facebook/opt-1.3b",  # "codellama/CodeLlama-7b-Python-hf"
@@ -111,10 +269,6 @@ def eval_puzzle_loop(
         world_size=1,
         prompt_config=0,
 ):
-    # change this?
-    # os.environ['HF_DATASETS_CACHE'] = "/projets/flowers/julien/hf/datasets"
-    # os.environ['TRANSFORMERS_CACHE'] = "/projets/flowers/julien/models/"
-
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
 
     model = AutoModelForCausalLM.from_pretrained(
@@ -124,7 +278,7 @@ def eval_puzzle_loop(
         device_map="auto",
         local_files_only=True
     )
-    model.cuda()
+    # model.cuda()
     tokenizer.padding_side = 'left'
     tokenizer.pad_token = tokenizer.eos_token
     model.eval()
@@ -269,9 +423,9 @@ def eval_puzzle_loop(
         dic_passk["pass_9"] = float(np.sum(list_passk_9))
         dic_passk["pass_10"] = float(np.sum(list_passk_10))
 
-        # json_content = [dic_passk]
-        # with open(out_file_name + "_e" + str(num_train_epochs) + ".json", "w") as outfile:
-        #     json.dump(json_content, outfile, indent=4)
+        json_content = [dic_passk]
+        with open(out_file_name + "_passk" + ".json", "w") as outfile:
+            json.dump(json_content, outfile, indent=4)
         json.dump(all_puzzles, open(out_file_name + '_puzzles_solved.json', 'w'))
         # wandb.log(dic_passk)
 
@@ -303,13 +457,24 @@ if __name__ == "__main__":
     model_id = MODEL_IDS[args.model]
     dataset_path = f"puzzles_{args.dataset}.json"
 
-    eval_puzzle_loop(
-        dataset_path,
-        model_id=model_id,
-        batch_size=args.batch_size,
-        world_size=args.world_size,
-        process_number=args.process_number,
-        prompt_config=args.prompt_config
-    )
+    if args.orig:
+        eval_puzzle_loop_orig(
+            dataset_path,
+            model_id=model_id,
+            batch_size=args.batch_size,
+            world_size=args.world_size,
+            process_number=args.process_number,
+            prompt_config=args.prompt_config,
+            out_file_name='eval_model_orig'
+        )
+    else:
+        eval_puzzle_loop(
+            dataset_path,
+            model_id=model_id,
+            batch_size=args.batch_size,
+            world_size=args.world_size,
+            process_number=args.process_number,
+            prompt_config=args.prompt_config
+        )
 
     # wandb.finish()
