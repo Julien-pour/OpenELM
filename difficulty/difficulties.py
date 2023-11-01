@@ -52,7 +52,9 @@ def split_samples(samples, world_size, process_number):
 def extract_sol(gen_text):
     # return text of the solution and text of the body
     if not gen_text.count('```') == 2:
-        sol_text = gen_text.split('```')[1]
+        sol_text = gen_text.split('```')
+        if not len(sol_text) >= 2:
+            return ''
         try:
             to_unparse = [el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)]
             if not to_unparse:
