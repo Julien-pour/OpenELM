@@ -57,7 +57,7 @@ def extract_sol_0(gen_text):
         if not len(sol_text) >= 2:
             return ''
         try:
-            to_unparse = [el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)]
+            to_unparse = [el for el in ast.parse(sol_text[1]).body if isinstance(el, ast.FunctionDef)]
             if not to_unparse:
                 return ''
             sol_text = ast.unparse(to_unparse[0])
@@ -68,7 +68,7 @@ def extract_sol_0(gen_text):
         sol_text = gen_text.split('```')[1]
         # parse the function
         try:
-            to_unparse = [el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)]
+            to_unparse = [el for el in ast.parse(sol_text[1]).body if isinstance(el, ast.FunctionDef)]
             if not to_unparse:
                 return ''
             sol_text = ast.unparse(to_unparse[0])
@@ -121,7 +121,7 @@ def eval_puzzle_loop(
         model_id,
         torch_dtype=torch.bfloat16,
         # quantization_config=quantization_config,
-        # device_map="auto",
+        device_map="auto",
         local_files_only=True
     )
     model.cuda()
@@ -169,7 +169,7 @@ def eval_puzzle_loop(
     probas_solved = []
 
     extract_sol = PROMPT_CONFIGS[prompt_config]['extract_sol']
-    solver_prompt_path = os.path.join("difficulty", PROMPT_CONFIGS[prompt_config]['extract_sol'])
+    solver_prompt_path = os.path.join("difficulty", PROMPT_CONFIGS[prompt_config]['prompt'])
     solver_prompt = open(solver_prompt_path, 'r').read()
 
     print(f'Evaluating {len(list_trainset)} puzzles.')
