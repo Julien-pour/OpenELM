@@ -68,7 +68,7 @@ def extract_sol_0(gen_text):
         sol_text = gen_text.split('```')[1]
         # parse the function
         try:
-            to_unparse = [el for el in ast.parse(sol_text[1]).body if isinstance(el, ast.FunctionDef)]
+            to_unparse = [el for el in ast.parse(sol_text).body if isinstance(el, ast.FunctionDef)]
             if not to_unparse:
                 return ''
             sol_text = ast.unparse(to_unparse[0])
