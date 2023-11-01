@@ -12,7 +12,7 @@ from utils import pass_at_k, preprocessing_p3
 
 from tqdm import tqdm
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer
 
 from typing import List, Dict, Any, Union
 
@@ -115,7 +115,9 @@ def eval_puzzle_loop_orig(
 ):
     # version used by Julien
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id,
+    # tokenizer = AutoTokenizer.from_pretrained(model_id,
+    #                                           local_files_only=True)
+    tokenizer = LlamaTokenizer.from_pretrained(model_id,
                                               local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
@@ -205,11 +207,13 @@ def eval_puzzle_loop_orig(
                     prompt_f = list_prompt_f[i]
                     g_firstline = list_prompt_g_firstline[i]
 
-                    extract_g = list_puzzle_gen[i][j].split("```")[0].split("assert")[0]
+                    extract_g = list_puzzle_gen[i][j].split("```")[1].split("assert")[0]
                     extract_g = g_firstline + extract_g + "\nassert f(g()) == True\n"
                     test_fg = prompt_f + extract_g
                     list_puzzle_gen[i][j] = test_fg
                     list_puzzle.append(test_fg)
+                    print(test_fg)
+                    print("=" * 80)
                     if j < 1:
                         print("\n-------------------\n")
                         print(test_fg)
@@ -269,7 +273,7 @@ def eval_puzzle_loop(
         world_size=1,
         prompt_config=0,
 ):
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    tokenizer = LlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
 
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
