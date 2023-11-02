@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 import json
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage
-
+import numpy as np
 # cfg: dict = {
 #     "max_tokens": 1024,
 #     "temperature": 0.0,
@@ -35,18 +35,41 @@ from langchain.schema import HumanMessage
 
 skill_list = ['Sorting and Searching', 'Counting and combinatorics', 'Tree and Graph problem', 'Math', 'Bit Manipulation', 'String Manipulation', 'Geometry', 'Recursion and Dynamic Programming', 'Stacks and Queues', 'Optimization']
 SKILLS ="""
+0 - Sorting or Searching: Sorting refers to arranging a data structure (list, string, grid,...) in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element or pattern in a data structure (list, string, grid,...).
+1 - Counting or combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities, occurrence or arrangements. Counting the number of occurrences of something also falls in this category.
+2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as graph or tree traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes, heap, problems on grids...
+3 - Math: Strong understanding of mathematical concepts such as summations, probability, arithmetics, polynomials, solving equations, matrices, algebra, formal and informal logic....
+4 - Bit Manipulation: Performing operations at the bit level to solve problems. This includes boolean operation (and, or, not, xor, etc), bit shifting, bit masking, and other bitwise operations.
+5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, parsing strings, and pattern matching.
+6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for geometrical problem-solving. For instance puzzles involving shapes on the plane (triangles, etc), angles, figures, space, surfaces, curvature, 3d geometry, discrete geometry, rotations...
+7 - Recursion or Dynamic Programming: Utilizing recursive techniques and dynamic programming to solve problems by factoring them down into smaller subproblems and building solutions incrementally. Puzzles that can be solved through a modular approach.
+8 - Stacks or Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
+9 - Optimization: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, brute force search, etc...
+"""
+# SKILLS ="""
+# 0 - Sorting and Searching: Sorting refers to arranging a collection of elements in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element in a collection, or an element of a set that satisfies given constraints.
+# 1 - Counting and combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities or arrangements. Counting the number of occurrences of something also falls in this category.
+# 2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as graph or tree traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes, problems on grids, among others.
+# 3 - Math: Strong understanding of mathematical concepts such as summations, probability, arithmetics, polynomials, solving equations, matrices, algebra, formal and informal logic....
+# 4 - Bit Manipulation: Performing operations at the bit level to solve problems. This includes boolean operation (and, or, not, xor, etc), bit shifting, bit masking, and other bitwise operations.
+# 5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, parsing strings, and pattern matching.
+# 6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for geometrical problem-solving. For instance puzzles involving shapes on the plane (triangles, etc), angles, figures, space, surfaces, curvature, 3d geometry, discrete geometry, rotations...
+# 7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming to solve problems by factoring them down into smaller subproblems and building solutions incrementally. Puzzles that can be solved through a modular approach.
+# 8 - Stacks or Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
+# 9 - Optimization Algorithms: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, etc...
+# """
+SKILLS_backup ="""
 0 - Sorting and Searching: Sorting refers to arranging a collection of elements in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element in a collection, or an element of a set that satisfies given constraints.
 1 - Counting and combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities or arrangements. Counting the number of occurrences of something also falls in this category.
 2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as graph or tree traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes, problems on grids, among others.
 3 - Math: Strong understanding of mathematical concepts such as summations, probability, arithmetics, polynomials, equations, matrices, algebra....
 4 - Bit Manipulation: Performing operations at the bit level to solve problems. This includes boolean operation (and, or, not, xor, etc), bit shifting, bit masking, and other bitwise operations.
 5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, parsing strings, and pattern matching.
-6 - Geometry: Understanding geometric concepts and algorithms for geometrical problem-solving. For instance puzzles involving shapes on the plane (triangles, etc), angles, figures, space, surfaces, curvature, 3d geometry, discrete geometry, rotations...
+6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for geometrical problem-solving. For instance puzzles involving shapes on the plane (triangles, etc), angles, figures, space, surfaces, curvature, 3d geometry, discrete geometry, rotations...
 7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming to solve problems by factoring them down into smaller subproblems and building solutions incrementally. Puzzles that can be solved through a modular approach.
-8 - Stacks and Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
-9 - Optimization: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, etc...
+8 - Stacks or Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
+9 - Optimization Algorithms: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, etc...
 """
-
 
 def skills_evaluation(puzzle):
     # import openai
@@ -63,12 +86,14 @@ def skills_evaluation(puzzle):
 
     start_prompt = "I will give you a Python programming puzzle f (and its solution g) and a list of programming skills. Your role is to say which programming skills are required to understand and solve the problem.\n"
     end_prompt = "\nFirst, you can write each category and explain with at most one sentence why it is required. Then summarize your answer by writing every index of categories in a Python list as follows (you must always write correctly the following text): Therefore, the list of indices for the problem is: <Python list>"
-    format_answer=' It is necessary to summarize your answer by writing every index of categories explicitly used in the problem or solution in a Python list, following the format provided below. Please ensure the correct usage of the following text where <Python list> is a list composed with digits (from 0 to 9): "Therefore, the list of indices for the problem is: <Python list>"'
+    format_answer='Then, you need to summarize your answer by writing the index of every required skills given your reasoning in a Python list, following the format provided below. Please ensure the correct usage of the following text where <Python list> is a list with numbers from 0 to 9: "Therefore, the list of skills for the puzzle is: <Python list>"'
     # end_prompt_v2 = 'After completing your reasoning (you can start by explaining the problem and the solution in a few sentences). Ensure you remove every listed skills that are unnecessary for understanding or solving the given problem.'+format_answer
     end_prompt_v2_b = 'After completing your reasoning (you can start by explaining the problem and the solution in a few sentences).' +format_answer
-    end_prompt_v3 = 'First start by explaining the problem and the solution in a few sentences. Second write each skills associated with a number from 0 to 9 and explain with at most one sentence why it is required or not required.'+format_answer
-    puzzle_prompt = "The puzzle is:\n```\n" +puzzle + "\n```\n"
-    full_prompt = start_prompt + str("skills: ")+ skills + puzzle_prompt + end_prompt_v3
+    end_prompt_v3 = 'First start by explaining the problem and the solution in a few sentences. Second write the name of each skills and explain if it is required or not required for understanding or solving the puzzle above.'+format_answer
+    puzzle_prompt = "The puzzle is:\n```python\n" +puzzle + "\n```\n"
+    end_prompt_v2 = 'After completing your reasoning (you can start by explaining the problem and the solution in a few sentences). Ensure you remove every listed skills that are unnecessary for understanding or solving the given problem. It is necessary to summarize your answer by writing every index of categories explicitly used in the problem or solution in a Python list, following the format provided below. Please ensure the correct usage of the following text where <Python list> is a list with numbers from 0 to 9: "Therefore, the list of indices for the problem is: <Python list>"' 
+
+    full_prompt = start_prompt + str("skills: ")+ skills + puzzle_prompt + end_prompt_v2
     return full_prompt, n_skills
 
 
@@ -78,7 +103,7 @@ def gen_response(chatGPT,prompt):
 
 
     
- 
+
 def label_puzzle_chatgpt(chatGPT,program_str,n_attempts=0,save_completion={},return_completion=False):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
     """
     Label a puzzle with the skills it requires
@@ -97,38 +122,33 @@ def label_puzzle_chatgpt(chatGPT,program_str,n_attempts=0,save_completion={},ret
             return [0. for i in range(n_skills)]
     response = gen_response(chatGPT=chatGPT,prompt=prompt)
     print(response)
-    save_completion[str(n_attempts)]=response
+    
     split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
     if len(split_completion) == 2 :#"Skills parsing
-        if split_completion[1][-1] == ".":
-            split_completion[1] = split_completion[1][:-1] 
-        try :
-            category_idx_predicted = eval(split_completion[1]) 
-            list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-            save_completion[str(n_attempts)]=[response,list_skill]
-            if return_completion:
-                return list_skill,save_completion
-            else:
-                return list_skill
-        
-        except: # if pb when parsing try to fix them
-            if split_completion[1].count("]")==1:
-                try:
-                    category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
-                    list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
+        split_completion=split_completion[1].split("]")[0]+"]"
+        try: 
+            category_idx_predicted = eval(split_completion)
+            
+            if len(category_idx_predicted)!=0:
+                cond1=not(len(category_idx_predicted) > n_skills or max(category_idx_predicted) > n_skills) # if one skills is hallucinated
+                cond2= response.count("Not required")>=10 and len(category_idx_predicted)==10 # hallucination when all skills are not required but vector of all 1.
+            else: cond1=True 
+            if cond1:
+                list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
+                if cond2:
+                    list_skill = [0.for i in range(n_skills)]
+                save_completion[str(n_attempts)]=[response,list_skill]
+                # if len(list_skill)==n_skills:
+                if return_completion :
                     save_completion[str(n_attempts)]=[response,list_skill]
-                    if return_completion:
-                        return list_skill,save_completion
-                    else:
-                        return list_skill
-                except:
-                    # return label_puzzle(program_str,n_attempts=n_attempts+1)
-                    pass
-            # else:
-            #     return label_puzzle(program_str,n_attempts=n_attempts+1)
-        
+                    return list_skill,save_completion
+                else:
+                    return list_skill
+        except:
+            pass
     if return_completion:
-        return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts+1,save_completion=save_completion)
+        save_completion[str(n_attempts)]=[response,None]
+        return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts+1,save_completion=save_completion,return_completion=return_completion)
     else:
         return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts+1)
 
