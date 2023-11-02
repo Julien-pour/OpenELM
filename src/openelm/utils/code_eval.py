@@ -475,6 +475,15 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512, load_embedding
                 puzz["emb"] = np.random.randint(0, 2, 10)
         return puzzles_set
     
+def get_limited_trainset():
+    import os
+    script_dir = os.path.dirname(__file__) 
+    path_embed = script_dir+"/preprocess_p3_emb.json"
+    with open(path_embed, "r") as f:
+        list_puzzle = json.load(f)
+    return list_puzzle
+
+    
 def preprocessing_P3_no_test(split: str = "train", n_token_max: int =512, load_embedding = False,debug=False) -> list[dict]:
     """
     dl puzzles from P3 dataset and give train or test puzzles
