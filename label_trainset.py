@@ -8,16 +8,15 @@ import json
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.messages import HumanMessage
 from joblib import Parallel, delayed
-from openelm.environments.p3 import skills_evaluation
+from openelm.environments.p3 import label_puzzle_chatgpt
 from tqdm import tqdm
 import os
 from tenacity import *
 
-n_jobs=6
 cfg: dict = {
     "max_tokens": 1024,
     "temperature": 0.0,
-    "top_p": 0.95,
+    "top_p": 1.,
     # TODO: rename config option?
     "model_name": "gpt-3.5-turbo-0613",
     "request_timeout": 70,
@@ -29,41 +28,49 @@ script_dir = os.path.dirname(__file__)
 
 # @retry(stop=stop_after_attempt(10),wait=wait_random_exponential(min=1, max=40))
 def gen_response(prompt):
-    return chatGPT.generate([[HumanMessage(content=prompt)]])
+    response=chatGPT.generate([[HumanMessage(content=prompt)]])
+    return response.generations[0][0].text  
+
+
+    
+def label_puzzle(program_str,n_attempts=0,chatGPT=chatGPT):
+    return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts,return_completion=False)
+
+n_jobs=6
 
 path_embed = script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
-print(script_dir)
-def label_puzzle(program_str,n_attempts=0):
-    """
-    Label a puzzle with the skills it requires"""
-    prompt,n_skills = skills_evaluation(program_str)
-    if n_attempts > 4: # should not append but just in case
-        return [0. for i in range(n_skills)]
+# print(script_dir)
+# def label_puzzle(program_str,n_attempts=0):
+#     """
+#     Label a puzzle with the skills it requires"""
+#     prompt,n_skills = skills_evaluation(program_str)
+#     if n_attempts > 4: # should not append but just in case
+#         return [0. for i in range(n_skills)]
     
-    response = gen_response(prompt)
-    response = response.generations[0][0].text    
-    split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
-    if len(split_completion) == 2 :#"Skills parsing
-        if split_completion[1][-1] == ".":
-            split_completion[1] = split_completion[1][:-1] 
-        try :
-            category_idx_predicted = eval(split_completion[1]) 
-            list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-            return list_skill
+#     response = gen_response(prompt)
+#     response = response.generations[0][0].text    
+#     split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
+#     if len(split_completion) == 2 :#"Skills parsing
+#         if split_completion[1][-1] == ".":
+#             split_completion[1] = split_completion[1][:-1] 
+#         try :
+#             category_idx_predicted = eval(split_completion[1]) 
+#             list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
+#             return list_skill
         
-        except: # if pb when parsing try to fix them
-            if split_completion[1].count("]")==1:
-                try:
-                    category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
-                    list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
-                    return list_skill
-                except:
-                    return label_puzzle(program_str,n_attempts=n_attempts+1)
-            else:
-                return label_puzzle(program_str,n_attempts=n_attempts+1)
+#         except: # if pb when parsing try to fix them
+#             if split_completion[1].count("]")==1:
+#                 try:
+#                     category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
+#                     list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
+#                     return list_skill
+#                 except:
+#                     return label_puzzle(program_str,n_attempts=n_attempts+1)
+#             else:
+#                 return label_puzzle(program_str,n_attempts=n_attempts+1)
         
-    else: 
-        return label_puzzle(program_str,n_attempts=n_attempts+1)
+#     else: 
+#         return label_puzzle(program_str,n_attempts=n_attempts+1)
 
 with initialize(version_base="1.2"):
     cfg = compose(config_name="elmconfig")

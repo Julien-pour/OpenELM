@@ -30,7 +30,7 @@ from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import preprocessing_P3,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
+from openelm.utils.code_eval import preprocessing_P3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
 from joblib import Parallel, delayed, parallel_config
 import itertools
 # from joblib import parallel_config
@@ -521,7 +521,19 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         for i in list_incorrect_puzzle[::-1]:
             del list_p3[i]
             
-        self.archive_P3puzzle = list_p3
+        if self.config.limited_trainset:
+            list_puzzle=get_limited_trainset()
+            list_puzzle_prgrm_str=[p["program_str"] for p in list_puzzle]
+            list_p3_prgrm_str=[p.program_str for p in list_p3]
+            list_p3_limited=[]
+            for prgr_str in list_puzzle_prgrm_str:
+                assert list_puzzle_prgrm_str in list_p3_prgrm_str
+                idx_selected=list_p3_prgrm_str.index(prgr_str)
+                list_p3_limited.append(list_p3[idx_selected])   
+                         
+            list_p3=list_p3_limited
+            assert len(list_p3)==len
+        self.archive_P3puzzle = list_p3(list_puzzle)
 
             
                 
