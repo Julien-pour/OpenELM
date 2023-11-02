@@ -12,7 +12,7 @@ from utils import pass_at_k, preprocessing_p3
 
 from tqdm import tqdm
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, CodeLlamaTokenizer
 
 from typing import List, Dict, Any, Union
 
@@ -273,7 +273,12 @@ def eval_puzzle_loop(
         world_size=1,
         prompt_config=0,
 ):
-    tokenizer = LlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    if 'codellama' in model_id:
+        tokenizer = CodeLlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    elif 'llama' in model_id:
+        tokenizer = LlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
 
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
@@ -432,28 +437,6 @@ def eval_puzzle_loop(
             json.dump(json_content, outfile, indent=4)
         json.dump(all_puzzles, open(out_file_name + '_puzzles_solved.json', 'w'))
         # wandb.log(dic_passk)
-
-
-def eval_puzzles(puzzle_path: str, model_id: str):
-    # given the path to a json, eval all puzzles
-    # maybe modify to do parallel eval/do multiprocessing (afterwards)
-    with open(puzzle_path, 'r') as f:
-        all_puzzles = json.load(f)
-
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        torch_dtype=torch.bfloat16,
-
-        # quantization_config=quantization_config,
-        device_map="auto",
-        trust_remote_code=True
-    )
-    tokenizer.padding_side = 'left'
-    tokenizer.pad_token = tokenizer.eos_token
-    model.eval()
-    model = torch.compile(model)
-
 
 
 if __name__ == "__main__":
