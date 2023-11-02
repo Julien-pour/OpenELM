@@ -289,7 +289,7 @@ class MAPElitesBase:
 
         log_path = Path(log_snapshot_dir)
         
-        if log_snapshot_dir and os.path.isdir(log_path):
+        if self.config.loading_snapshot_map and os.path.isdir(log_path):
             print("loading path")
             stem_dir = log_path.stem
 

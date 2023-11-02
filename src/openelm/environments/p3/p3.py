@@ -15,6 +15,7 @@ from scipy.spatial.distance import cdist
 from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer # maybe this is the pb (bitsandbytes launch message when doing multiprocess)?
 import torch
+from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage
 from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
 from openelm.environments.base import BaseEnvironment, Genotype, Phenotype
@@ -25,14 +26,13 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
-from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
+from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation,label_puzzle_chatgpt,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import preprocessing_P3,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
 from joblib import Parallel, delayed, parallel_config
 import itertools
-
 # from joblib import parallel_config
 
 from tqdm import tqdm
@@ -769,7 +769,17 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
-
+        if self.config.GPT_feedback: #init openai model with temp = 0 
+            cfg: dict = {
+                "max_tokens": 1024,
+                "temperature": 0.0,
+                "top_p": 1.,
+                "max_retries":100,
+                # TODO: rename config option?
+                "model_name": "gpt-3.5-turbo-0613",#"gpt-4-0613",
+                "request_timeout": 70
+            }
+            self.chatGPT = ChatOpenAI(**cfg) 
         # Use the first example in the prompt seed as basis for embedding sizes
         # i_first = self.prompt_seed.find("assert")
         # first_example = self.prompt_seed[:i_first].strip()
@@ -809,35 +819,36 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         Label a puzzle with the skills it requires
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
         """
-        prompt,n_skills = skills_evaluation(program_str)
-        if n_attempts > 4: # should not append but just in case
-            # raise ValueError("too many attempts to label the puzzle")
-            print("WARNING: too many attempts to label the puzzle")
-            return [0. for i in range(n_skills)]
-        response = self.mutation_model.model.generate([[HumanMessage(content=prompt)]])
-        response = response.generations[0][0].text    
-        split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
-        if len(split_completion) == 2 :#"Skills parsing
-            if split_completion[1][-1] == ".":
-                split_completion[1] = split_completion[1][:-1] 
-            try :
-                category_idx_predicted = eval(split_completion[1]) 
-                list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-                return list_skill
+        return label_puzzle_chatgpt(self.chatGPT,program_str,n_attempts=0,return_completion=False)
+        # prompt,n_skills = skills_evaluation(program_str)
+        # if n_attempts > 4: # should not append but just in case
+        #     # raise ValueError("too many attempts to label the puzzle")
+        #     print("WARNING: too many attempts to label the puzzle")
+        #     return [0. for i in range(n_skills)]
+        # response = self.mutation_model.model.generate([[HumanMessage(content=prompt)]])
+        # response = response.generations[0][0].text    
+        # split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
+        # if len(split_completion) == 2 :#"Skills parsing
+        #     if split_completion[1][-1] == ".":
+        #         split_completion[1] = split_completion[1][:-1] 
+        #     try :
+        #         category_idx_predicted = eval(split_completion[1]) 
+        #         list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
+        #         return list_skill
             
-            except: # if pb when parsing try to fix them
-                if split_completion[1].count("]")==1:
-                    try:
-                        category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
-                        list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
-                        return list_skill
-                    except:
-                        return self.label_puzzle(program_str,n_attempts=n_attempts+1)
-                else:
-                    return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+        #     except: # if pb when parsing try to fix them
+        #         if split_completion[1].count("]")==1:
+        #             try:
+        #                 category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
+        #                 list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
+        #                 return list_skill
+        #             except:
+        #                 return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+        #         else:
+        #             return self.label_puzzle(program_str,n_attempts=n_attempts+1)
             
-        else: 
-            return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+        # else: 
+        #     return self.label_puzzle(program_str,n_attempts=n_attempts+1)
     
     def to_phenotype(self,program_str: str):
         """compute embedding of the program"""
@@ -881,7 +892,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         for puz in tqdm(trainset):
             del puz["f"], puz["g"],puz["attempts"]
             puz["config"] = self.config
-            if not load_embedding and not debug:
+            if not load_embedding:
                 puz["emb"]=self.to_phenotype(puz["program_str"])
                 
             
