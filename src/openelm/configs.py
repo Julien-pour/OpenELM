@@ -177,6 +177,7 @@ class P3ProbSolChatEnvConfig(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    limited_trainset=False # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -190,6 +191,7 @@ class P3ProbSolChatEnvConfig(EnvConfig):
     N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
     remove_doc = True # remove doc in f 
     
+    
 @dataclass
 class P3ProbSolChatEnv_IMGEP_smart_Config(EnvConfig):
 
@@ -197,6 +199,8 @@ class P3ProbSolChatEnv_IMGEP_smart_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    limited_trainset=False # start with few example (3)
+
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -236,6 +240,7 @@ class P3ProbSolChatEnv_IMGEP_random_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    limited_trainset=False # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -275,6 +280,7 @@ class P3ProbSolChatEnv_ELM_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = False # True if using NLP feedback
+    limited_trainset=False # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -314,6 +320,7 @@ class P3ProbSolChatEnv_ELM_NLP_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
+    limited_trainset=False # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -326,6 +333,7 @@ class P3ProbSolChatEnv_ELM_NLP_Config(EnvConfig):
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
     remove_doc = True # remove doc in f 
+    
     
 @dataclass
 class QDEnvConfig(EnvConfig):
