@@ -274,11 +274,11 @@ def eval_puzzle_loop(
         prompt_config=0,
 ):
     if 'codellama' in model_id:
-        tokenizer = CodeLlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        tokenizer = CodeLlamaTokenizer.from_pretrained(model_id, local_files_only=True)
     elif 'llama' in model_id:
-        tokenizer = LlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        tokenizer = LlamaTokenizer.from_pretrained(model_id, local_files_only=True)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=True)
 
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
