@@ -532,7 +532,7 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
                 list_p3_limited.append(list_p3[idx_selected])   
                          
             list_p3=list_p3_limited
-            assert len(list_p3)==len
+            assert len(list_p3)==len(list_puzzle)
         self.archive_P3puzzle = list_p3
 
             
