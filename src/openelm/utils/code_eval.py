@@ -478,7 +478,7 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512, load_embedding
 def get_limited_trainset():
     import os
     script_dir = os.path.dirname(__file__) 
-    path_embed = script_dir+"/preprocess_p3_emb.json"
+    path_embed = script_dir+"/preprocess_p3_emb_3_puzzles.json"
     with open(path_embed, "r") as f:
         list_puzzle = json.load(f)
     return list_puzzle

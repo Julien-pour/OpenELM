@@ -121,7 +121,6 @@ def label_puzzle_chatgpt(chatGPT,program_str,n_attempts=0,save_completion={},ret
         else:
             return [0. for i in range(n_skills)]
     response = gen_response(chatGPT=chatGPT,prompt=prompt)
-    print(response)
     
     split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
     if len(split_completion) == 2 :#"Skills parsing

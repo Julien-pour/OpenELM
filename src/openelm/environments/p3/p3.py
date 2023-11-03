@@ -533,6 +533,7 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
                          
             list_p3=list_p3_limited
             assert len(list_p3)==len(list_puzzle)
+            
         self.archive_P3puzzle = list_p3
 
             
@@ -945,6 +946,19 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
         for i in list_incorrect_puzzle[::-1]:
             del list_p3[i]
+            
+        if self.config.limited_trainset:
+            list_puzzle=get_limited_trainset()
+            list_puzzle_prgrm_str=[just_remove_example_in_docstring(p["program_str"]) for p in list_puzzle]
+            list_p3_prgrm_str=[p.program_str for p in list_p3]
+            list_p3_limited=[]
+            for prgr_str in list_puzzle_prgrm_str:
+                assert prgr_str in list_p3_prgrm_str
+                idx_selected=list_p3_prgrm_str.index(prgr_str)
+                list_p3_limited.append(list_p3[idx_selected])   
+                         
+            list_p3=list_p3_limited
+            assert len(list_p3)==len(list_puzzle)
             
         self.archive_P3puzzle = list_p3
 
