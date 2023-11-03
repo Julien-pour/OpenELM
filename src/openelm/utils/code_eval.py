@@ -120,7 +120,7 @@ def pool_exec_processes(
     if processes <= 1:
         return list(map(eval_fn, prompts_2_test))
     with mp.Pool(processes=processes) as pool:
-        results = list(pool.map(eval_fn, prompts_2_test))
+        results = list(pool.map(eval_fn, prompts_2_test)) # timeout here bug: too much process?
     if debug:
         print(results)
     return results

@@ -1166,32 +1166,33 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # a generator type. The multithreaded execution pickles things and generators can't be pickled
             # which causes the whole thing to error out.
             # For now, try/except and re-try.
-            try:
-                # IDK for now if it's usefull to remove assert to have an output even if puzzle is not correct
-                # start_t2 = time.time()
-                results = pool_exec_processes(
-                    generated_programs,
-                    func_name="g",
-                    timeout=self.config.timeout,
-                    processes=self.config.processes,
-                    debug=self.config.debug,
-                )
-                # start_t3 = time.time()
-                # print(f"time compute return g {len(generated_programs)} program = {start_t3-start_t2} sec")
-            except Exception as e:
-                results=[]
-                for idx_code in range(len(generated_programs)):
-                    try:
-                        result = pool_exec_processes(
-                                generated_programs[idx_code],
-                                func_name="g",
-                                timeout=self.config.timeout,
-                                processes=self.config.processes,
-                                debug=self.config.debug,
-                            )
-                        results.append(result)
-                    except Exception as ebis:
-                        results.append("Error") #pb when g output a class aaaa:... def g(): return aaaa()
+            results=[None]*len(generated_programs) # remove get output function
+            # try:
+            #     # IDK for now if it's usefull to remove assert to have an output even if puzzle is not correct
+            #     # start_t2 = time.time()
+            #     results = pool_exec_processes(
+            #         generated_programs,
+            #         func_name="g",
+            #         timeout=self.config.timeout,
+            #         processes=0,#self.config.processes,
+            #         debug=self.config.debug,
+            #     )
+            #     # start_t3 = time.time()
+            #     # print(f"time compute return g {len(generated_programs)} program = {start_t3-start_t2} sec")
+            # except Exception as e:
+            #     results=[]
+            #     for idx_code in range(len(generated_programs)):
+            #         try:
+            #             result = pool_exec_processes(
+            #                     generated_programs[idx_code],
+            #                     func_name="g",
+            #                     timeout=self.config.timeout,
+            #                     processes=self.config.processes,
+            #                     debug=self.config.debug,
+            #                 )
+            #             results.append(result)
+            #         except Exception as ebis:
+            #             results.append("Error") #pb when g output a class aaaa:... def g(): return aaaa()
                         
                 
         # trick: just label correct problem to save computation time or $$ (chatGPT):
