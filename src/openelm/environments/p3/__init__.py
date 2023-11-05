@@ -221,7 +221,6 @@ def P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example, skill_targeted
         idx_curr_puzz = [idx for idx, val in enumerate(list_few_shot_example[idx_puzz].emb) if val]
         all_puzzle_str += f"Puzzle {idx_puzz}, required skills {idx_curr_puzz} :\n```\n{list_few_shot_example[idx_puzz].program_str}\n```\n---\n"
     skills = f"""{SKILLS}
-
 """
     instruction_p3_puzzle= """Note that the first argument of f is the output g(). Make sure to define and set values for all arguments of the function 'f' (excluding the first argument, as it is the solution that needs to be found and given by g).
 Both functions, 'f' and 'g' should have matching argument signatures: def f(arg0, arg1=value1, arg2=value2, ...) and def g(arg1=value1, arg2=value2, ...). Please provide all values (value1, value2, ... ) for all arguments. For example f(solution,arg1=1, arg2=2, ...) and g(arg1=1, arg2=2, ...). And you should not use f inside g.
@@ -230,12 +229,23 @@ Additionally, make sure to import any necessary libraries to ensure your code ru
     prompt_skills = f"""In addition each of those puzzles are associated with a list of skills. Here is a detailed description of those skills: {skills}Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}) that require those skills: {idx_skill_targeted}.
 {instruction_p3_puzzle} Please ensure the mutated puzzles fall into all those skills: {idx_skill_targeted}."""
 
+    end_prompt_test='''And respect all criteria:
+-A problem function f that takes the output of a solution function g as its first argument, with additional arguments as necessary. Define and provide default values for all arguments of f (except the first one, which is provided by g).
+-A solution function g with matching argument signatures to f, including all default values.
+-Ensure the puzzle is considered solved if f(g()) == True.'''
+
+
+    end_prompt='''And respect all criteria:
+-The function f takes the output of g as its first argument, with additional arguments as necessary. Define and provide default values for all arguments of f (except the first one, which is provided by g).
+-The function g must have matching argument signatures with f, and you should provide all default values for these. 
+-The puzzle is considered solved if f(g()) == True.'''
     prompt = f'''I will give you {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate new puzzles according to the instructions given.
 {prompt_skills}
 ----
 {all_puzzle_str}
-Could you please write {new_puzzles} new interesting correct Python Programming Puzzles (from Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1})? Please, ensure the new puzzles must necessitates the utilization of the following skills (required skills {idx_skill_targeted}):
+Could you please write {new_puzzles} new correct Python Programming Puzzles (from Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1})? Please, ensure the new puzzles must necessitates the utilization of the following skills (required skills {idx_skill_targeted}):
 {skill_list_str}
+{end_prompt}
 '''
     return prompt
 

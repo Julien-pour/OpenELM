@@ -117,6 +117,7 @@ def pool_exec_processes(
         timeout=timeout,
         debug=debug,
     )
+
     if processes <= 1:
         return list(map(eval_fn, prompts_2_test))
     with mp.Pool(processes=processes) as pool:
@@ -554,7 +555,9 @@ def sample_target_skill_smart(all_emb) -> list[bool]:
     density=density*(out.min(axis=1)!=0) # remove already explored niches (sampling weight = 0)
     density_norm=density/np.sum(density)
     idx_niches_sampled=np.random.choice(len(binary_vectors),p=density_norm)
-    target_skill=list(binary_vectors[idx_niches_sampled])
+    binary_vectors_sampled=binary_vectors[idx_niches_sampled]
+    target_skill=list(binary_vectors_sampled)
+    target_skill = [int(element) for element in target_skill]
     return target_skill
 
 
