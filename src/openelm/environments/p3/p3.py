@@ -1116,12 +1116,15 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         list_pb=[]
         # parse the generated code 
-        for gen_prog in _generated_programs:
+        # as we generate multiple puzzle for each batch_size (in total 3*batch_size) we need to associate skill targeted with the list of all pb (list_pb)
+        skill_targeted_list_duplicate=[]
+        for idx_gen_prog,gen_prog in enumerate(_generated_programs): #_generated_programs => batch_size params
             # should probably use regex (faster)
-            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("``` python","```").replace("```\n","```").split("```"))
+            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("``` python","```").split("```"))# replace("```\n","```").
             for idx in range(len(split_pb)):
                 if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
                     list_pb.append(split_pb[idx])
+                    skill_targeted_list_duplicate.append(skill_targeted_list[idx_gen_prog])
                     # if self.config.remove_doc:
                     #     try:
                     #         puzzle_wo_docstring=remove_docstring(split_pb[idx])
@@ -1141,8 +1144,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_lib = ["math", "random", "itertools"]
         
         for idx in range(len(generated_programs)):
-            if not P3_IMPORTS in generated_programs[idx]:
-                generated_programs[idx] = P3_IMPORTS+ generated_programs[idx]
+            if not("from typing import*" in generated_programs[idx] or "from typing import *" in generated_programs[idx]):
+                generated_programs[idx] = "from typing import *"+ generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
             for lib in list_lib:
@@ -1198,7 +1201,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # trick: just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
-            for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list)
+            for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list_duplicate)
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
         start_t4 = time.time()
@@ -1223,7 +1226,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         generated_programs = [gen_prog for gen_prog in generated_programs]
         results = [
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
-            for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list,list_phenotype,list_fitness)
+            for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list_duplicate,list_phenotype,list_fitness)
         ]
         # results = [
         #     {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog), "idx_generation": self.idx_generation, "target_skills":target_skills}
