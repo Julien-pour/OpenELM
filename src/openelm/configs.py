@@ -50,10 +50,10 @@ class QDConfig(BaseConfig):
     """
     model_path: str = "gpt-3.5-turbo-0613" # just for register the model
     init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 1500#256 #2500 
+    total_steps: int = 500#256 #2500 
     history_length: int = 4096 #128 #2048   
     save_history: bool = False
-    save_snapshot_interval: int = 5
+    save_snapshot_interval: int = 1 #5
     loading_snapshot_map: bool = False # load map located at log_snapshot_dir
     log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     seed: Optional[int] = 42
@@ -72,8 +72,8 @@ class MAPElitesConfig(QDConfig):
 @dataclass
 class MAPElitesConfig_random(QDConfig): # without mutation just random gen
     qd_name: str = "mapelites"
-    init_steps: int = 1500
-    total_steps: int = 1500
+    init_steps: int = 500
+    total_steps: int = 500
     map_grid_size: tuple[int, ...] = field(default_factory=lambda: (2,)) # 2 for P3 NLP space
 
 @dataclass
@@ -151,6 +151,7 @@ class P3ProbSolEnvConfig(EnvConfig):
     embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation
 
+use_limited_trainset=False
 @dataclass
 class P3ProbSolChatEnvConfig(EnvConfig):
     """
@@ -177,7 +178,7 @@ class P3ProbSolChatEnvConfig(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
-    limited_trainset=False # start with few example (3)
+    limited_trainset= use_limited_trainset # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -199,7 +200,7 @@ class P3ProbSolChatEnv_IMGEP_smart_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
-    limited_trainset=False # start with few example (3)
+    limited_trainset=use_limited_trainset # start with few example (3)
 
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
@@ -240,7 +241,7 @@ class P3ProbSolChatEnv_IMGEP_random_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
-    limited_trainset=False # start with few example (3)
+    limited_trainset=use_limited_trainset # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -280,7 +281,7 @@ class P3ProbSolChatEnv_ELM_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = False # True if using NLP feedback
-    limited_trainset=False # start with few example (3)
+    limited_trainset=use_limited_trainset # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -320,7 +321,7 @@ class P3ProbSolChatEnv_ELM_NLP_Config(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
-    limited_trainset=False # start with few example (3)
+    limited_trainset=use_limited_trainset # start with few example (3)
     timeout: float = 1.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -377,7 +378,7 @@ ELM: "qd": "cvtmapelites"
 defaults_elm = [
     {"model": "prompt"},
     {"qd": "mapelites"}, #"cvtmapelites"},
-    {"env": "p3_probsol_Chat_IMGEP_random"}, #sodarace"},p3_probsol_Chat
+    {"env": "p3_probsol_Chat_IMGEP_smart"}, #sodarace"},p3_probsol_Chat
     "_self_",
 ]
 

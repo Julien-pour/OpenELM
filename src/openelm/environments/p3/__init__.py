@@ -229,16 +229,19 @@ Additionally, make sure to import any necessary libraries to ensure your code ru
     prompt_skills = f"""In addition each of those puzzles are associated with a list of skills. Here is a detailed description of those skills: {skills}Your role is to generate {new_puzzles} new puzzles (Puzzle {N_python_problem} to Puzzle {N_python_problem+new_puzzles-1}) that require those skills: {idx_skill_targeted}.
 {instruction_p3_puzzle} Please ensure the mutated puzzles fall into all those skills: {idx_skill_targeted}."""
 
-    end_prompt_test='''And respect all criteria:
+    end_prompt_backup='''And respect all criteria:
 -A problem function f that takes the output of a solution function g as its first argument, with additional arguments as necessary. Define and provide default values for all arguments of f (except the first one, which is provided by g).
 -A solution function g with matching argument signatures to f, including all default values.
 -Ensure the puzzle is considered solved if f(g()) == True.'''
+    end_prompt_backup_v2='''And respect all criteria resumed here:
+    - Make sure you add default args for all args of f except the first one as in the provided examples.
+    - The puzzle is considered solved if f(g()) == True.'''
 
-
-    end_prompt='''And respect all criteria:
--The function f takes the output of g as its first argument, with additional arguments as necessary. Define and provide default values for all arguments of f (except the first one, which is provided by g).
--The function g must have matching argument signatures with f, and you should provide all default values for these. 
--The puzzle is considered solved if f(g()) == True.'''
+    end_prompt='''And respect all criteria resumed here:
+    - Make sure you add default args for all args of f except the first one as in the provided examples.
+    - The puzzle is considered solved if f(g()) == True.
+    - You can't use f inside the function g
+    - The function g can only return only one variable or result.'''
     prompt = f'''I will give you {N_python_problem} (Puzzle 0 to Puzzle {N_python_problem-1}) Python Programming Puzzle (P3). A P3 consists of a problem f and its corresponding solution g. The puzzle is solved if f(g()) == True. Your role is to generate new puzzles according to the instructions given.
 {prompt_skills}
 ----
