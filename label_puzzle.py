@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 # /!\ change seed here
 seed=2
-path = f"/media/data/flowers/OpenELM/run_saved/limited_trainset/elm/seed{seed}/step_499/maps.pkl"
+path = f"/home/laetitia/work/OpenELM/logs/tmp/last_steps/env=P3ProbSolChatEnv_ELM,qd=cvtmapelites/seed42/step_499/maps.pkl"
 
 
 path_save = path.split("maps.pkl")[0]+"_phenotype.npy"
@@ -30,8 +30,6 @@ def gen_response(prompt):
     return response.generations[0][0].text  
 
 
-    
-    
 def getallitems(maps):
     """
     Returns all the phenotypes that are in the Map."""

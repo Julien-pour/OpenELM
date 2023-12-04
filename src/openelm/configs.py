@@ -49,14 +49,14 @@ class QDConfig(BaseConfig):
 
     """
     model_path: str = "gpt-3.5-turbo-0613" # just for register the model
-    init_steps: int = 0 #250 # only mutation with base prompt, then sample from map and mutation after init_steps
-    total_steps: int = 500#256 #2500 
-    history_length: int = 4096 #128 #2048   
+    init_steps: int = 0  #250 # only mutation with base prompt, then sample from map and mutation after init_steps
+    total_steps: int = 500  #256 #2500
+    history_length: int = 4096  #128 #2048
     save_history: bool = False
-    save_snapshot_interval: int = 1 #5
-    loading_snapshot_map: bool = False # load map located at log_snapshot_dir
-    log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
-    seed: Optional[int] = 42
+    save_snapshot_interval: int = 5 #5
+    loading_snapshot_map: bool = True  # load map located at log_snapshot_dir
+    log_snapshot_dir: str = "/home/laetitia/work/OpenELM/logs/elm/env=p3_probsol_Chat,qd=mapelites_rd/23-11-08_11:31/step_165"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
+    seed: Optional[int] = 44
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
     crossover: bool = False
