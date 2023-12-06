@@ -1,6 +1,5 @@
 # takes in a json file and model id, computes various quality metrics on the data
-from difficulty.difficulties import eval_puzzle_loop
-from tests.quality.iterative import iterative_solving_loop
+from quality_metrics.difficulty.difficulties import eval_puzzle_loop
 
 
 def eval_quality(

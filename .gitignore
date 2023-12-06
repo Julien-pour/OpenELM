@@ -176,7 +176,7 @@ notebook/baseline_analysis.ipynb
 run_imgep_smart.sh
 eval_model_opt-1.3b_puzzles_solved.json
 runscripts
-difficulty/results
+quality_metrics/difficulty/results
 /run_imgep.sh
 /run_elm.sh
 /run_elm_nlp.sh

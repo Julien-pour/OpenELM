@@ -1,21 +1,17 @@
 # add own difficulty computing script, todo integrate it with the rest
 import os
 import sys
-import wandb
 import torch
 import copy
 import ast
 import numpy as np
 import json
-from difficulty.judge import test_puzzle, judge_parallel
+from quality_metrics.difficulty.judge import judge_parallel
 from utils import pass_at_k, preprocessing_p3
 
 from tqdm import tqdm
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, CodeLlamaTokenizer
-
-from typing import List, Dict, Any, Union
-
 
 from argparse import ArgumentParser
 parser = ArgumentParser()
@@ -26,8 +22,6 @@ parser.add_argument('-b', '--batch-size', default=2, type=int)  # add generated 
 parser.add_argument('-p', '--process-number', default=-1, type=int)
 parser.add_argument('-w', '--world-size', default=1, type=int)
 parser.add_argument('--prompt-config', default=0, type=int)
-parser.add_argument('--orig', action='store_true')
-parser.set_defaults(orig=False)
 
 
 MODEL_IDS = {
@@ -112,27 +106,11 @@ def eval_puzzle_loop(
         process_number=-1,
         world_size=1,
         prompt_config=0,
+        max_k=10,
 ):
-    if 'codellama' in model_id:
-        tokenizer = CodeLlamaTokenizer.from_pretrained(model_id, local_files_only=True)
-    elif 'llama' in model_id:
-        tokenizer = LlamaTokenizer.from_pretrained(model_id, local_files_only=True)
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=True)
+    # todo save in better directory
+    # todo fix the passatk dicts
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        torch_dtype=torch.bfloat16,
-        # quantization_config=quantization_config,
-        device_map="auto",
-        local_files_only=True
-    )
-    # model.cuda()
-    tokenizer.padding_side = 'left'
-    tokenizer.pad_token = tokenizer.eos_token
-    model.eval()
-    model.config.use_cache = True
-    model = torch.compile(model)
     # print(model.hf_device_map)
 
     sys.set_int_max_str_digits(10_000)
@@ -156,17 +134,13 @@ def eval_puzzle_loop(
 
     list_trainset = [[x["program_str"], x["g_firstline"]] for x in all_puzzles]
     curr_idx = 0
+
+    passatk = {}
+
+    for k in range(max_k):
+        passatk[k] = []
+
     list_passk = []
-    list_passk_1 = []
-    list_passk_2 = []
-    list_passk_3 = []
-    list_passk_4 = []
-    list_passk_5 = []
-    list_passk_6 = []
-    list_passk_7 = []
-    list_passk_8 = []
-    list_passk_9 = []
-    list_passk_10 = []
 
     list_puzzle = []
     probas_solved = []
@@ -197,7 +171,7 @@ def eval_puzzle_loop(
             len_prompt = inputs["input_ids"].shape[1]
             list_puzzle_gen = [[] for _ in range(len(list_prompt))]
 
-            for idx_gen in range(num_return_sequences):
+            for idx_gen in range(max_k):
                 outputs = model.generate(**inputs, max_new_tokens=512, do_sample=True, temperature=0.8)
                 generated_texts = tokenizer.batch_decode(outputs[:, len_prompt:], skip_special_tokens=True)
                 for idx_out_gen in range(len(outputs)):
@@ -227,21 +201,13 @@ def eval_puzzle_loop(
 
                 cor_puz = np.sum(list_valid_puzzles)
 
-                n_sample, n_correct = num_return_sequences, int(cor_puz)
-                pass_k = pass_at_k(n_sample, n_correct, k=num_return_sequences)
+                n_sample, n_correct = max_k, int(cor_puz)
+                pass_k = pass_at_k(n_sample, n_correct, k=max_k)
                 list_passk.append(pass_k)
 
                 # todo make this depend on number of generated sequences
-                list_passk_1.append(pass_at_k(n_sample, n_correct, k=1))
-                list_passk_2.append(pass_at_k(n_sample, n_correct, k=2))
-                list_passk_3.append(pass_at_k(n_sample, n_correct, k=3))
-                list_passk_4.append(pass_at_k(n_sample, n_correct, k=4))
-                list_passk_5.append(pass_at_k(n_sample, n_correct, k=5))
-                list_passk_6.append(pass_at_k(n_sample, n_correct, k=6))
-                list_passk_7.append(pass_at_k(n_sample, n_correct, k=7))
-                list_passk_8.append(pass_at_k(n_sample, n_correct, k=8))
-                list_passk_9.append(pass_at_k(n_sample, n_correct, k=9))
-                list_passk_10.append(pass_at_k(n_sample, n_correct, k=10))
+                for k in range(max_k):
+                    passatk[k].append(pass_at_k(n_sample, n_correct, k=k))
 
                 proba_solved = n_correct / n_sample
                 probas_solved.append(proba_solved)
@@ -255,24 +221,13 @@ def eval_puzzle_loop(
             with open(out_file_name + ".json", "w") as outfile:
                 json.dump(list_passk, outfile)
 
-        print(f"pass 1: {np.sum(list_passk_1)}/{len(list_passk)}")
-        print(f"pass 3: {np.sum(list_passk_3)}/{len(list_passk)}")
-        print(f"pass 5: {np.sum(list_passk_5)}/{len(list_passk)}")
-        print(f"pass 7: {np.sum(list_passk_7)}/{len(list_passk)}")
-        print(f"pass 10: {np.sum(list_passk_10)}/{len(list_passk)}")
+        print(f"pass 1: {np.sum(passatk[1])}/{len(list_passk)}")
+        print(f"pass 3: {np.sum(passatk[3])}/{len(list_passk)}")
+        print(f"pass 5: {np.sum(passatk[5])}/{len(list_passk)}")
+        print(f"pass 7: {np.sum(passatk[7])}/{len(list_passk)}")
+        print(f"pass 10: {np.sum(passatk[10])}/{len(list_passk)}")
 
-        dic_passk = {"pass_1": float(np.sum(list_passk_1))}
-        dic_passk["pass_2"] = float(np.sum(list_passk_2))
-        dic_passk["pass_3"] = float(np.sum(list_passk_3))
-        dic_passk["pass_4"] = float(np.sum(list_passk_4))
-        dic_passk["pass_5"] = float(np.sum(list_passk_5))
-        dic_passk["pass_6"] = float(np.sum(list_passk_6))
-        dic_passk["pass_7"] = float(np.sum(list_passk_7))
-        dic_passk["pass_8"] = float(np.sum(list_passk_8))
-        dic_passk["pass_9"] = float(np.sum(list_passk_9))
-        dic_passk["pass_10"] = float(np.sum(list_passk_10))
-
-        json_content = [dic_passk]
+        json_content = [passatk]
         with open(out_file_name + "_passk" + ".json", "w") as outfile:
             json.dump(json_content, outfile, indent=4)
         json.dump(all_puzzles, open(out_file_name + '_puzzles_solved.json', 'w'))
@@ -284,24 +239,13 @@ if __name__ == "__main__":
     model_id = MODEL_IDS[args.model]
     dataset_path = f"puzzles_{args.dataset}.json"
 
-    if args.orig:
-        eval_puzzle_loop_orig(
-            dataset_path,
-            model_id=model_id,
-            batch_size=args.batch_size,
-            world_size=args.world_size,
-            process_number=args.process_number,
-            prompt_config=args.prompt_config,
-            out_file_name='eval_model_orig'
-        )
-    else:
-        eval_puzzle_loop(
-            dataset_path,
-            model_id=model_id,
-            batch_size=args.batch_size,
-            world_size=args.world_size,
-            process_number=args.process_number,
-            prompt_config=args.prompt_config
-        )
+    eval_puzzle_loop(
+        dataset_path,
+        model_id=model_id,
+        batch_size=args.batch_size,
+        world_size=args.world_size,
+        process_number=args.process_number,
+        prompt_config=args.prompt_config
+    )
 
     # wandb.finish()

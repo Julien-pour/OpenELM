@@ -1,15 +1,8 @@
-import os
-import sys
-import wandb
 import torch
-import copy
 import ast
-import numpy as np
 import json
 import jsonlines
-import pathlib
-from difficulty.judge import test_puzzle, judge_parallel
-from utils import pass_at_k, preprocessing_p3
+from quality_metrics.difficulty.judge import judge_parallel
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, CodeLlamaTokenizer
 
