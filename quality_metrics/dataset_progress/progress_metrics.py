@@ -1,6 +1,9 @@
 import gc
 import os
 import pathlib
+
+from datetime import datetime
+
 import json
 import torch
 from tqdm import tqdm
@@ -205,13 +208,23 @@ def incontext_compression_progress_wrapper(prompt_text, incontext_example_text, 
 
 
 def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_id, prompt_path=None,
-                              save_name='likelihood_save_file', save_dir='logs/compression_progress_test',
+                              save_name='progress_results', save_dir='logs/compression_progress_test',
                               analyze_compression_progress=True, use_lora=True, in_context=False,
-                              incontext_example_path=None):
+                              incontext_example_path=None, file_prefix=None):
+
+    if file_prefix is None:
+        file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0]
+
     # load puzzles
     puzzles = json.load(open(puzzles_to_test_path, 'r'))
     puzzle_archive = json.load(open(puzzle_archive_path, 'r'))
-    puzzles = puzzles[:14]  # remove
+
+    # filter puzzles with no solution
+    puzzles = [p for p in puzzles if p['sol_bodies']]
+    puzzle_archive = [p for p in puzzle_archive if p['sol_bodies']]
+    # todo remove when we have appropriate checks on puzzle len
+    puzzles = [p for p in puzzles if len(p['sat']) + len(p['sol_bodies'][0]) < 1000]
+    puzzle_archive = [p for p in puzzle_archive if len(p['sat']) + len(p['sol_bodies'][0]) < 1000]
 
     # create model and tokenizer
     model, tokenizer = utils.create_model_and_tokenizer(model_id, compile=False)
@@ -261,24 +274,38 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
     # save result matrix
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    torch.save(likelihood_diff_matrix, os.path.join(save_dir, save_name))
+    # torch.save(likelihood_diff_matrix, os.path.join(save_dir, save_name))
+
+    # save json of results
+    results = {}
+    results['progress_type'] = 'finetuning' if not in_context else 'in_context'
+    results['progress_metric'] = 'compression'  # todo add task lp when we have it
+    results['tested_puzzle_names'] = [p['name'] for p in puzzles]
+    results['tested_puzzles'] = [p['sat'] for p in puzzles]
+    results['tested_sols'] = [utils.make_solution(p) for p in puzzle_archive]
+    results['archive_puzzle_names'] = [p['name'] for p in puzzle_archive]
+    results['archive_puzzles'] = [p['sat'] for p in puzzle_archive]
+    results['archive_sols'] = [utils.make_solution(p) for p in puzzle_archive]
+    results['compression_progress'] = likelihood_diff_matrix.tolist()
+
+    json.dump(results, open(os.path.join(save_dir, file_prefix + '_' + save_name + '.json'), 'w'))
 
     if analyze_compression_progress:
         eval_dict = {}
         # get mean, std, histogram, print examples with their compression (maybe the extremes)
-        compression_per_puzzle_means = likelihood_diff_matrix.mean(-1)
-        compression_per_puzzle_std = likelihood_diff_matrix.std(-1)
-        print(f"compression per puzzle mean: {compression_per_puzzle_means.tolist()}")
-        print(f"compression per puzzle std: {compression_per_puzzle_std.tolist()}")
+        compression_means = likelihood_diff_matrix.mean()
+        compression_std = likelihood_diff_matrix.std()
+        print(f"compression mean: {compression_means}")
+        print(f"compression std: {compression_std}")
 
-        compression_per_archive_puzzle_means = likelihood_diff_matrix.mean(0)
-        compression_per_archive_puzzle_std = likelihood_diff_matrix.std(0)
-        print(f"compression per archive puzzle mean: {compression_per_archive_puzzle_means.tolist()}")
-        print(f"compression per archive puzzle std: {compression_per_archive_puzzle_std.tolist()}")
+        puzzle_average_compression = likelihood_diff_matrix.mean(-1)
+
+        # print lowest 3 puzzles and
 
         # histogram with all compressions
-        plt.hist(likelihood_diff_matrix.view(1, -1).tolist())
+        plt.hist(puzzle_average_compression.tolist())
         plt.show()
+        pass
 
 
 def get_solution_completion_logprob(tokenized_puzzle_archive):
@@ -296,8 +323,15 @@ if __name__ == "__main__":
     puzzles_to_test = "puzzles_dev.json"
     model_id = "openlm-research/open_llama_3b_v2"
 
-    # simple test
-    eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id)
+    prompt_path = "quality_metrics/dataset_progress/progress_base_no_example_prompt.md"
+    prompt_example_path = "quality_metrics/dataset_progress/progress_base_example_prompt.md"
+
+    # simple test, finuning based compression progress
+    # eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path)
+
+    # simple test, example-based compression progress
+    eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
+                              incontext_example_path=prompt_example_path, in_context=True)
 
     # expe todo: measure compression progress on the dev dataset for 1 opt step on each of the dev puzzles
     #       report the matrix for a range of learning rates

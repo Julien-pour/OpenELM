@@ -19,7 +19,7 @@ def make_solution(puzzle):
     # chooses one solution among the available ones
     header = puzzle['sol_header'].replace('def sol(', 'def g(')
     body = np.random.choice(puzzle['sol_bodies'])
-    return ''.join([header, body])
+    return '\n'.join([header, body])
 
 
 ### transformer utils
