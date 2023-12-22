@@ -1,3 +1,4 @@
+import ast
 import numpy as np
 import torch
 from transformers import CodeLlamaTokenizer, LlamaTokenizer, AutoTokenizer, AutoModelForCausalLM
@@ -20,6 +21,16 @@ def make_solution(puzzle):
     header = puzzle['sol_header'].replace('def sol(', 'def g(')
     body = np.random.choice(puzzle['sol_bodies'])
     return '\n'.join([header, body])
+
+
+def make_puzzle(puzzle, include_docstring=False):
+    if include_docstring:
+        splitlines = puzzle['sat'].split('\n')
+        splitlines.insert(1, puzzle['sol_docstring'])
+        puz_str = '\n'.join(splitlines)
+    else:
+        puz_str = puzzle['sat']
+    return puz_str.replace('def sat(', 'def f(')
 
 
 ### transformer utils
@@ -59,3 +70,14 @@ def remove_unnecessary_indices(tokenized_text):
     tokenized_text.input_ids = input_ids
     tokenized_text.attention_mask = attention_mask
     return tokenized_text
+
+
+REF_PUZZLE = '''def sat(s: List[str]):
+    """Find a list of 1000 distinct strings which each have more 'a's than 'b's and at least one 'b'."""
+    return len(set(s)) == 1000 and all((x.count("a") > x.count("b")) and ('b' in x) for x in s)'''
+
+REF_PUZZLE_NODOC = '''def sat(s: List[str]):
+    return len(set(s)) == 1000 and all((x.count("a") > x.count("b")) and ('b' in x) for x in s)'''
+
+REF_SOL = '''def sol():
+    return ["a" * (i + 2) + "b" for i in range(1000)]'''

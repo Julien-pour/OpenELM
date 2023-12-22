@@ -162,29 +162,35 @@ def get_in_context_compression_progress(archive_tokenized_puzzles, archive_token
     return differences
 
 
-def incontext_compression_progress_wrapper(prompt_text, incontext_example_text, puzzles, puzzle_archive, tokenizer, model,
-                                           optimizer):
+def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, use_docsting=False):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
-    # Note: must have a prompt that allows in-context examples, todo actually write the prompt
-    assert prompt_text is not None and incontext_example_text is not None
+    # Note: must have a prompt that allows in-context examples
+    assert prompt_text is not None
 
-    archive_puzzle_strs = [p['sat'].replace('def sat(', 'def f(') for p in puzzle_archive if p['sol_bodies']]
+    # make the prompts to measure baseline likelihood of solution in the archive
+    archive_puzzle_strs = [utils.make_puzzle(p, use_docsting) for p in puzzle_archive if p['sol_bodies']]
     archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
-    archive_puzzle_sols = [prompt_text.format(puzzle=puz, solution=sol) for puz, sol in
+    if use_docsting:
+        ref_puzzle = utils.REF_PUZZLE
+    else:
+        ref_puzzle = utils.REF_PUZZLE_NODOC
+    ref_solution = utils.REF_SOL
+    archive_puzzle_sols = [prompt_text.format(puzzle=ref_puzzle, solution=ref_solution,
+                                              archive_puzzle=apuz, archive_solution=asol) for apuz, asol in
                            zip(archive_puzzle_strs, archive_sol_strs)]
     archive_tokenized_puzzles = tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
-    puzzle_strs = [p['sat'].replace('def sat(', 'def f(') for p in puzzles if p['sol_bodies']]
+    # make the prompts to measure how much a given puzzle helps on solving the archive puzzles
+    puzzle_strs = [utils.make_puzzle(p, use_docsting) for p in puzzles if p['sol_bodies']]
     sol_strs = [utils.make_solution(p) for p in puzzles if p['sol_bodies']]
-
     archive_puzzle_sols_with_example = []
     for i, (puz, sol) in enumerate(zip(puzzle_strs, sol_strs)):
         archive_puzzle_sols_with_example.append([])
         for apuz, asol in zip(archive_puzzle_strs, archive_sol_strs):
             ins = {'puzzle': puz, 'solution': sol, 'archive_puzzle': apuz, 'archive_solution': asol}
-            archive_puzzle_sols_with_example[i].append(incontext_example_text.format(**ins))
+            archive_puzzle_sols_with_example[i].append(prompt_text.format(**ins))
     # archive_tokenized_puzzles_with_example = tokenizer(archive_puzzle_sols_with_example, return_tensors='pt', padding=True)
 
     # get difference in logprobs for each puzzle
@@ -210,7 +216,7 @@ def incontext_compression_progress_wrapper(prompt_text, incontext_example_text, 
 def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_id, prompt_path=None,
                               save_name='progress_results', save_dir='logs/compression_progress_test',
                               analyze_compression_progress=True, use_lora=True, in_context=False,
-                              incontext_example_path=None, file_prefix=None):
+                              file_prefix=None):
 
     if file_prefix is None:
         file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0]
@@ -244,10 +250,6 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
         prompt_text = open(prompt_path, 'r').read()
     else:
         prompt_text = None
-    if incontext_example_path is not None:
-        incontext_example_text = open(incontext_example_path, 'r').read()
-    else:
-        incontext_example_text = None
 
     # create tokenized archives and puzzle list (on cpu)
     # todo should filter puzzles with too many tokens
@@ -263,12 +265,10 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
     else:
         likelihood_diff_matrix = incontext_compression_progress_wrapper(
             prompt_text,
-            incontext_example_text,
             puzzles,
             puzzle_archive,
             tokenizer,
             model,
-            optimizer
         )
 
     # save result matrix
@@ -323,15 +323,14 @@ if __name__ == "__main__":
     puzzles_to_test = "puzzles_dev.json"
     model_id = "openlm-research/open_llama_3b_v2"
 
-    prompt_path = "quality_metrics/dataset_progress/progress_base_no_example_prompt.md"
-    prompt_example_path = "quality_metrics/dataset_progress/progress_base_example_prompt.md"
+    prompt_path = "quality_metrics/dataset_progress/progress_base_example_prompt.md"
 
     # simple test, finuning based compression progress
     # eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path)
 
     # simple test, example-based compression progress
     eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
-                              incontext_example_path=prompt_example_path, in_context=True)
+                              in_context=True)
 
     # expe todo: measure compression progress on the dev dataset for 1 opt step on each of the dev puzzles
     #       report the matrix for a range of learning rates
