@@ -100,26 +100,30 @@ def get_compression_progress(tokenized_puzzle, tokenized_puzzle_archive, model, 
     return differences
 
 
-def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, optimizer):
+def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, optimizer,
+                                 use_docstring=False):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
-    puzzle_strs = [p['sat'].replace('def sat(', 'def f(') for p in puzzles if p['sol_bodies']]
+    # make example for finetuning the model
+    puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzles if p['sol_bodies']]
     sol_strs = [utils.make_solution(p) for p in puzzles if p['sol_bodies']]
     if prompt_text is not None:
         puzzle_sols = [prompt_text.format(puzzle=puz, solution=sol) for puz, sol in zip(puzzle_strs, sol_strs)]
     else:
-        puzzle_sols = [f"Puzzle:\n\n{puz}\n\nSolution:\n\n{sol}" for puz, sol in zip(puzzle_strs, sol_strs)]
+        puzzle_sols = [f"Puzzle:\n```python\n{puz}\n```\nSolution:\n```python\n{sol}\n```"
+                       for puz, sol in zip(puzzle_strs, sol_strs)]
     tokenized_puzzles = tokenizer(puzzle_sols, return_tensors='pt', padding=True)
 
-    archive_puzzle_strs = [p['sat'].replace('def sat(', 'def f(') for p in puzzle_archive if p['sol_bodies']]
+    # make puzzle-sol pairs from the archive to measure if a given puzzle helps
+    archive_puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzle_archive if p['sol_bodies']]
     archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
     if prompt_text is not None:
         archive_puzzle_sols = [prompt_text.format(puzzle=puz, solution=sol) for puz, sol in
                                zip(archive_puzzle_strs, archive_sol_strs)]
     else:
-        archive_puzzle_sols = [f"Puzzle:\n\n{puz}\n\nSolution:\n\n{sol}" for puz, sol in
-                               zip(archive_puzzle_strs, archive_sol_strs)]
+        archive_puzzle_sols = [f"Puzzle:\n```python\n{puz}\n```\nSolution:\n```python\n{sol}\n```"
+                               for puz, sol in zip(archive_puzzle_strs, archive_sol_strs)]
     archive_tokenized_puzzles = tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
     # get difference in logprobs for each puzzle
@@ -162,7 +166,7 @@ def get_in_context_compression_progress(archive_tokenized_puzzles, archive_token
     return differences
 
 
-def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, use_docsting=False):
+def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, use_docstring=False):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
@@ -170,9 +174,9 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
     assert prompt_text is not None
 
     # make the prompts to measure baseline likelihood of solution in the archive
-    archive_puzzle_strs = [utils.make_puzzle(p, use_docsting) for p in puzzle_archive if p['sol_bodies']]
+    archive_puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzle_archive if p['sol_bodies']]
     archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
-    if use_docsting:
+    if use_docstring:
         ref_puzzle = utils.REF_PUZZLE
     else:
         ref_puzzle = utils.REF_PUZZLE_NODOC
@@ -183,7 +187,7 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
     archive_tokenized_puzzles = tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
     # make the prompts to measure how much a given puzzle helps on solving the archive puzzles
-    puzzle_strs = [utils.make_puzzle(p, use_docsting) for p in puzzles if p['sol_bodies']]
+    puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzles if p['sol_bodies']]
     sol_strs = [utils.make_solution(p) for p in puzzles if p['sol_bodies']]
     archive_puzzle_sols_with_example = []
     for i, (puz, sol) in enumerate(zip(puzzle_strs, sol_strs)):
@@ -216,7 +220,7 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
 def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_id, prompt_path=None,
                               save_name='progress_results', save_dir='logs/compression_progress_test',
                               analyze_compression_progress=True, use_lora=True, in_context=False,
-                              file_prefix=None):
+                              file_prefix=None, use_docstring=False):
 
     if file_prefix is None:
         file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0]
@@ -255,12 +259,13 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
     # todo should filter puzzles with too many tokens
     if not in_context:
         likelihood_diff_matrix = compression_progress_wrapper(
-            prompt_text,
+            None,  # prompt text differs from the in context one, handle this somewhere
             puzzles,
             puzzle_archive,
             tokenizer,
             model,
-            optimizer
+            optimizer,
+            use_docstring=use_docstring,
         )
     else:
         likelihood_diff_matrix = incontext_compression_progress_wrapper(
@@ -269,6 +274,7 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
             puzzle_archive,
             tokenizer,
             model,
+            use_docstring=use_docstring,
         )
 
     # save result matrix
@@ -330,7 +336,7 @@ if __name__ == "__main__":
 
     # simple test, example-based compression progress
     eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
-                              in_context=True)
+                              in_context=True, use_docstring=True)
 
     # expe todo: measure compression progress on the dev dataset for 1 opt step on each of the dev puzzles
     #       report the matrix for a range of learning rates

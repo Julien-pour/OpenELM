@@ -19,7 +19,8 @@ class AttrDict(dict):
 def make_solution(puzzle):
     # chooses one solution among the available ones
     header = puzzle['sol_header'].replace('def sol(', 'def g(')
-    body = np.random.choice(puzzle['sol_bodies'])
+    # body = np.random.choice(puzzle['sol_bodies'])  # choose at random
+    body = puzzle['sol_bodies'][0]  # choose the first one, ideal to get
     return '\n'.join([header, body])
 
 
@@ -32,6 +33,8 @@ def make_puzzle(puzzle, include_docstring=False):
         puz_str = puzzle['sat']
     return puz_str.replace('def sat(', 'def f(')
 
+
+bi = "zou"
 
 ### transformer utils
 
