@@ -18,7 +18,10 @@ from quality_metrics import utils
 from peft import get_peft_model, LoraConfig, TaskType
 
 
-def get_cross_entropy(model, input_ids, attention_mask):
+loss_fct = torch.nn.CrossEntropyLoss(reduce=False)
+
+
+def get_cross_entropy(model, input_ids, attention_mask, loss_attention_mask=None):
     batch_size, seq_len = input_ids.shape
     labels = input_ids.clone()
     logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
@@ -26,7 +29,6 @@ def get_cross_entropy(model, input_ids, attention_mask):
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
     # Flatten the tokens
-    loss_fct = torch.nn.CrossEntropyLoss(reduce=False)
     shift_logits = shift_logits.view(-1, model.config.vocab_size)
     shift_labels = shift_labels.view(-1)
     # Enable model parallelism
@@ -34,7 +36,10 @@ def get_cross_entropy(model, input_ids, attention_mask):
     loss = loss_fct(shift_logits, shift_labels)
     # average non-masked tokens over seq dim
     loss = loss.view(batch_size, seq_len - 1)
-    loss = (loss * attention_mask[..., :-1].contiguous()).sum(-1) / attention_mask.sum(-1)
+    if loss_attention_mask is None:
+        loss = (loss * attention_mask[..., :-1].contiguous()).sum(-1) / attention_mask.sum(-1)
+    else:
+        loss = (loss * loss_attention_mask[..., :-1].contiguous()).sum(-1) / loss_attention_mask.sum(-1)
 
     return loss
 
@@ -46,34 +51,35 @@ def get_puzzle_solution_likelihoods():
 
 @torch.no_grad()
 def get_solution_logprobs(tokenized_puzzle_archive, model, batch_size=2):
-    # todo should cut batches to remove unnecessary tokens
-    #   + check that logprob computation is ok / get perplexity computation somewhere
+    if tokenized_puzzle_archive:
+        try:
+            mask = tokenized_puzzle_archive.loss_attention_mask
+            mask_puzzle = True
+        except AttributeError:
+            mask_puzzle = False
+    else:
+        mask_puzzle = False
+
     all_losses = []
-    for i in range(0, tokenized_puzzle_archive.input_ids.shape[0], batch_size):
+    for i in tqdm(range(0, tokenized_puzzle_archive.input_ids.shape[0], batch_size)):
         input_ids = tokenized_puzzle_archive.input_ids[i:i+batch_size].to(model.device)
         attention_mask = tokenized_puzzle_archive.attention_mask[i:i+batch_size].to(model.device)
 
-        loss = get_cross_entropy(model, input_ids, attention_mask)
+        if not mask_puzzle:
+            # use the loss over both puzzle and solution
+            loss = get_cross_entropy(model, input_ids, attention_mask)
+        else:
+            # use loss over solution only
+            loss_attention_mask = tokenized_puzzle_archive.loss_attention_mask[i:i+batch_size].to(model.device)
+            loss = get_cross_entropy(model, input_ids, attention_mask, loss_attention_mask)
 
-        # nll = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids.clone()).loss
-
-        # todo: check these calculations, maybe they're more indicative of compression progress?
-        # model_logits = model(input_ids, attention_mask).logits  # check
-        # ll = model_logits.view(model_logits.shape[0] * model_logits.shape[1], model_logits.shape[2])
-        # norm = model_logits.logsumexp(-1)
-        # ii = input_ids.view(input_ids.shape[0] * input_ids.shape[1])
-        # logits = ll[torch.arange(ii.shape[0]).to(input_ids.device), ii].view(batch_size, -1)
-        # logprobs = logits - norm
-        # logprobs = (attention_mask * logprobs).sum(-1) / attention_mask.sum(-1)  # average over sequence dim
-
-        pass
         all_losses.append(loss.cpu())
     return torch.cat(all_losses, dim=0)
 
 
 # optimizer must be not have momentum
 def get_compression_progress(tokenized_puzzle, tokenized_puzzle_archive, model, optimizer,
-                             original_losses=None):
+                             original_losses=None, ):
     # compute likelihood of solutions before
     if original_losses is None:
         original_losses = get_solution_logprobs(tokenized_puzzle_archive, model)
@@ -101,7 +107,7 @@ def get_compression_progress(tokenized_puzzle, tokenized_puzzle_archive, model, 
 
 
 def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, optimizer,
-                                 use_docstring=False):
+                                 use_docstring=False, mask_puzzle=True):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
@@ -126,9 +132,22 @@ def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer
                                for puz, sol in zip(archive_puzzle_strs, archive_sol_strs)]
     archive_tokenized_puzzles = tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
-    # get difference in logprobs for each puzzle
+    # if we only compute compression progress on the solution, get the mask
+    if mask_puzzle:
+        solutions_tokenized = tokenizer(archive_sol_strs)
+        solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles.attention_mask)
+        # compute the solution attention mask
+        for idx, (full_prompt, sol) in enumerate(zip(archive_tokenized_puzzles.input_ids,
+                                                     solutions_tokenized.input_ids)):
+            mask = utils.get_solution_mask(full_prompt, sol)
+            solution_attention_mask[idx] = mask
+        archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
+
+    # get difference in logprobs for each puzzle:
+    # first initialize
     likelihood_diff_matrix = torch.zeros(tokenized_puzzles.input_ids.shape[0],
                                          archive_tokenized_puzzles.input_ids.shape[0])
+    # then get original losses
     original_losses = get_solution_logprobs(archive_tokenized_puzzles, model)
 
     for i in tqdm(range(tokenized_puzzles.input_ids.shape[0])):
@@ -166,7 +185,8 @@ def get_in_context_compression_progress(archive_tokenized_puzzles, archive_token
     return differences
 
 
-def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, use_docstring=False):
+def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model,
+                                           use_docstring=False, mask_puzzle=True):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
@@ -185,6 +205,16 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
                                               archive_puzzle=apuz, archive_solution=asol) for apuz, asol in
                            zip(archive_puzzle_strs, archive_sol_strs)]
     archive_tokenized_puzzles = tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
+    # if we only get the loss on the solution, compute the solution masks
+    if mask_puzzle:
+        solutions_tokenized = tokenizer(archive_sol_strs)
+        solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles.attention_mask)
+        # compute the solution attention mask
+        for idx, (full_prompt, sol) in enumerate(zip(archive_tokenized_puzzles.input_ids,
+                                                     solutions_tokenized.input_ids)):
+            mask = utils.get_solution_mask(full_prompt, sol)
+            solution_attention_mask[idx] = mask
+        archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
     # make the prompts to measure how much a given puzzle helps on solving the archive puzzles
     puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzles if p['sol_bodies']]
@@ -195,7 +225,6 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
         for apuz, asol in zip(archive_puzzle_strs, archive_sol_strs):
             ins = {'puzzle': puz, 'solution': sol, 'archive_puzzle': apuz, 'archive_solution': asol}
             archive_puzzle_sols_with_example[i].append(prompt_text.format(**ins))
-    # archive_tokenized_puzzles_with_example = tokenizer(archive_puzzle_sols_with_example, return_tensors='pt', padding=True)
 
     # get difference in logprobs for each puzzle
     likelihood_diff_matrix = torch.zeros(len(puzzle_strs),
@@ -206,6 +235,17 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
         # tokenized list of all archive puzzles prefixed by the example
         archive_tokenized_puzzles_with_example = tokenizer(archive_puzzle_sols_with_example[i], return_tensors='pt',
                                                            padding=True)
+
+        # if we only get the loss on the solution, compute the archive solution masks
+        if mask_puzzle:
+            solutions_tokenized = tokenizer(archive_sol_strs)
+            solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles_with_example.attention_mask)
+            # compute the solution attention mask
+            for idx, (full_prompt, sol) in enumerate(zip(archive_tokenized_puzzles_with_example.input_ids,
+                                                         solutions_tokenized.input_ids)):
+                mask = utils.get_solution_mask(full_prompt, sol)
+                solution_attention_mask[idx] = mask
+            archive_tokenized_puzzles_with_example.loss_attention_mask = solution_attention_mask
 
         likelihood_diff_matrix[i] = get_in_context_compression_progress(
             archive_tokenized_puzzles,

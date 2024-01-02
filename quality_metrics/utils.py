@@ -1,3 +1,4 @@
+from typing import List
 import ast
 import numpy as np
 import torch
@@ -73,6 +74,44 @@ def remove_unnecessary_indices(tokenized_text):
     tokenized_text.input_ids = input_ids
     tokenized_text.attention_mask = attention_mask
     return tokenized_text
+
+
+def get_solution_mask(full_prompt, solution):
+    # given an iterable of indices corresponding to the full prompt with the solution and one corresponding
+    # to the solution tokens, return the attention mask for the solution
+    # find the start and end idx of the longest overlapping sequence in solution
+
+    def number_overlapping(seq1, seq2):
+        # must be contiguous
+        num = 0
+        start_idx = 0
+        for i in range(1, min(len(seq1), len(seq2))):
+            s1, s2 = seq1[i], seq2[i]
+            if s1 == s2:
+                num += 1
+            else:
+                num = 0
+                start_idx = i
+        return num, start_idx
+
+    max_num_overlapping = 0
+    best_start_idx = 0
+    for start_idx in range(len(full_prompt)):
+        num_overlapping, s_idx = number_overlapping(full_prompt[start_idx:], solution)
+        if num_overlapping >= max_num_overlapping:
+            max_num_overlapping = num_overlapping
+            best_start_idx = start_idx + s_idx
+
+    attention_list = [0 for _ in range(len(full_prompt))]
+    for idx in range(best_start_idx, best_start_idx + max_num_overlapping + 1):
+        attention_list[idx] = 1
+
+    if isinstance(full_prompt, torch.Tensor):
+        return torch.Tensor(attention_list).to(full_prompt.device)
+    else:
+        return attention_list
+    # cast to the right type
+
 
 
 REF_PUZZLE = '''def sat(s: List[str]):
