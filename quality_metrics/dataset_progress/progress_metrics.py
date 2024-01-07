@@ -431,7 +431,7 @@ if __name__ == "__main__":
     # simple test, example-based compression progress
     file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_train-train'
     eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
-                              in_context=True, use_docstring=True)
+                              in_context=True, use_docstring=True, batch_size=args.batch_size)
 
     # do the experiment with a range of learning rates
     learning_rates = []
@@ -449,4 +449,5 @@ if __name__ == "__main__":
             use_docstring=True,
             learning_rate=learning_rate,
             file_prefix=file_prefix,
+            batch_size=args.batch_size,
         )
