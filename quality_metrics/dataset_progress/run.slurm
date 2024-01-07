@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 #SBATCH --account=imi@a100
 #SBATCH -C a100
 #SBATCH --job-name=progree-metrics
