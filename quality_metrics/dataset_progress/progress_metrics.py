@@ -9,13 +9,23 @@ import torch
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
 sns.set_theme()
+
+from argparse import ArgumentParser
 
 from torch.optim import SGD
 from quality_metrics import utils
 
 from peft import get_peft_model, LoraConfig, TaskType
+
+
+parser = ArgumentParser()
+parser.add_argument('--set', default='dev')
+parser.add_argument('--ref-set', default='dev')
+parser.add_argument('--model', default='openllama')
+parser.add_argument('--batch-size', default=2, type=int)
 
 
 loss_fct = torch.nn.CrossEntropyLoss(reduce=False)
@@ -79,10 +89,10 @@ def get_solution_logprobs(tokenized_puzzle_archive, model, batch_size=2):
 
 # optimizer must be not have momentum
 def get_compression_progress(tokenized_puzzle, tokenized_puzzle_archive, model, optimizer,
-                             original_losses=None, ):
+                             original_losses=None, batch_size=2):
     # compute likelihood of solutions before
     if original_losses is None:
-        original_losses = get_solution_logprobs(tokenized_puzzle_archive, model)
+        original_losses = get_solution_logprobs(tokenized_puzzle_archive, model, batch_size=batch_size)
 
     # step on the current puzzle
     # todo: the memory costs seem to keep increasing here, try to fix
@@ -101,13 +111,13 @@ def get_compression_progress(tokenized_puzzle, tokenized_puzzle_archive, model, 
     torch.cuda.empty_cache()
 
     # compute likelihood of solutions after
-    final_losses = get_solution_logprobs(tokenized_puzzle_archive, model)
+    final_losses = get_solution_logprobs(tokenized_puzzle_archive, model, batch_size=batch_size)
     differences = final_losses - original_losses
     return differences
 
 
 def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model, optimizer,
-                                 use_docstring=False, mask_puzzle=True):
+                                 use_docstring=False, mask_puzzle=True, batch_size=2):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
@@ -148,7 +158,7 @@ def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer
     likelihood_diff_matrix = torch.zeros(tokenized_puzzles.input_ids.shape[0],
                                          archive_tokenized_puzzles.input_ids.shape[0])
     # then get original losses
-    original_losses = get_solution_logprobs(archive_tokenized_puzzles, model)
+    original_losses = get_solution_logprobs(archive_tokenized_puzzles, model, batch_size=batch_size)
 
     for i in tqdm(range(tokenized_puzzles.input_ids.shape[0])):
         tokenized_puzzle = utils.AttrDict(
@@ -164,29 +174,30 @@ def compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer
             model,
             optimizer,
             original_losses,
+            batch_size=2,
         ).cpu()
 
-    return likelihood_diff_matrix
+    return likelihood_diff_matrix, original_losses
 
 
 ### in context compression progress
 
 
 def get_in_context_compression_progress(archive_tokenized_puzzles, archive_tokenized_puzzles_with_example,
-                                        model, original_losses):
+                                        model, original_losses, batch_size=2):
     # the archive tokenized puzzles might not be necessary if we have the original loss
 
     # compute likelihood of solutions before
     if original_losses is None:
-        original_losses = get_solution_logprobs(archive_tokenized_puzzles, model)
+        original_losses = get_solution_logprobs(archive_tokenized_puzzles, model, batch_size=batch_size)
 
-    final_losses = get_solution_logprobs(archive_tokenized_puzzles_with_example, model)
+    final_losses = get_solution_logprobs(archive_tokenized_puzzles_with_example, model, batch_size=batch_size)
     differences = final_losses - original_losses
     return differences
 
 
 def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model,
-                                           use_docstring=False, mask_puzzle=True):
+                                           use_docstring=False, mask_puzzle=True, batch_size=2):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
@@ -205,13 +216,15 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
                                               archive_puzzle=apuz, archive_solution=asol) for apuz, asol in
                            zip(archive_puzzle_strs, archive_sol_strs)]
     archive_tokenized_puzzles = tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
+
     # if we only get the loss on the solution, compute the solution masks
     if mask_puzzle:
         solutions_tokenized = tokenizer(archive_sol_strs)
         solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles.attention_mask)
         # compute the solution attention mask
-        for idx, (full_prompt, sol) in enumerate(zip(archive_tokenized_puzzles.input_ids,
-                                                     solutions_tokenized.input_ids)):
+        print('Getting attention masks:')
+        for idx, (full_prompt, sol) in tqdm(enumerate(zip(archive_tokenized_puzzles.input_ids,
+                                                          solutions_tokenized.input_ids))):
             mask = utils.get_solution_mask(full_prompt, sol)
             solution_attention_mask[idx] = mask
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
@@ -229,7 +242,7 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
     # get difference in logprobs for each puzzle
     likelihood_diff_matrix = torch.zeros(len(puzzle_strs),
                                          len(archive_puzzle_strs))
-    original_losses = get_solution_logprobs(archive_tokenized_puzzles, model)
+    original_losses = get_solution_logprobs(archive_tokenized_puzzles, model, batch_size=batch_size)
 
     for i in tqdm(range(len(puzzle_strs))):
         # tokenized list of all archive puzzles prefixed by the example
@@ -241,8 +254,9 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
             solutions_tokenized = tokenizer(archive_sol_strs)
             solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles_with_example.attention_mask)
             # compute the solution attention mask
-            for idx, (full_prompt, sol) in enumerate(zip(archive_tokenized_puzzles_with_example.input_ids,
-                                                         solutions_tokenized.input_ids)):
+            print('Getting attention masks:')
+            for idx, (full_prompt, sol) in tqdm(enumerate(zip(archive_tokenized_puzzles_with_example.input_ids,
+                                                              solutions_tokenized.input_ids))):
                 mask = utils.get_solution_mask(full_prompt, sol)
                 solution_attention_mask[idx] = mask
             archive_tokenized_puzzles_with_example.loss_attention_mask = solution_attention_mask
@@ -252,18 +266,24 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
             archive_tokenized_puzzles_with_example,
             model,
             original_losses,
+            batch_size=batch_size,
         ).cpu()
 
-    return likelihood_diff_matrix
+    return likelihood_diff_matrix, original_losses
 
 
 def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_id, prompt_path=None,
                               save_name='progress_results', save_dir='logs/compression_progress_test',
                               analyze_compression_progress=True, use_lora=True, in_context=False,
-                              file_prefix=None, use_docstring=False):
+                              file_prefix=None, use_docstring=False, learning_rate=1e-4, batch_size=2):
 
     if file_prefix is None:
         file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0]
+
+    if in_context:
+        file_prefix += '_in-context'
+    else:
+        file_prefix += '_finetuning'
 
     # load puzzles
     puzzles = json.load(open(puzzles_to_test_path, 'r'))
@@ -287,7 +307,7 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
         model = get_peft_model(model, peft_config)
 
     # create stateless optimizer
-    optimizer = SGD(model.parameters(), lr=1e-04)  # todo change lr and stuff
+    optimizer = SGD(model.parameters(), lr=learning_rate)  # todo change lr and stuff
 
     # tokenized prompt
     if prompt_path is not None:
@@ -298,7 +318,7 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
     # create tokenized archives and puzzle list (on cpu)
     # todo should filter puzzles with too many tokens
     if not in_context:
-        likelihood_diff_matrix = compression_progress_wrapper(
+        likelihood_diff_matrix, base_likelihoods = compression_progress_wrapper(
             None,  # prompt text differs from the in context one, handle this somewhere
             puzzles,
             puzzle_archive,
@@ -306,15 +326,17 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
             model,
             optimizer,
             use_docstring=use_docstring,
+            batch_size=batch_size,
         )
     else:
-        likelihood_diff_matrix = incontext_compression_progress_wrapper(
+        likelihood_diff_matrix, base_likelihoods = incontext_compression_progress_wrapper(
             prompt_text,
             puzzles,
             puzzle_archive,
             tokenizer,
             model,
             use_docstring=use_docstring,
+            batch_size=batch_size,
         )
 
     # save result matrix
@@ -327,12 +349,13 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
     results['progress_type'] = 'finetuning' if not in_context else 'in_context'
     results['progress_metric'] = 'compression'  # todo add task lp when we have it
     results['tested_puzzle_names'] = [p['name'] for p in puzzles]
-    results['tested_puzzles'] = [p['sat'] for p in puzzles]
+    results['tested_puzzles'] = [utils.make_puzzle(p, use_docstring) for p in puzzles]
     results['tested_sols'] = [utils.make_solution(p) for p in puzzle_archive]
     results['archive_puzzle_names'] = [p['name'] for p in puzzle_archive]
-    results['archive_puzzles'] = [p['sat'] for p in puzzle_archive]
+    results['archive_puzzles'] = [utils.make_puzzle(p, use_docstring) for p in puzzle_archive]
     results['archive_sols'] = [utils.make_solution(p) for p in puzzle_archive]
     results['compression_progress'] = likelihood_diff_matrix.tolist()
+    results['original_losses'] = base_likelihoods.cpu().tolist()
 
     json.dump(results, open(os.path.join(save_dir, file_prefix + '_' + save_name + '.json'), 'w'))
 
@@ -350,6 +373,15 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
 
         # histogram with all compressions
         plt.hist(puzzle_average_compression.tolist())
+
+        # Create a formatter
+        formatter = ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-1, 1))
+
+        # Apply the formatter to the x-axis
+        plt.gca().xaxis.set_major_formatter(formatter)
+
         plt.show()
         pass
 
@@ -365,19 +397,56 @@ def get_task_learning_progress(tokenized_puzzle, tokenized_puzzle_archive, token
 
 # test
 if __name__ == "__main__":
-    puzzle_path_archive = "puzzles_dev.json"
-    puzzles_to_test = "puzzles_dev.json"
-    model_id = "openlm-research/open_llama_3b_v2"
+    # puzzle_path_archive = "puzzles_dev.json"
+    args = parser.parse_args()
 
+    if args.set == 'dev':
+        puzzles_to_test = "puzzles_dev.json"
+    elif args.set == 'train':
+        puzzles_to_test = "puzzles_train.json"
+    elif args.set == 'test':
+        puzzles_to_test = "puzzles_test.json"
+    else:
+        puzzles_to_test = args.set
+
+    if args.set == 'dev':
+        puzzle_path_archive = "puzzles_dev.json"
+    elif args.set == 'train':
+        puzzle_path_archive = "puzzles_train.json"
+    elif args.set == 'test':
+        puzzle_path_archive = "puzzles_test.json"
+    else:
+        puzzle_path_archive = args.set
+
+    # TODO: add more models
+    # if args.model == 'openllama':
+    #     model_id = "openlm-research/open_llama_3b_v2"
+    # else:
+    model_id = "openlm-research/open_llama_3b_v2"
     prompt_path = "quality_metrics/dataset_progress/progress_base_example_prompt.md"
 
-    # simple test, finuning based compression progress
+    # simple test, finetuning based compression progress
     # eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path)
 
     # simple test, example-based compression progress
+    file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_train-train'
     eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
                               in_context=True, use_docstring=True)
 
-    # expe todo: measure compression progress on the dev dataset for 1 opt step on each of the dev puzzles
-    #       report the matrix for a range of learning rates
-    ...
+    # do the experiment with a range of learning rates
+    learning_rates = []
+    for learning_rate in learning_rates:
+
+        print(f'Experiment with learning rate: {learning_rate}')
+        file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_lr{learning_rate}'
+
+        eval_compression_progress(
+            puzzles_to_test,
+            puzzle_path_archive,
+            model_id,
+            prompt_path=prompt_path,
+            in_context=False,
+            use_docstring=True,
+            learning_rate=learning_rate,
+            file_prefix=file_prefix,
+        )
