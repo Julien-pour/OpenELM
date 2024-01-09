@@ -2,10 +2,12 @@ import gc
 import os
 import pathlib
 
+import time
 from datetime import datetime
 
 import json
 import torch
+import transformers
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
@@ -13,6 +15,7 @@ from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
 sns.set_theme()
 
+from typing import List, Dict, Optional
 from argparse import ArgumentParser
 
 from torch.optim import SGD
@@ -196,8 +199,17 @@ def get_in_context_compression_progress(archive_tokenized_puzzles, archive_token
     return differences
 
 
-def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive, tokenizer, model,
-                                           use_docstring=False, mask_puzzle=True, batch_size=2):
+def incontext_compression_progress_wrapper(
+        prompt_text: str,
+        puzzles: List[Dict],
+        puzzle_archive: List[Dict],
+        tokenizer: transformers.PreTrainedTokenizer,
+        model: transformers.PreTrainedModel,
+        use_docstring: bool = False,
+        mask_puzzle: bool = True,
+        batch_size: int = 2,
+        num_workers: Optional[int] = None,
+):
     # tokenizes the puzzles, and computes the finetuning compression progress metric on the
     # puzzles x archive matrix
 
@@ -219,14 +231,8 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
 
     # if we only get the loss on the solution, compute the solution masks
     if mask_puzzle:
-        solutions_tokenized = tokenizer(archive_sol_strs)
-        solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles.attention_mask)
-        # compute the solution attention mask
-        print('Getting attention masks:')
-        for idx, (full_prompt, sol) in tqdm(enumerate(zip(archive_tokenized_puzzles.input_ids,
-                                                          solutions_tokenized.input_ids))):
-            mask = utils.get_solution_mask(full_prompt, sol)
-            solution_attention_mask[idx] = mask
+        solution_attention_mask = utils.get_all_solution_masks(archive_tokenized_puzzles, tokenizer,
+                                                               archive_sol_strs, num_workers=num_workers)
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
     # make the prompts to measure how much a given puzzle helps on solving the archive puzzles
@@ -272,10 +278,22 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
     return likelihood_diff_matrix, original_losses
 
 
-def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_id, prompt_path=None,
-                              save_name='progress_results', save_dir='logs/compression_progress_test',
-                              analyze_compression_progress=True, use_lora=True, in_context=False,
-                              file_prefix=None, use_docstring=False, learning_rate=1e-4, batch_size=2):
+def eval_compression_progress(
+        puzzles_to_test_path: str,
+        puzzle_archive_path: str,
+        model_id: str,
+        prompt_path: Optional[str] = None,
+        save_name: str = 'progress_results',
+        save_dir: str = 'logs/compression_progress_test',
+        analyze_compression_progress: bool = True,
+        use_lora: bool = True,
+        in_context: bool = False,
+        file_prefix: Optional[str] = None,
+        use_docstring: bool = False,
+        learning_rate: int = 1e-4,
+        batch_size: int = 2,
+        num_workers: Optional[int] = None,
+):
 
     if file_prefix is None:
         file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0]
@@ -337,6 +355,7 @@ def eval_compression_progress(puzzles_to_test_path, puzzle_archive_path, model_i
             model,
             use_docstring=use_docstring,
             batch_size=batch_size,
+            num_workers=num_workers,
         )
 
     # save result matrix
@@ -430,8 +449,17 @@ if __name__ == "__main__":
 
     # simple test, example-based compression progress
     file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_hanoiref'
-    eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
-                              in_context=True, use_docstring=True, batch_size=args.batch_size, file_prefix=file_prefix)
+    eval_compression_progress(
+        puzzles_to_test,
+        puzzle_path_archive,
+        model_id,
+        prompt_path=prompt_path,
+        in_context=True,
+        use_docstring=True,
+        batch_size=args.batch_size,
+        file_prefix=file_prefix,
+        num_workers=12,
+    )
 
     # do the experiment with a range of learning rates
     learning_rates = []
@@ -450,4 +478,5 @@ if __name__ == "__main__":
             learning_rate=learning_rate,
             file_prefix=file_prefix,
             batch_size=args.batch_size,
+            num_workers=12,
         )

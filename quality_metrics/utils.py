@@ -1,6 +1,9 @@
 from typing import List
 import ast
 import numpy as np
+from tqdm import tqdm
+
+import torch.multiprocessing as mp
 import torch
 from transformers import CodeLlamaTokenizer, LlamaTokenizer, AutoTokenizer, AutoModelForCausalLM
 
@@ -76,7 +79,7 @@ def remove_unnecessary_indices(tokenized_text):
     return tokenized_text
 
 
-def get_solution_mask(full_prompt, solution):
+def get_solution_mask(full_prompt, solution, return_list=False):
     # given an iterable of indices corresponding to the full prompt with the solution and one corresponding
     # to the solution tokens, return the attention mask for the solution
     # find the start and end idx of the longest overlapping sequence in solution
@@ -106,12 +109,73 @@ def get_solution_mask(full_prompt, solution):
     for idx in range(best_start_idx, best_start_idx + max_num_overlapping + 1):
         attention_list[idx] = 1
 
-    if isinstance(full_prompt, torch.Tensor):
+    if isinstance(full_prompt, torch.Tensor) and not return_list:
         return torch.Tensor(attention_list).to(full_prompt.device)
     else:
         return attention_list
     # cast to the right type
 
+
+def get_solution_mask_loop(args):
+    full_prompts, solutions = args
+    results = []
+    for full_prompt, sol in zip(full_prompts, solutions):
+        results.append(get_solution_mask(full_prompt, sol, return_list=True))
+
+    return results
+
+
+def split_samples(samples, num_workers):
+    num_samples = len(samples)
+    divisor = num_samples // num_workers
+    remainder = num_samples % num_workers
+
+    split = []
+    for rank in range(num_workers):
+        if rank < remainder:
+            start_idx = rank * (divisor + 1)
+            end_idx = start_idx + divisor + 1
+        else:
+            over_remainder = rank - remainder
+            start_idx = remainder * (divisor + 1) + over_remainder * divisor
+            end_idx = start_idx + divisor
+        split.append(samples[start_idx:end_idx])
+
+    return split
+
+
+def get_all_solution_masks(archive_tokenized_puzzles, tokenizer, archive_sol_strs, num_workers=None):
+    solutions_tokenized = tokenizer(archive_sol_strs)
+    solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles.attention_mask)
+    # compute the solution attention mask
+
+    print('Getting attention masks:')
+    if num_workers is None:
+        for idx, (full_prompt, sol) in tqdm(enumerate(zip(archive_tokenized_puzzles.input_ids,
+                                                          solutions_tokenized.input_ids))):
+            mask = get_solution_mask(full_prompt, sol)
+            solution_attention_mask[idx] = mask
+
+    else:
+        # divide the tokenized data
+        # todo check there is no issue with the masks
+        archive_tokenized_puzzles_split = split_samples(archive_tokenized_puzzles.input_ids, num_workers)
+        solutions_tokenized_split = split_samples(solutions_tokenized.input_ids, num_workers)
+        args = list(zip(archive_tokenized_puzzles_split, solutions_tokenized_split))
+        processes = []
+
+        # might be better with a queue
+        with mp.Pool(num_workers) as p:
+            results = p.map(get_solution_mask_loop, args)
+            print("Map finished")
+            print(f"Len {len(results)}")
+
+        i = 0
+        for el in results:
+            solution_attention_mask[i:i+len((el))] = torch.Tensor(el)
+            i += len(el)
+
+        return solution_attention_mask
 
 
 REF_PUZZLE = '''def sat(s: List[str]):
