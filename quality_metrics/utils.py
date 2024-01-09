@@ -123,3 +123,39 @@ REF_PUZZLE_NODOC = '''def sat(s: List[str]):
 
 REF_SOL = '''def sol():
     return ["a" * (i + 2) + "b" for i in range(1000)]'''
+
+HANOI_PUZZLE = '''def sat(moves: List[List[int]]):
+    """
+    Eight disks of sizes 1-8 are stacked on three towers, with each tower having disks in order of largest to
+    smallest. Move [i, j] corresponds to taking the smallest disk off tower i and putting it on tower j, and it
+    is legal as long as the towers remain in sorted order. Find a sequence of moves that moves all the disks
+    from the first to last towers.
+    """
+    rods = ([8, 7, 6, 5, 4, 3, 2, 1], [], [])
+    for [i, j] in moves:
+        rods[j].append(rods[i].pop())
+        assert rods[j][-1] == min(rods[j]), "larger disk on top of smaller disk"
+    return rods[0] == rods[1] == []'''
+
+HANOI_PUZZLE_NODOC = '''def sat(moves: List[List[int]]):
+    """
+    Eight disks of sizes 1-8 are stacked on three towers, with each tower having disks in order of largest to
+    smallest. Move [i, j] corresponds to taking the smallest disk off tower i and putting it on tower j, and it
+    is legal as long as the towers remain in sorted order. Find a sequence of moves that moves all the disks
+    from the first to last towers.
+    """
+    rods = ([8, 7, 6, 5, 4, 3, 2, 1], [], [])
+    for [i, j] in moves:
+        rods[j].append(rods[i].pop())
+        assert rods[j][-1] == min(rods[j]), "larger disk on top of smaller disk"
+    return rods[0] == rods[1] == []'''
+
+HANOI_SOL = '''def sol():
+    moves = []
+    def hanoi(n, source, temp, dest):
+        if n > 0:
+            hanoi(n - 1, source, dest, temp)
+            moves.append([source, dest])
+            hanoi(n - 1, temp, source, dest)
+    hanoi(8, 0, 1, 2)
+    return moves'''

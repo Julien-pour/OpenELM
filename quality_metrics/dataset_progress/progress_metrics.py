@@ -208,10 +208,10 @@ def incontext_compression_progress_wrapper(prompt_text, puzzles, puzzle_archive,
     archive_puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzle_archive if p['sol_bodies']]
     archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
     if use_docstring:
-        ref_puzzle = utils.REF_PUZZLE
+        ref_puzzle = utils.REF_PUZZLE.replace('def sat(', 'def f(')
     else:
-        ref_puzzle = utils.REF_PUZZLE_NODOC
-    ref_solution = utils.REF_SOL
+        ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
+    ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
     archive_puzzle_sols = [prompt_text.format(puzzle=ref_puzzle, solution=ref_solution,
                                               archive_puzzle=apuz, archive_solution=asol) for apuz, asol in
                            zip(archive_puzzle_strs, archive_sol_strs)]
@@ -409,14 +409,14 @@ if __name__ == "__main__":
     else:
         puzzles_to_test = args.set
 
-    if args.set == 'dev':
+    if args.ref_set == 'dev':
         puzzle_path_archive = "puzzles_dev.json"
-    elif args.set == 'train':
+    elif args.ref_set == 'train':
         puzzle_path_archive = "puzzles_train.json"
-    elif args.set == 'test':
+    elif args.ref_set == 'test':
         puzzle_path_archive = "puzzles_test.json"
     else:
-        puzzle_path_archive = args.set
+        puzzle_path_archive = args.ref_set
 
     # TODO: add more models
     # if args.model == 'openllama':
@@ -429,9 +429,9 @@ if __name__ == "__main__":
     # eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path)
 
     # simple test, example-based compression progress
-    file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_train-train'
+    file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_hanoiref'
     eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path,
-                              in_context=True, use_docstring=True, batch_size=args.batch_size)
+                              in_context=True, use_docstring=True, batch_size=args.batch_size, file_prefix=file_prefix)
 
     # do the experiment with a range of learning rates
     learning_rates = []
