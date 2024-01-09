@@ -21,6 +21,7 @@ DATE=$(date +"%Y-%m-%d_%T")
 conda deactivate
 module purge
 
+module load cpuarch/amd
 conda activate aces
 
-srun python quality_metrics/dataset_progress/progress_metrics.py --batch_size 8
+srun python quality_metrics/dataset_progress/progress_metrics.py --batch-size 8
