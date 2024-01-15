@@ -168,7 +168,6 @@ def get_all_solution_masks(archive_tokenized_puzzles, tokenizer, archive_sol_str
         with mp.Pool(num_workers) as p:
             results = p.map(get_solution_mask_loop, args)
             print("Map finished")
-            print(f"Len {len(results)}")
 
         i = 0
         for el in results:
@@ -223,3 +222,74 @@ HANOI_SOL = '''def sol():
             hanoi(n - 1, temp, source, dest)
     hanoi(8, 0, 1, 2)
     return moves'''
+
+
+# embedding utils
+
+
+def embed_puzzle(tokenizer, model, p):
+    with torch.no_grad():
+        tokens = tokenizer(p['sat'], return_tensors='pt')
+        if tokens.input_ids.shape[1] > 2048:
+            return None
+        emb = model(
+            input_ids=tokens.input_ids.to('cuda'),
+            attention_mask=tokens.attention_mask.to('cuda'),
+            output_hidden_states=True,
+        ).hidden_states[-1][:, -1].cpu().tolist()
+    return emb
+
+
+@torch.no_grad()
+def embed_puzzles(tokenizer, model, texts, batch_size, out_type='tensor'):
+    device = model.device
+    hidden_size = model.config.hidden_size
+    if out_type == 'tensor':
+        embeddings = torch.zeros(len(texts), hidden_size)
+    else:
+        embeddings = []
+    tokens = tokenizer(texts, return_tensors='pt', padding=True)
+    for index in tqdm(range(0, len(tokens.input_ids), batch_size)):
+        input_ids = tokens.input_ids[index:index+batch_size]
+        attention_mask = tokens.attention_mask[index:index+batch_size]
+        embs = model(
+            input_ids=input_ids.to(device),
+            attention_mask=attention_mask.to(device),
+            output_hidden_states=True,
+        ).hidden_states[-1].mean(1).cpu()
+
+        if out_type == 'tensor':
+            embeddings[index:index+batch_size] = embs
+        else:
+            embeddings += embs
+
+    return embeddings
+
+
+cos = torch.nn.CosineSimilarity(dim=-1)
+
+
+def dotprod(a, b):
+    return (a * b).sum(-1)
+
+
+def cosine_similarity_matrix(a, b, eps=1e-8):  # untested
+    assert len(a.shape) == len(b.shape) == 2
+    a = a.unsqueeze(1)
+    b = b.unsqueeze(0)
+    norma = a.pow(2).sum(-1).pow(0.5)
+    normb = b.pow(2).sum(-1).pow(0.5)
+    norm_mat = norma * normb
+    norm_mat = torch.maximum(norm_mat, torch.ones_like(norm_mat) * eps)
+    prod = dotprod(a, b)
+    c = prod / norm_mat
+    return c
+
+
+def pairwise_distance(a, b):
+    assert len(a.shape) == len(b.shape) == 2
+    a = a.unsqueeze(1)
+    b = b.unsqueeze(0)
+    distance = (a - b).pow(2).sum(-1).pow(0.5)
+    return distance
+

@@ -257,14 +257,8 @@ def incontext_compression_progress_wrapper(
 
         # if we only get the loss on the solution, compute the archive solution masks
         if mask_puzzle:
-            solutions_tokenized = tokenizer(archive_sol_strs)
-            solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles_with_example.attention_mask)
-            # compute the solution attention mask
-            print('Getting attention masks:')
-            for idx, (full_prompt, sol) in tqdm(enumerate(zip(archive_tokenized_puzzles_with_example.input_ids,
-                                                              solutions_tokenized.input_ids))):
-                mask = utils.get_solution_mask(full_prompt, sol)
-                solution_attention_mask[idx] = mask
+            solution_attention_mask = utils.get_all_solution_masks(archive_tokenized_puzzles_with_example, tokenizer,
+                                                                   archive_sol_strs, num_workers=num_workers)
             archive_tokenized_puzzles_with_example.loss_attention_mask = solution_attention_mask
 
         likelihood_diff_matrix[i] = get_in_context_compression_progress(
@@ -293,6 +287,7 @@ def eval_compression_progress(
         learning_rate: int = 1e-4,
         batch_size: int = 2,
         num_workers: Optional[int] = None,
+        get_distance_matrix: bool = True,
 ):
 
     if file_prefix is None:
@@ -369,12 +364,30 @@ def eval_compression_progress(
     results['progress_metric'] = 'compression'  # todo add task lp when we have it
     results['tested_puzzle_names'] = [p['name'] for p in puzzles]
     results['tested_puzzles'] = [utils.make_puzzle(p, use_docstring) for p in puzzles]
-    results['tested_sols'] = [utils.make_solution(p) for p in puzzle_archive]
+    results['tested_sols'] = [utils.make_solution(p) for p in puzzles]
     results['archive_puzzle_names'] = [p['name'] for p in puzzle_archive]
     results['archive_puzzles'] = [utils.make_puzzle(p, use_docstring) for p in puzzle_archive]
     results['archive_sols'] = [utils.make_solution(p) for p in puzzle_archive]
     results['compression_progress'] = likelihood_diff_matrix.tolist()
     results['original_losses'] = base_likelihoods.cpu().tolist()
+
+    # potentially get the distances in embedding space
+    if get_distance_matrix:
+        # just embed the problems and solutions
+        puzzle_strs = [utils.make_puzzle(p) for p in puzzles]
+        sol_strs = [utils.make_solution(p) for p in puzzles]
+        puzzle_sols = [f"{puz}\n\n{sol}"
+                       for puz, sol in zip(puzzle_strs, sol_strs)]
+
+        puzzle_strs_archive = [utils.make_puzzle(p) for p in puzzle_archive]
+        sol_strs_archive = [utils.make_solution(p) for p in puzzle_archive]
+        puzzle_sols_archive = [f"{puz}\n\n{sol}"
+                               for puz, sol in zip(puzzle_strs_archive, sol_strs_archive)]
+
+        embeddings = utils.embed_puzzles(tokenizer, model, puzzle_sols, batch_size)
+        embeddings_archive = utils.embed_puzzles(tokenizer, model, puzzle_sols_archive, batch_size)
+        results['distance_matrix'] = utils.pairwise_distance(embeddings, embeddings_archive).tolist()
+        results['cosine_sim'] = utils.cosine_similarity_matrix(embeddings, embeddings_archive).tolist()
 
     json.dump(results, open(os.path.join(save_dir, file_prefix + '_' + save_name + '.json'), 'w'))
 
@@ -448,7 +461,7 @@ if __name__ == "__main__":
     # eval_compression_progress(puzzles_to_test, puzzle_path_archive, model_id, prompt_path=prompt_path)
 
     # simple test, example-based compression progress
-    file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f'_hanoiref'
+    file_prefix = model_id.split('/')[-1] + '-' + str(datetime.now()).split()[0] + f''
     eval_compression_progress(
         puzzles_to_test,
         puzzle_path_archive,

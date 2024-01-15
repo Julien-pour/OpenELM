@@ -181,3 +181,7 @@ quality_metrics/difficulty/results
 /run_elm.sh
 /run_elm_nlp.sh
 /run_rd_gen.sh
+
+# various puzzle sets
+puzzles_dev_*
+puzzles_ACES_random_dev.json
