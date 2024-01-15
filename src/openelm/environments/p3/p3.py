@@ -8,7 +8,15 @@ import os
 os.environ['TRANSFORMERS_CACHE'] = "models"
 import numpy as np
 import requests
-from openai.embeddings_utils import cosine_similarity, get_embedding
+# from openai.embeddings_utils import cosine_similarity, get_embedding
+
+def cosine_similarity(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+def get_embedding(client, text, model="text-embedding-ada-002"): # model = "deployment_name"
+    return client.embeddings.create(input = [text], model=model).data[0].embedding
+
+
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.spatial.distance import cdist
@@ -16,7 +24,6 @@ from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer # maybe this is the pb (bitsandbytes launch message when doing multiprocess)?
 import torch
 from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
 from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
 from openelm.environments.base import BaseEnvironment, Genotype, Phenotype
 from openelm.environments.p3 import (
@@ -741,7 +748,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     ) -> None:
         """
         /!\ optimized for chatGPT /!\
-        compare to basae prob sol:
+        compare to base prob sol:
         remove the explicit mutation in the prompt (prompt with underscore i_1 i_2) as it guided to much the model
         and it lead to bad diversity of generated problems.
         
@@ -894,7 +901,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             raise NotImplementedError
         
     def preprocess_p3(self, split="train",load_embedding=True,debug=False):
-        """preprocess the trainset of P3 
+        """
+        Preprocess the trainset of P3 
         load embedding from json files 
         debug give random embedding to the puzzles for debugging purpose
         """
@@ -979,7 +987,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self, code_batch: Optional[Union[list[str], str]] = [],random: bool =False
     ) -> dict[str, str]:
         """
-        code batch only used for non guided search, it is used  
+        construct the prompt for the LLM
         """
         n_few_shot_example=3 # that are in the prompt to gen puzzle
         # n_few_shot_example_from_trainset =  1

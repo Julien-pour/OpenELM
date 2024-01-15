@@ -7,10 +7,17 @@ from typing import Any, Optional
 
 import numpy as np
 import torch
+#need to remove all langchain dependencies
 from langchain.chat_models import ChatOpenAI
-from langchain.llms import OpenAI
-from langchain.llms.base import LLM
-from langchain.schema import Generation, LLMResult
+# from langchain.llms.base import LLM
+# from langchain.schema import Generation#, LLMResult
+from concurrent.futures import ThreadPoolExecutor
+
+class LLMResult:
+    """Result of a language model generation. to replace langchain.schema.LLMResult"""
+    def __init__(self, generations):
+        self.generations = generations
+
 from langchain.schema.messages import HumanMessage
 
 from pydantic import Extra, root_validator
@@ -20,6 +27,8 @@ from openelm.codegen import model_setup, set_seed, truncate
 from openelm.configs import ModelConfig
 from openelm.utils.diff_eval import apply_diff, split_diff
 from joblib import Parallel, delayed
+from openai import OpenAI
+
 
 
 def get_model(config: ModelConfig):
@@ -27,23 +36,81 @@ def get_model(config: ModelConfig):
         return HuggingFaceLLM(config=config)
     elif config.model_type == "openai":
         # Adapt config here
-        cfg: dict = {
-            "temperature": config.temp,
-            "top_p": config.top_p,
-            # TODO: rename config option?
-            "model_name": config.model_path,
-            "request_timeout": config.request_timeout,
-            "max_retries": 20,
-        }
-        if config.gen_max_len!=-1:
-            cfg["max_tokens"]=config.gen_max_len
-        if "3.5" in config.model_path or "gpt-4" in config.model_path:
-            return ChatOpenAI(**cfg)
-        else:
-            return OpenAI(**cfg)
+        # cfg: dict = {
+        #     "temperature": config.temp,
+        #     "top_p": config.top_p,
+        #     # TODO: rename config option?
+        #     "model_name": config.model_path,
+        #     "timeout": config.request_timeout,
+        # }
+
+        # if config.gen_max_len!=-1:
+        #     cfg["max_tokens"]=config.gen_max_len
+        return OpenAI(max_retries=10,timeout=config.request_timeout)#ChatOpenAI(**cfg)
+
     else:
         raise NotImplementedError
 
+def get_completion(client, prompt : str, cfg_generation, tools=None)->str:
+    """Get completion from OpenAI API"""
+    
+    flag_tool=tools is not None
+    if flag_tool:
+        cfg_generation.update({"tools": tools})
+        tool_name=tools[0]["function"]["name"]
+        cfg_generation.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
+    try :
+        completion = client.chat.completions.create(
+        messages=[
+            {"role": "system", "content": "You are an AI programming assistant"},#You are a coding assistant, skilled in writting code with creative flair."},
+            {"role": "user", "content": prompt}
+        ],**cfg_generation
+        )
+    except Exception as e:
+        print("completion problem: ",e)
+        return None 
+    # completion_token = completion.usage.completion_tokens
+    # prompt_token = completion.usage.prompt_tokens
+    
+    if flag_tool:
+        try:
+            tool_out=out.choices[0].message.tool_calls[0].function.arguments
+            return eval(tool_out)
+        except Exception as e:  
+            print("tool parsing problem: ",e)
+            return None
+        
+    out = completion.choices[0].message.content
+    return out
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
+
+def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20)->list[str]:
+    """Get multiple completions from OpenAI API
+    batch_tools =[[tools]] tools is the function, toll_name is the name of the tool
+    """
+    
+    completions = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for sub_batch in chunks(batch_prompt, max_workers):
+            for idx,message_list in enumerate(sub_batch):
+                # kwargs_modified = args.copy()
+                # kwargs_modified["messages"] = message_list
+                kwargs = {"client":client, "prompt":message_list}
+                kwargs["cfg_generation"]=cfg_generation
+                # if "kwargs" in kwargs_modified:
+                #     original_kwargs = kwargs_modified.pop("kwargs")
+                future = executor.submit(
+                    get_completion,**kwargs
+                )
+                completions.append(future)
+
+    # Retrieve the results from the futures
+    results = [future.result() for future in completions]
+    return results
 
 class MutationModel(ABC):
     """Base model class for all mutation models."""
@@ -64,13 +131,24 @@ class PromptModel(MutationModel):
         seed: int = set_seed(self.config.seed)
         # Use RNG to rotate random seeds during inference.
         self.rng = np.random.default_rng(seed=seed)
-        self.model: LLM = get_model(self.config)
+        self.model = get_model(self.config)
+        self.cfg_generation: dict = {
+            "temperature": self.config.temp,
+            "top_p": self.config.top_p,
+            # TODO: rename config option?
+            "model": self.config.model_path,
+            # "timeout": self.config.request_timeout,
+            # "max_retries": 20,
+        }
+        if self.config.gen_max_len != -1:
+            self.cfg_generation["max_tokens"] = self.config.gen_max_len
 
     def generate_programs(
         self,
         prompt_dicts: list[dict[str, str]],
         local_scope_truncate: bool,
         do_trunc=True,
+        batch_tools=None,
         **kwargs
     ) -> list[str]:
         """
@@ -93,15 +171,11 @@ class PromptModel(MutationModel):
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
             
             if self.config.parrallel_call:
-                results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
+                # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
+                results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes)
             else:
-                results = []
-                for prompt in prompts:  
-                    results.append(self.model.generate([[HumanMessage(content=prompt)]])) #if model == chat model, generate take List[List[BaseMessage]] 
+                results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=1)
 
-            completions: list[str] = [
-                llmresult.generations[0][0].text for llmresult in results
-            ]
         else:
             results = self.model.generate(prompts=prompts)
             completions = [
@@ -160,8 +234,17 @@ class DiffModel(PromptModel):
                 outputs.append(apply_diff(prompts[i], diff_hunk))
         return outputs
 
+class Generation:
+    """replacement for langchain.schema.Generation"""
+    def __init__(self, text, generation_info=None):
+        self.text = text
+        self.generation_info = generation_info
+        self.type = "Generation"
+        """Type is used exclusively for serialization purposes."""
 
-class HuggingFaceLLM(LLM):
+
+class HuggingFaceLLM: #(LLM): <- removed langchain.llms.base.LLM inheritance need to check if it is still working
+ 
     config: ModelConfig
     model: Any = None
     tokenizer: Any = None
