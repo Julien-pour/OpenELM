@@ -21,20 +21,20 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "gpt-3.5-turbo-0613"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "gpt-3.5-turbo-1106"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 6
+    processes: int = 10
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
     request_timeout: int = 85 # timeout for API call
-
+    max_retries: int = 100 # number of retries for API call
 @dataclass
 class PromptModelConfig(ModelConfig):
     request_timeout: int = 100 # timeout for API call
     model_name: str = "prompt"
-    model_path: str = "gpt-3.5-turbo-0613"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
+    model_path: str = "gpt-3.5-turbo-1106"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -54,8 +54,8 @@ class QDConfig(BaseConfig):
     history_length: int = 4096  #128 #2048
     save_history: bool = False
     save_snapshot_interval: int = 5 #5
-    loading_snapshot_map: bool = True  # load map located at log_snapshot_dir
-    log_snapshot_dir: str = "/home/laetitia/work/OpenELM/logs/elm/env=p3_probsol_Chat,qd=mapelites_rd/23-11-08_11:31/step_165"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
+    loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
+    log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     seed: Optional[int] = 44
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -89,7 +89,7 @@ class EnvConfig(BaseConfig):
     timeout: float = 5.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
-    processes: int = 6
+    processes: int = 10
     batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False

@@ -18,7 +18,7 @@ class LLMResult:
     def __init__(self, generations):
         self.generations = generations
 
-from langchain.schema.messages import HumanMessage
+# from langchain.schema.messages import HumanMessage
 
 from pydantic import Extra, root_validator
 from transformers import BatchEncoding
@@ -46,25 +46,28 @@ def get_model(config: ModelConfig):
 
         # if config.gen_max_len!=-1:
         #     cfg["max_tokens"]=config.gen_max_len
-        return OpenAI(max_retries=10,timeout=config.request_timeout)#ChatOpenAI(**cfg)
+        return OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)#ChatOpenAI(**cfg)
 
     else:
         raise NotImplementedError
 
-def get_completion(client, prompt : str, cfg_generation, tools=None)->str:
+def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
     """Get completion from OpenAI API"""
-    
+    kwargs={}
+    kwargs.update(cfg_generation)
+    if temperature is not None:
+        kwargs["temperature"]= temperature
     flag_tool=tools is not None
     if flag_tool:
-        cfg_generation.update({"tools": tools})
+        kwargs.update({"tools": tools})
         tool_name=tools[0]["function"]["name"]
-        cfg_generation.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
+        kwargs.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
     try :
         completion = client.chat.completions.create(
         messages=[
             {"role": "system", "content": "You are an AI programming assistant"},#You are a coding assistant, skilled in writting code with creative flair."},
             {"role": "user", "content": prompt}
-        ],**cfg_generation
+        ],**kwargs
         )
     except Exception as e:
         print("completion problem: ",e)
@@ -88,11 +91,15 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
 
-def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20)->list[str]:
+def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20,temperature=None)->list[str]:
     """Get multiple completions from OpenAI API
     batch_tools =[[tools]] tools is the function, toll_name is the name of the tool
+
+                    /!\ need to integrate batch tools in the loop /!\
     """
-    
+    # check that batch_prompt is list[str]
+    if isinstance(batch_prompt, str):
+        batch_prompt = [batch_prompt]
     completions = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for sub_batch in chunks(batch_prompt, max_workers):
@@ -101,6 +108,8 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
                 # kwargs_modified["messages"] = message_list
                 kwargs = {"client":client, "prompt":message_list}
                 kwargs["cfg_generation"]=cfg_generation
+                if temperature is not None:
+                    kwargs["temperature"]= temperature
                 # if "kwargs" in kwargs_modified:
                 #     original_kwargs = kwargs_modified.pop("kwargs")
                 future = executor.submit(
@@ -135,14 +144,21 @@ class PromptModel(MutationModel):
         self.cfg_generation: dict = {
             "temperature": self.config.temp,
             "top_p": self.config.top_p,
-            # TODO: rename config option?
             "model": self.config.model_path,
-            # "timeout": self.config.request_timeout,
-            # "max_retries": 20,
         }
         if self.config.gen_max_len != -1:
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
-
+    
+    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None) -> list[str]:
+        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
+            if self.config.parrallel_call:
+                # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature)
+            else:
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature)
+        else: raise NotImplementedError
+        return results
+    
     def generate_programs(
         self,
         prompt_dicts: list[dict[str, str]],
@@ -160,6 +176,7 @@ class PromptModel(MutationModel):
         Args:
             prompt_dicts (list[dict[str, str]): A list of dictionaries containing
             the prompt and template for each program.
+            templates can be for example in P3: from typing import*\n\n
             local_scope_truncate (bool): Whether or not to truncate the code to
             the local scope.
 
@@ -175,7 +192,7 @@ class PromptModel(MutationModel):
                 results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes)
             else:
                 results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=1)
-
+            completions = results
         else:
             results = self.model.generate(prompts=prompts)
             completions = [

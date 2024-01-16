@@ -9,12 +9,13 @@ os.environ['TRANSFORMERS_CACHE'] = "models"
 import numpy as np
 import requests
 # from openai.embeddings_utils import cosine_similarity, get_embedding
+from openai import OpenAI
 
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-def get_embedding(client, text, model="text-embedding-ada-002"): # model = "deployment_name"
-    return client.embeddings.create(input = [text], model=model).data[0].embedding
+# def get_embedding(client, text, model="text-embedding-ada-002"): #self.config.embedding_model_path
+#     return client.embeddings.create(input = [text], model=model).data[0].embedding
 
 
 from sklearn.decomposition import PCA
@@ -23,7 +24,7 @@ from scipy.spatial.distance import cdist
 from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer # maybe this is the pb (bitsandbytes launch message when doing multiprocess)?
 import torch
-from langchain.chat_models import ChatOpenAI
+# from langchain.chat_models import ChatOpenAI
 from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
 from openelm.environments.base import BaseEnvironment, Genotype, Phenotype
 from openelm.environments.p3 import (
@@ -33,7 +34,7 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
-from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation,label_puzzle_chatgpt,P3_probsol_chat_med_seed_goal_targeted
+from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
@@ -62,9 +63,10 @@ class P3Solution(Genotype):
 def g1():
     """Find a string that when concatenated onto 'Hello ' gives 'Hello world'."""
     return "world")'''
-        self.baseline_emb = np.array(
-            get_embedding(baseline, engine=self.config.embedding_model_path)
-        )
+    
+        # self.baseline_emb = np.array(
+        #     get_embedding(baseline, engine=self.config.embedding_model_path)
+        # )
 
         if self.config.embedding_model_type == "hf":
             # when the model can't be loaded, with feat-extraction
@@ -77,14 +79,15 @@ def g1():
 
     def to_phenotype(self) -> Optional[Phenotype]:
         if self.config.embedding_model_type == "openai":
-            compare_str = self.program_str
-            i_assert = compare_str.find("assert")
-            if i_assert > -1:
-                compare_str = compare_str[:i_assert]
-            emb = np.array(
-                get_embedding(compare_str, engine=self.config.embedding_model_path)
-            )
-            return cosine_similarity(emb, self.baseline_emb)
+            raise NotImplemented
+            # compare_str = self.program_str
+            # i_assert = compare_str.find("assert")
+            # if i_assert > -1:
+            #     compare_str = compare_str[:i_assert]
+            # emb = np.array(
+            #     get_embedding(compare_str, engine=self.config.embedding_model_path)
+            # )
+            # return cosine_similarity(emb, self.baseline_emb)
         elif self.config.embedding_model_type == "hf":
             if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
                 with torch.no_grad():
@@ -364,17 +367,18 @@ class P3ProbSolResult(Genotype):
             if self.config.embedding_model_type == "openai":
                 # Openai backend to get the embedding
                 if "embedding" in self.config.embedding_model_type: 
+                    raise NotImplemented
                     # use the embedding model to get the embedding
-                    compare_str = (
-                        self.program_str
-                    )  # TODO: remove comments from f6_2 for diversity measurement
-                    i_assert = compare_str.find("assert f")
-                    if i_assert > -1:
-                        compare_str = compare_str[:i_assert]
-                    emb = np.array(
-                        get_embedding(compare_str, engine=self.config.embedding_model_path)
-                    )
-                    return emb
+                    # compare_str = (
+                    #     self.program_str
+                    # )  # TODO: remove comments from f6_2 for diversity measurement
+                    # i_assert = compare_str.find("assert f")
+                    # if i_assert > -1:
+                    #     compare_str = compare_str[:i_assert]
+                    # emb = np.array(
+                    #     get_embedding(compare_str, engine=self.config.embedding_model_path)
+                    # )
+                    # return emb
                 else: 
                     #use GPT to get the "embedding" in NLP space
                     raise "can't do that in the Genotype class, should be done in the P3 environment"
@@ -444,10 +448,11 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         first_example = self.prompt_seed[:i_first].strip()
 
         if self.config.embedding_model_type == "openai":
-            dummy_features = np.array(
-            get_embedding(first_example, engine=self.config.embedding_model_path))
-            self.genotype_ndim: int = len(dummy_features)
-            self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
+            raise NotImplemented
+            # dummy_features = np.array(
+            # get_embedding(first_example, engine=self.config.embedding_model_path))
+            # self.genotype_ndim: int = len(dummy_features)
+            # self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T
         elif self.config.embedding_model_type == "hf":
             # Dummy to get behavior space shape
             dummy_pl = pipeline(
@@ -789,17 +794,18 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
-        if self.config.GPT_feedback: #init openai model with temp = 0 
-            cfg: dict = {
-                "max_tokens": 1024,
-                "temperature": 0.0,
-                "top_p": 1.,
-                "max_retries":100,
-                # TODO: rename config option?
-                "model_name": "gpt-3.5-turbo-0613",#"gpt-4-0613",
-                "request_timeout": 70
-            }
-            self.chatGPT = ChatOpenAI(**cfg) 
+        # if self.config.GPT_feedback: #init openai model with temp = 0 
+        #     cfg: dict = {
+        #         "max_tokens": 1024,
+        #         "temperature": 0.0,
+        #         "top_p": 1.,
+        #         "max_retries":100,
+        #         # TODO: rename config option?
+        #         "model_name": "gpt-3.5-turbo-0613",#"gpt-4-0613",
+        #         "request_timeout": 70
+        #     }
+            
+            # self.chatGPT = OpenAI(max_retries=self.mutation_model.config.max_retries,timeout=self.mutation_model.config.request_timeout)
         # Use the first example in the prompt seed as basis for embedding sizes
         # i_first = self.prompt_seed.find("assert")
         # first_example = self.prompt_seed[:i_first].strip()
@@ -834,41 +840,61 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         warnings.warn("WARNING: rng state not used in this environment")
         pass
 
+    def label_puzzle_chatgpt(self,program_str,n_attempts=0,save_completion={},return_completion=False):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
+        """
+        Label a puzzle with the skills it requires
+        TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
+        """
+        # if program_str in list_prgrm_str:
+        #     idx_prgm=list_prgrm_str.index(program_str)
+        #     return list(labels_2[idx_prgm])
+        prompt,n_skills = skills_evaluation(program_str)
+        if n_attempts > 2: # should not append but just in case
+            # raise ValueError("too many attempts to label the puzzle")
+            print("WARNING: too many attempts to label the puzzle")
+            if return_completion:
+                return [0. for i in range(n_skills)],save_completion
+            else:
+                return [0. for i in range(n_skills)]
+        response = self.mutation_model.generate_completion(list_prompt=[prompt],temperature=0.)[0]
+        
+        split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
+        if len(split_completion) == 2 :#"Skills parsing
+            split_completion=split_completion[1].split("]")[0]+"]"
+            try: 
+                category_idx_predicted = eval(split_completion)
+                
+                if len(category_idx_predicted)!=0:
+                    cond1=not(len(category_idx_predicted) > n_skills or max(category_idx_predicted) > n_skills) # if one skills is hallucinated
+                    cond2= response.count("Not required")>=10 and len(category_idx_predicted)==10 # hallucination when all skills are not required but vector of all 1.
+                else: cond1=True 
+                if cond1:
+                    list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
+                    if cond2:
+                        list_skill = [0.for i in range(n_skills)]
+                    save_completion[str(n_attempts)]=[response,list_skill]
+                    # if len(list_skill)==n_skills:
+                    if return_completion :
+                        save_completion[str(n_attempts)]=[response,list_skill]
+                        return list_skill,save_completion
+                    else:
+                        return list_skill
+            except:
+                pass
+        if return_completion:
+            save_completion[str(n_attempts)]=[response,None]
+            return self.label_puzzle_chatgpt(program_str,n_attempts=n_attempts+1,save_completion=save_completion,return_completion=return_completion)
+        else:
+            return self.label_puzzle_chatgpt(program_str,n_attempts=n_attempts+1)
+
+
     def label_puzzle(self,program_str,n_attempts=0):
         """
         Label a puzzle with the skills it requires
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
         """
-        return label_puzzle_chatgpt(self.chatGPT,program_str,n_attempts=0,return_completion=False)
-        # prompt,n_skills = skills_evaluation(program_str)
-        # if n_attempts > 4: # should not append but just in case
-        #     # raise ValueError("too many attempts to label the puzzle")
-        #     print("WARNING: too many attempts to label the puzzle")
-        #     return [0. for i in range(n_skills)]
-        # response = self.mutation_model.model.generate([[HumanMessage(content=prompt)]])
-        # response = response.generations[0][0].text    
-        # split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
-        # if len(split_completion) == 2 :#"Skills parsing
-        #     if split_completion[1][-1] == ".":
-        #         split_completion[1] = split_completion[1][:-1] 
-        #     try :
-        #         category_idx_predicted = eval(split_completion[1]) 
-        #         list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-        #         return list_skill
-            
-        #     except: # if pb when parsing try to fix them
-        #         if split_completion[1].count("]")==1:
-        #             try:
-        #                 category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
-        #                 list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
-        #                 return list_skill
-        #             except:
-        #                 return self.label_puzzle(program_str,n_attempts=n_attempts+1)
-        #         else:
-        #             return self.label_puzzle(program_str,n_attempts=n_attempts+1)
-            
-        # else: 
-        #     return self.label_puzzle(program_str,n_attempts=n_attempts+1)
+        return self.label_puzzle_chatgpt(program_str,n_attempts=0,return_completion=False)
+
     
     def to_phenotype(self,program_str: str):
         """compute embedding of the program"""
@@ -878,10 +904,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             return self.label_puzzle(program_str)
         
         elif self.config.embedding_model_type == "openai":
-            if "embedding" in self.config.embedding_model_type: 
-                emb = np.array(
-                    get_embedding(program_str, engine=self.config.embedding_model_path))
-                return emb
+            raise NotImplemented
+            # if "embedding" in self.config.embedding_model_type: 
+            #     emb = np.array(
+            #         get_embedding(program_str, engine=self.config.embedding_model_path))
+            #     return emb
     
         elif self.config.embedding_model_type == "hf": 
             # when the model can't be loaded, with feat-extraction
@@ -1010,12 +1037,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example+1))
         else: 
             # use example from archive (and so trainset)
-            # list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example_from_trainset))
             list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example+1))
-            # for puzzz_archive in list_few_shot_example_phenotypes_archive:
-            #      list_few_shot_example_phenotypes.append(puzzz_archive)    
-            
-                 
                  
             
         
@@ -1079,18 +1101,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
             skill_targeted=sample_target_skill_smart(all_emb)
 
-            #old version
-            # flag = True
-            # while flag: # mutate puzzle until
-            #     idx = np.random.choice(all_emb.shape[0], 1, replace=False)[0]
-            #     vec = all_emb[idx]
-            #     k = self.rng.choice([1,2,3], 1, replace=False,p=[1/3,1/3,1/3]) # change proba distrib? maybe 1/2 1/4 1/4
-            #     skill_targeted = self.mutate_vec(vec, k=k)
-            #     # check if sampled niched is already filled 
-            #     result = np.any(np.all(all_emb == skill_targeted, axis=1))
-            #     if not result:
-            #         flag=False
-
 
             list_few_shot_example_phenotypes= []
             # choose puzzle from closest niches half from trainset
@@ -1133,14 +1143,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
                     list_pb.append(split_pb[idx])
                     skill_targeted_list_duplicate.append(skill_targeted_list[idx_gen_prog])
-                    # if self.config.remove_doc:
-                    #     try:
-                    #         puzzle_wo_docstring=remove_docstring(split_pb[idx])
-                    #         list_pb.append(puzzle_wo_docstring)
-                    #     except:
-                    #         list_pb.append(split_pb[idx])
-                    # else:
-                    #     list_pb.append(split_pb[idx])
+
         for idx_assert in range(len(list_pb)):
         #     list_pb[idx] = list_pb[idx].split("assert")[0]+"assert f(g()) == True"
             if not "assert f(" in list_pb[idx_assert]:
@@ -1178,35 +1181,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # which causes the whole thing to error out.
             # For now, try/except and re-try.
             results=[None]*len(generated_programs) # remove get output function
-            # try:
-            #     # IDK for now if it's usefull to remove assert to have an output even if puzzle is not correct
-            #     # start_t2 = time.time()
-            #     results = pool_exec_processes(
-            #         generated_programs,
-            #         func_name="g",
-            #         timeout=self.config.timeout,
-            #         processes=0,#self.config.processes,
-            #         debug=self.config.debug,
-            #     )
-            #     # start_t3 = time.time()
-            #     # print(f"time compute return g {len(generated_programs)} program = {start_t3-start_t2} sec")
-            # except Exception as e:
-            #     results=[]
-            #     for idx_code in range(len(generated_programs)):
-            #         try:
-            #             result = pool_exec_processes(
-            #                     generated_programs[idx_code],
-            #                     func_name="g",
-            #                     timeout=self.config.timeout,
-            #                     processes=self.config.processes,
-            #                     debug=self.config.debug,
-            #                 )
-            #             results.append(result)
-            #         except Exception as ebis:
-            #             results.append("Error") #pb when g output a class aaaa:... def g(): return aaaa()
-                        
+
                 
-        # trick: just label correct problem to save computation time or $$ (chatGPT):
+        # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
             for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list_duplicate)
@@ -1220,8 +1197,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
         start_t6 = time.time()
-        with parallel_config(n_jobs=self.config.processes): #backend='threading', 
-            list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
+        with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading', 
+            list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype 
         # list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
