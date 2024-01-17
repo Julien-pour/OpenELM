@@ -17,7 +17,6 @@ from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 Phenotype = Optional[np.ndarray]
 MapIndex = Optional[tuple]
 
-
 class Map:
     """
     Class to represent a map of any dimensionality, backed by a numpy array.
@@ -50,25 +49,29 @@ class Map:
                 storing `history_length` items, the buffer starts overwriting the
                 oldest items. Defaults to 1.
         """
-        self.history_length: int = history_length
+        # need to remove buffer + array replace by list of dic or object phenotypes?
+        self.history_length: int = history_length #useless now
         self.dims: tuple = dims
-        if self.history_length == 1:
-            self.array: np.ndarray = np.full(dims, fill_value, dtype=dtype)
-        else:
-            # Set starting top of buffer to 0 (% operator)
-            self.top = np.full(dims, self.history_length - 1, dtype=int)
-            self.array = np.full(
-                (history_length,) + tuple(dims), fill_value, dtype=dtype
-            )
+        self.archive = []
+        # if self.history_length == 1:
+        #     self.array: np.ndarray = np.full(dims, fill_value, dtype=dtype)
+        # else:
+        #     # Set starting top of buffer to 0 (% operator)
+        #     self.top = np.full(dims, self.history_length - 1, dtype=int) # array pointer 
+        #     self.array = np.full(
+        #         (history_length,) + tuple(dims), fill_value, dtype=dtype
+        #     ) # array to save all puzzles 
         self.empty = True
         
 
     def __getitem__(self, map_ix):
         """If history length > 1, the history dim is an n-dim circular buffer."""
-        if self.history_length == 1:
-            return self.array[map_ix]
-        else:
-            return self.array[(self.top[map_ix], *map_ix)]
+        # need to change that to return every item from a map_ix
+        return self.archive[map_ix]
+        # if self.history_length == 1:
+        #     return self.array[map_ix]
+        # else:
+        #     return self.array[(self.top[map_ix], *map_ix)]
         
     def __getrandomitem__(self):
         if self.history_length == 1:
@@ -78,16 +81,14 @@ class Map:
             
     
     def __setitem__(self, map_ix, value):
+        # need to just append item to archive 
         self.empty = False
-        if self.history_length == 1:
-            self.array[map_ix] = value
-        else:
-            top_val = self.top[map_ix]
-            top_val = (top_val + 1) % self.history_length
-            self.top[map_ix] = top_val
-            self.array[(self.top[map_ix], *map_ix)] = value
+        self.archive.append(value)
+        
 
     def assign_fitness_in_depth(self, map_ix, value: float) -> int:
+        # never used what is it for?
+        raise NotImplementedError
         indices_at_bin = (slice(None),) + map_ix
         # expecting a non-empty index, only calling this method when we know
         # current fitness can be placed somewhere
@@ -103,6 +104,7 @@ class Map:
         return insert_idx
 
     def insert_individual_at_depth(self, map_ix, depth, individual):
+        raise NotImplementedError
         indices_at_bin = (slice(None),) + map_ix
         new_bin_individuals = np.concatenate(
             (
@@ -116,67 +118,64 @@ class Map:
     @property
     def latest(self) -> np.ndarray:
         """Returns the latest values in the history buffer."""
-        if self.history_length == 1:
-            return self.array
-        else:
-            # should be equivalent to np.choose(self.top, self.array), but without limit of 32 choices
-            return np.take_along_axis(
-                arr=self.array, indices=self.top[np.newaxis, ...], axis=0
-            ).squeeze(axis=0)
+        return self.archive
+
 
     @property
     def shape(self) -> tuple:
         """Wrapper around the shape of the numpy array."""
-        return self.array.shape
+        # doesn't make sense now
+        return len(self.archive)
 
     @property
     def map_size(self) -> int:
         """Returns the product of the dimension sizes, not including history."""
-        if self.history_length == 1:
-            return self.array.size
-        else:
-            return self.array[0].size
+        return len(self.archive)
+            # if self.history_length == 1:
+            #     return self.array.size
+            # else:
+            #     return self.array[0].size
 
     @property
     def qd_score(self) -> float:
         """Returns the quality-diversity score of the map."""
-        return self.latest[np.isfinite(self.latest)].sum()
+        return self.fitnesses.sum()
 
     @property
     def max(self) -> float:
         """Returns the maximum value in the map, not including history."""
-        return self.latest.max()
+        return np.max(self.fitnesses)
 
     @property
     def min(self) -> float:
         """Returns the minimum value in the map, not including history."""
-        return self.latest.min()
+        return np.min(self.fitnesses)
 
     @property
     def max_finite(self) -> float:
         """Returns the maximum finite value in the map, not including history."""
-        if not np.isfinite(self.latest).any():
+        if not np.isfinite(self.fitnesses).any():
             return np.NaN
         else:
-            return self.latest[np.isfinite(self.latest)].max()
+            return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).max()
 
     @property
     def min_finite(self) -> float:
         """Returns the minimum finite value in the map, not including history."""
-        if not np.isfinite(self.latest).any():
+        if not np.isfinite(self.fitnesses).any():
             return np.NaN
         else:
-            return self.latest[np.isfinite(self.latest)].min()
+            return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).min()
 
     @property
     def mean(self) -> float:
         """Returns the mean finite value in the map."""
-        return self.latest[np.isfinite(self.latest)].mean()
+        return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).mean()
 
     @property
     def niches_filled(self) -> int:
         """Returns the number of niches in the map that have been explored."""
-        return np.count_nonzero(np.isfinite(self.array))
+        return len(self.nonzero.keys())
         # if self.history_length>1:
         #     n_niches = self.array.shape[-1]
         #     non_empty_niches = 0
@@ -243,7 +242,7 @@ class MAPElitesBase:
 
         self._init_discretization()
         self._init_maps(init_map, self.config.log_snapshot_dir)
-        print(f"MAP of size: {self.fitnesses.dims} = {self.fitnesses.map_size}")
+        # print(f"MAP of size: {self.fitnesses.dims} = {self.fitnesses.map_size}")
 
     def _init_discretization(self):
         """Initializes the discretization of the behavior space."""
@@ -267,12 +266,15 @@ class MAPElitesBase:
         # perfomance of niches
         if init_map is None:
             self.map_dims = self._get_map_dimensions()
-            self.fitnesses: Map = Map(
-                dims=self.map_dims,
-                fill_value=-np.inf,
-                dtype=float,
-                history_length=self.history_length,
-            )
+
+            #check fitnesses
+
+            self.fitnesses =[] #Map = Map(  
+            #     dims=self.map_dims,
+            #     fill_value=-np.inf,
+            #     dtype=float,
+            #     history_length=self.history_length,
+            # )
         else:
             self.map_dims = init_map.dims
             self.fitnesses = init_map
@@ -285,7 +287,7 @@ class MAPElitesBase:
             history_length=self.history_length,
         )
         # index over explored niches to select from
-        self.nonzero: Map = Map(dims=self.map_dims, fill_value=False, dtype=bool)
+        self.nonzero = {} #Map = Map(dims=self.map_dims, fill_value=False, dtype=bool)
 
         log_path = Path(log_snapshot_dir)
         
@@ -311,38 +313,37 @@ class MAPElitesBase:
             # Load maps from pickle file
             with open(snapshot_path, "rb") as f:
                 maps = pickle.load(f)
-            assert (
-                self.genomes.array.shape == maps["genomes"].shape
-            ), f"expected shape of map doesn't match init config settings, got {self.genomes.array.shape} and {maps['genomes'].shape}"
 
-            self.genomes.array = maps["genomes"]
-            self.fitnesses.array = maps["fitnesses"]
-            self.nonzero.array = maps["nonzero"]
+            # assert (
+            #     self.genomes.array.shape == maps["genomes"].shape
+            # ), f"expected shape of map doesn't match init config settings, got {self.genomes.array.shape} and {maps['genomes'].shape}"
+
+            self.genomes.archive = maps["genomes"]
+            self.fitnesses = maps["fitnesses"]
+            self.nonzero = maps["nonzero"] #self.nonzero.array = maps["nonzero"]
             # check if one of the solutions in the snapshot contains the expected genotype type for the run
-            assert not np.all(
-                self.nonzero.array is False
-            ), "snapshot to load contains empty map"
+            assert  len(self.nonzero.keys())==0, "snapshot to load contains empty map"
 
             assert (
                 self.env.config.env_name == old_config["env_name"]
             ), f'unmatching environments, got {self.env.config.env_name} and {old_config["env_name"]}'
 
             # compute top indices
-            if hasattr(self.fitnesses, "top"):
-                top_array = np.array(self.fitnesses.top)
-                for cell_idx in np.ndindex(
-                    self.fitnesses.array.shape[1:]
-                ):  # all indices of cells in map
-                    nonzero = np.nonzero(
-                        self.fitnesses.array[(slice(None),) + cell_idx] != -np.inf
-                    )  # check full history depth at cell
-                    if len(nonzero[0]) > 0:
-                        top_array[cell_idx] = nonzero[0][-1]
+            # if hasattr(self.fitnesses, "top"):
+            #     top_array = np.array(self.fitnesses.top)
+            #     for cell_idx in np.ndindex(
+            #         self.fitnesses.array.shape[1:]
+            #     ):  # all indices of cells in map
+            #         nonzero = np.nonzero(
+            #             self.fitnesses.array[(slice(None),) + cell_idx] != -np.inf
+            #         )  # check full history depth at cell
+            #         if len(nonzero[0]) > 0:
+            #             top_array[cell_idx] = nonzero[0][-1]
                 # correct stats
-                self.genomes.top = top_array.copy()
-                self.fitnesses.top = top_array.copy()
+                # self.genomes.top = top_array.copy()
+                # self.fitnesses.top = top_array.copy()
             self.genomes.empty = False
-            self.fitnesses.empty = False
+            # self.fitnesses.empty = False
 
             history_path = log_path / "history.pkl"
             if self.save_history and os.path.isfile(history_path):
@@ -362,31 +363,17 @@ class MAPElitesBase:
     def __getallitems__(self) -> list[Phenotype]:
         """
         Returns all the phenotypes that are in the Map."""
-        valid_phenotype=[]
-        for gen in np.ndindex(self.genomes.array.shape):
-            value_gen = type(self.genomes.array[gen])
-            if value_gen!=float and value_gen!=int:
-                valid_phenotype.append(self.genomes.array[gen])
-        # for idx in range(len(self.nonzero.array)):
-        #     if self.nonzero.array[idx]:
-        #         if self.history_length == 1:
-        #             gen = self.genomes.array[idx,1]
-        #             if type(gen)!=float and type(gen)!=int:
-        #                 valid_phenotype.append(gen) # self.genomes.array
-                        
-        #         else : # self.history_length > 1:
-        #             for idx_history in range(len(self.genomes.array[:,idx])):
-        #                 gen = self.genomes.array[idx_history,idx]
-        #                 if type(gen)!=float and type(gen)!=int:
-        #                     valid_phenotype.append(gen) # self.genomes.array
-        #                 else:
-        #                     continue
-        return valid_phenotype
-                    
+        return self.genomes.archive
+    
+    def random_niche_selection(self) -> MapIndex:
+        """Randomly select a niche (cell) in the map that has been explored."""
+        return eval(self.rng.choice(self.nonzero.keys()))
+    
     def random_selection(self) -> MapIndex:
         """Randomly select a niche (cell) in the map that has been explored."""
-        ix = self.rng.choice(np.flatnonzero(self.nonzero.array))
-        return np.unravel_index(ix, self.nonzero.dims)
+        idx_sampled=self.rng.choice(len(self.nonzero.keys()))
+        niche_idx = list(self.nonzero.keys())[idx_sampled]
+        return self.rng.choice(self.nonzero[niche_idx])
 
     def search(self, init_steps: int, total_steps: int, atol: float = 0.0) -> str:
         """
@@ -414,9 +401,15 @@ class MAPElitesBase:
                 for individual in self.env.archive_P3puzzle:
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
-                    self.fitnesses.__setitem__(map_ix, 1.0)
-                    self.genomes.__setitem__(map_ix, individual)
-                    self.nonzero[map_ix] = True
+                    self.fitnesses.append(1.0) # need to add quality here individual.quality
+                    self.genomes[map_ix]= individual
+                    key_embedding = str(map_ix)
+                    value_nonzero = len(self.fitnesses)-1
+                    if key_embedding in self.nonzero:
+                        self.nonzero[str(map_ix)].append(value_nonzero)
+                    else:
+                        self.nonzero[str(map_ix)]=[value_nonzero]
+
         print("number of niched filled from the training set ",self.niches_filled())
         start_step = int(self.start_step)
         total_steps = int(total_steps)
@@ -427,7 +420,7 @@ class MAPElitesBase:
             max_genome = None
         else:  # take max fitness in case of filled loaded snapshot
             max_fitness = self.max_fitness()
-            max_index = np.where(self.fitnesses.latest == max_fitness)
+            max_index = np.argmax(self.fitnesses)
             max_genome = self.genomes[max_index]
         if self.save_history:
             self.history = defaultdict(list)
@@ -499,7 +492,8 @@ class MAPElitesBase:
         # into the behavior space one-by-one.
         for individual in new_individuals:
             fitness = self.env.fitness(individual)
-            if fitness != -np.inf:
+            condition_add_individual = fitness != -np.inf
+            if condition_add_individual:
                 phenotype = individual.to_phenotype()
                 map_ix = self.to_mapindex(phenotype)
             else:
@@ -541,21 +535,27 @@ class MAPElitesBase:
                 # TODO: thresholding
                 self.history[map_ix].append(individual)
 
-            self.nonzero[map_ix] = True
+            
 
             # If new fitness greater than old fitness in niche, replace.
             try:
-                if fitness >= self.fitnesses[map_ix]:
+                if condition_add_individual: #fitness >= self.fitnesses[map_ix]:
                     # self.fitnesses[map_ix] = fitness
                     # self.genomes[map_ix] = individual
-                    self.fitnesses.__setitem__(map_ix, fitness)
-                    self.genomes.__setitem__(map_ix, individual)
+                    key_embedding = str(map_ix)
+                    value_nonzero = len(self.fitnesses)
+                    if key_embedding in self.nonzero:
+                        self.nonzero[str(map_ix)].append(value_nonzero)
+                    else:
+                        self.nonzero[str(map_ix)]=[value_nonzero]
+                    self.fitnesses.append(fitness)
+                    self.genomes.archive.append(individual)
             except Exception as e:
                 
                 print(f"An exception occurred: {str(e)}")
                 # print("fitness_map",np.array(self.fitnesses[map_ix]))
                 print("map_ix",map_ix)
-                print("fitness_map_shape",np.array(self.fitnesses[map_ix]).shape) #fitness_map_shape (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+                # print("fitness_map_shape",np.array(self.fitnesses[map_ix]).shape) #fitness_map_shape (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
                 print("fitness",fitness) #fitness 1.0
                 print(np.array(map_ix).shape) #(1,)
                 print("========================Warning======================")    
@@ -570,19 +570,19 @@ class MAPElitesBase:
 
     def niches_filled(self):
         """Get the number of niches that have been explored in the map."""
-        return self.nonzero.array.sum()
+        return len(self.nonzero.keys())
 
     def max_fitness(self):
         """Get the maximum fitness value in the map."""
-        return self.fitnesses.max_finite
+        return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).max()
 
     def mean_fitness(self):
         """Get the mean fitness value in the map."""
-        return self.fitnesses.mean
+        return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).mean()
 
     def min_fitness(self):
         """Get the minimum fitness value in the map."""
-        return self.fitnesses.min_finite
+        return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).min()
 
     def qd_score(self):
         """
@@ -591,16 +591,16 @@ class MAPElitesBase:
         The quality-diversity score is the sum of the performance of all solutions
         in the map.
         """
-        return self.fitnesses.qd_score
+        return (np.array(self.fitnesses)[np.isfinite(self.fitnesses)]).sum()
 
     def save_results(self, step: int):
         # create folder for dumping results and metadata
         output_folder = Path(self.config.output_dir) / f"step_{step}"
         os.makedirs(output_folder, exist_ok=True)
         maps = {
-            "fitnesses": self.fitnesses.array,
-            "genomes": self.genomes.array,
-            "nonzero": self.nonzero.array,
+            "fitnesses": self.fitnesses,
+            "genomes": self.genomes,
+            "nonzero": self.nonzero,
         }
         # Save maps as pickle file
         try:
@@ -653,71 +653,76 @@ class MAPElitesBase:
                 pass          
                   
     def plot_fitness(self):
+        
         import matplotlib.pyplot as plt
-
-        save_path: str = self.config.output_dir
-        plt.figure()
-        plt.plot(self.fitness_history["max"], label="Max fitness")
-        plt.plot(self.fitness_history["mean"], label="Mean fitness")
-        plt.plot(self.fitness_history["min"], label="Min fitness")
-        plt.legend()
-        plt.savefig(f"{save_path}/MAPElites_fitness_history.png")
-        plt.close("all")
-
-        plt.figure()
-        plt.plot(self.fitness_history["qd_score"], label="QD score")
-        plt.legend()
-        plt.savefig(f"{save_path}/MAPElites_qd_score.png")
-        plt.close("all")
-
-        plt.figure()
-        plt.plot(self.fitness_history["niches_filled"], label="Niches filled")
-        plt.legend()
-        plt.savefig(f"{save_path}/MAPElites_niches_filled.png")
-        plt.close("all")
-
-        if len(self.map_dims) > 1:
-            if len(self.fitnesses.dims) == 2:
-                map2d = self.fitnesses.latest
-                print(
-                    "plotted genes:",
-                    *[str(g) for g in self.genomes.latest.flatten().tolist()],
-                )
-            else:
-                ix = tuple(np.zeros(max(1, len(self.fitnesses.dims) - 2), int))
-                map2d = self.fitnesses.latest[ix]
-
-                print(
-                    "plotted genes:",
-                    *[str(g) for g in self.genomes.latest[ix].flatten().tolist()],
-                )
+        try: 
+            save_path: str = self.config.output_dir
+            plt.figure()
+            plt.plot(self.fitness_history["max"], label="Max fitness")
+            plt.plot(self.fitness_history["mean"], label="Mean fitness")
+            plt.plot(self.fitness_history["min"], label="Min fitness")
+            plt.legend()
+            plt.savefig(f"{save_path}/MAPElites_fitness_history.png")
+            plt.close("all")
 
             plt.figure()
-            plt.pcolor(map2d, cmap="inferno")
-            plt.savefig(f"{save_path}/MAPElites_vis.png")
-        plt.close("all")
+            plt.plot(self.fitness_history["qd_score"], label="QD score")
+            plt.legend()
+            plt.savefig(f"{save_path}/MAPElites_qd_score.png")
+            plt.close("all")
+
+            plt.figure()
+            plt.plot(self.fitness_history["niches_filled"], label="Niches filled")
+            plt.legend()
+            plt.savefig(f"{save_path}/MAPElites_niches_filled.png")
+            plt.close("all")
+
+            if len(self.map_dims) > 1:
+                if len(self.fitnesses.dims) == 2:
+                    map2d = self.fitnesses.latest
+                    print(
+                        "plotted genes:",
+                        *[str(g) for g in self.genomes.latest.flatten().tolist()],
+                    )
+                else:
+                    ix = tuple(np.zeros(max(1, len(self.fitnesses.dims) - 2), int))
+                    map2d = self.fitnesses.latest[ix]
+
+                    print(
+                        "plotted genes:",
+                        *[str(g) for g in self.genomes.latest[ix].flatten().tolist()],
+                    )
+
+                plt.figure()
+                plt.pcolor(map2d, cmap="inferno")
+                plt.savefig(f"{save_path}/MAPElites_vis.png")
+            plt.close("all")
+        except Exception as e:
+            print(e)
+            
 
     def visualize_individuals(self):
         """Visualize the genes of the best performing solution."""
         import matplotlib.pyplot as plt
+        try:
+            tmp = self.genomes.array.reshape(self.genomes.shape[0], -1)
 
-        tmp = self.genomes.array.reshape(self.genomes.shape[0], -1)
-
-        # if we're tracking history, rows will be the history dimension
-        # otherwise, just the first dimension of the map
-        plt.figure()
-        _, axs = plt.subplots(nrows=tmp.shape[0], ncols=tmp.shape[1])
-        for genome, ax in zip(tmp.flatten(), axs.flatten()):
-            # keep the border but remove the ticks
-            ax.get_xaxis().set_ticks([])
-            ax.get_yaxis().set_ticks([])
-            try:
-                genome.visualize(ax=ax)
-            except AttributeError:
-                pass
-        save_path: str = self.config.output_dir
-        plt.savefig(f"{save_path}/MAPElites_individuals.png")
-
+            # if we're tracking history, rows will be the history dimension
+            # otherwise, just the first dimension of the map
+            plt.figure()
+            _, axs = plt.subplots(nrows=tmp.shape[0], ncols=tmp.shape[1])
+            for genome, ax in zip(tmp.flatten(), axs.flatten()):
+                # keep the border but remove the ticks
+                ax.get_xaxis().set_ticks([])
+                ax.get_yaxis().set_ticks([])
+                try:
+                    genome.visualize(ax=ax)
+                except AttributeError:
+                    pass
+            save_path: str = self.config.output_dir
+            plt.savefig(f"{save_path}/MAPElites_individuals.png")
+        except Exception as e:
+            print(e)
 
 class MAPElites(MAPElitesBase):
     """
