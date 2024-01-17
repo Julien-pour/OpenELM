@@ -2,7 +2,7 @@ import json
 from typing import Optional
 
 import numpy as np
-from langchain.schema import HumanMessage
+# from langchain.schema import HumanMessage poetry Probably broken when we removed langchain
 
 from openelm.configs import QDEnvConfig
 from openelm.environments.base import BaseEnvironment
@@ -55,8 +55,8 @@ What tone is this poem closest to from the following list: ["happy", "dark", "my
 
 Respond in JSON with the keys "genre" and "tone".
 """
-        quality_result = model([HumanMessage(content=quality_str)]).content
-        diversity_result = model([HumanMessage(content=diversity_str)]).content
+        quality_result = model(quality_str)
+        diversity_result = model(diversity_str)
         try:
             self.quality = json.loads(quality_result)["quality"]
             self.genre = json.loads(diversity_result)["genre"]
@@ -139,7 +139,7 @@ Winds whisper; normality reigns.
         results = []
         for prompt in prompt_list:
             results.append(
-                self.mutation_model(HumanMessage(content=prompt["prompt"]).content)
+                self.mutation_model(content=prompt["prompt"])
             )
         return [PoetryGenotype(poem=c) for c in results]
 
@@ -148,7 +148,7 @@ Winds whisper; normality reigns.
         results = []
         for prompt in prompt_list:
             results.append(
-                self.mutation_model(HumanMessage(content=prompt["prompt"]).content)
+                self.mutation_model(content=prompt["prompt"])
             )
         return [PoetryGenotype(poem=c) for c in results]
 

@@ -2,8 +2,9 @@ from typing import Optional
 
 import numpy as np
 import torch
-from langchain import PromptTemplate
-from langchain.chains import LLMChain
+# need to replace those classes to be compatible with OpenAI API
+# from langchain import PromptTemplate
+# from langchain.chains import LLMChain
 from transformers import pipeline
 
 from openelm.configs import PromptEnvConfig
@@ -58,14 +59,14 @@ class PromptGenotype(Genotype):
     Remaining fields will be filled in at evaluation time.
 
     Args:
-        prompt (PromptTemplate): The base template for all individuals.
+        prompt (...): The base template for all individuals.
         fixed_inputs (dict[str, str], optional): Individual-specific fields to
         fill in. Defaults to None.
     """
 
     def __init__(
         self,
-        prompt: PromptTemplate,
+        prompt ,
         fixed_inputs: Optional[dict[str, str]] = None,
         behavior_model=None,
     ):
@@ -95,11 +96,12 @@ class PromptGenotype(Genotype):
         return self.prompt.format(**kwargs)
 
     def evaluate(self, model, inputs):
-        chain = LLMChain(llm=model.model, prompt=self.prompt)
-        self.result_obj = {
-            "prompt": self.format(**inputs),
-            "output": chain(inputs),
-        }
+        raise NotImplementedError # need to replace langchain.chains.LLMChain class
+        # chain = LLMChain(llm=model.model, prompt=self.prompt)
+        # self.result_obj = {
+        #     "prompt": self.format(**inputs),
+        #     "output": chain(inputs),
+        # }
         return self.result_obj["output"]
 
     def to_phenotype(self) -> Optional[Phenotype]:
@@ -147,10 +149,10 @@ class PromptEvolution(BaseEnvironment[PromptGenotype]):
             self.task = COTPromptTask()
         else:
             raise ValueError(f"Unknown task: {self.task_name}")
-
-        self.base_prompt = PromptTemplate(
-            template=self.task.base_template, input_variables=self.task.input_variables
-        )
+        raise NotImplementedError # need to replace langchain.PromptTemplate class
+        # self.base_prompt = PromptTemplate(
+        #     template=self.task.base_template, input_variables=self.task.input_variables
+        # )
         self.rng = np.random.default_rng(self.config.seed)
 
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
@@ -179,13 +181,14 @@ class PromptEvolution(BaseEnvironment[PromptGenotype]):
             few_shot_examples = self.task.create_few_shot_examples(
                 n_examples=10,
             )
-            generation_prompt = PromptTemplate(
-                input_variables=["few_shot_examples"],
-                template=self.task.generation_instruction,
-            )
-            generation_chain = LLMChain(
-                llm=self.fitness_model.model, prompt=generation_prompt
-            )
+            raise NotImplementedError # need to replace langchain.PromptTemplate class
+            # generation_prompt = PromptTemplate(
+            #     input_variables=["few_shot_examples"],
+            #     template=self.task.generation_instruction,
+            # )
+            # generation_chain = LLMChain(
+            #     llm=self.fitness_model.model, prompt=generation_prompt
+            # )
             result = generation_chain({"few_shot_examples": few_shot_examples})
             new_instruction_str = result["text"]
 
@@ -276,11 +279,13 @@ class PromptEvolution(BaseEnvironment[PromptGenotype]):
             variable_name: The name of the variable in the template to replace
             with input_str
         """
-        rewrite_prompt = PromptTemplate(
-            input_variables=[variable_name],
-            template=rewrite_instruction,
-        )
-        rewrite_chain = LLMChain(llm=self.mutation_model.model, prompt=rewrite_prompt)
+        raise NotImplementedError # need to replace langchain.PromptTemplate class
+        # rewrite_prompt = PromptTemplate(
+        #     input_variables=[variable_name],
+        #     template=rewrite_instruction,
+        # )
+        raise NotImplementedError # need to replace langchain.PromptTemplate class
+        # rewrite_chain = LLMChain(llm=self.mutation_model.model, prompt=rewrite_prompt)
         result = rewrite_chain({variable_name: input_str})
         # if self.config.debug:
         #     print(
@@ -314,10 +319,11 @@ class PromptEvolution(BaseEnvironment[PromptGenotype]):
             or self.task_name == "cot"
         ):
             fitnesses = []
-            eval_template = PromptTemplate(
-                input_variables=["instruction_str", "input_str", "output_str"],
-                template=self.task.evaluation_instruction,
-            )
+            raise NotImplementedError # need to replace langchain.PromptTemplate class
+            # eval_template = PromptTemplate(
+            #     input_variables=["instruction_str", "input_str", "output_str"],
+            #     template=self.task.evaluation_instruction,
+            # )
             inputs, outputs = self.task.get_random_data(
                 n_examples=self.config.evals_per_prompt
             )

@@ -1,7 +1,7 @@
 from typing import Optional, Union, List
 import json
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+# from langchain.chat_models import ChatOpenAI
+# from langchain.schema import HumanMessage
 import numpy as np
 # cfg: dict = {
 #     "max_tokens": 1024,
@@ -96,60 +96,6 @@ def skills_evaluation(puzzle):
     full_prompt = start_prompt + str("skills: ")+ skills + puzzle_prompt + end_prompt_v2
     return full_prompt, n_skills
 
-
-def gen_response(chatGPT,prompt):
-    response=chatGPT.generate([[HumanMessage(content=prompt)]])
-    return response.generations[0][0].text  
-
-
-    
-
-def label_puzzle_chatgpt(chatGPT,program_str,n_attempts=0,save_completion={},return_completion=False):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
-    """
-    Label a puzzle with the skills it requires
-    TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
-    """
-    # if program_str in list_prgrm_str:
-    #     idx_prgm=list_prgrm_str.index(program_str)
-    #     return list(labels_2[idx_prgm])
-    prompt,n_skills = skills_evaluation(program_str)
-    if n_attempts > 2: # should not append but just in case
-        # raise ValueError("too many attempts to label the puzzle")
-        print("WARNING: too many attempts to label the puzzle")
-        if return_completion:
-            return [0. for i in range(n_skills)],save_completion
-        else:
-            return [0. for i in range(n_skills)]
-    response = gen_response(chatGPT=chatGPT,prompt=prompt)
-    
-    split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
-    if len(split_completion) == 2 :#"Skills parsing
-        split_completion=split_completion[1].split("]")[0]+"]"
-        try: 
-            category_idx_predicted = eval(split_completion)
-            
-            if len(category_idx_predicted)!=0:
-                cond1=not(len(category_idx_predicted) > n_skills or max(category_idx_predicted) > n_skills) # if one skills is hallucinated
-                cond2= response.count("Not required")>=10 and len(category_idx_predicted)==10 # hallucination when all skills are not required but vector of all 1.
-            else: cond1=True 
-            if cond1:
-                list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-                if cond2:
-                    list_skill = [0.for i in range(n_skills)]
-                save_completion[str(n_attempts)]=[response,list_skill]
-                # if len(list_skill)==n_skills:
-                if return_completion :
-                    save_completion[str(n_attempts)]=[response,list_skill]
-                    return list_skill,save_completion
-                else:
-                    return list_skill
-        except:
-            pass
-    if return_completion:
-        save_completion[str(n_attempts)]=[response,None]
-        return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts+1,save_completion=save_completion,return_completion=return_completion)
-    else:
-        return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts+1)
 
 
 
