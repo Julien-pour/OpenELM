@@ -35,6 +35,13 @@ from joblib import Parallel, delayed, parallel_config
 import itertools
 # from joblib import parallel_config
 
+import transformers
+
+# non-local imports, move quality in openelm?
+from quality_metrics import utils
+from quality_metrics.dataset_progress import get_solution_logprobs
+
+
 from tqdm import tqdm
 class P3Solution(Genotype):
     def __init__(self, program_str: str, result_obj: dict, config: P3ProblemEnvConfig):
@@ -1372,3 +1379,111 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         new_probsols = self.generate_programs(program_list,skill_targeted_list)
 
         return new_probsols
+
+
+class P3ProbSol_Chat_PP(P3ProbSol_Chat):
+    def __init__(
+        self,
+        config: P3ProbSolEnvConfig,
+        mutation_model: MutationModel,
+        archive_dataset_name: str,
+        model_or_model_path: Union[str, transformers.PreTrainedModel],
+        tokenizer: Optional[transformers.PreTrainedTokenizer],
+        reference_probsol: Optional[str] = None,
+        one_shot_prompt_id: str = '',
+        use_docstring: bool = True,
+        num_workers: int = 12,
+        batch_size: int = 2,
+    ) -> None:
+        """
+        Version of the P3 Problem-solution environment with the Prediction Progress (PP)
+        fitness measure. This emvironment implements the in=context version of PP.
+
+        PP needs a model and an archive probsol dataset. For the currently evaluated 
+        probsol, we put it as an example in the prompt before a probsol from the archive
+        and we measure how much loss decreases compared to a reference probsol. We average
+        out this value for probsols on the whole archive.
+        """
+        super().__init__(config, mutation_model)
+
+        # for computing the solution attention mask in parallel
+        self.num_workers = num_workers
+        self.batch_size = batch_size
+
+        # load model and tokenizer
+        if isinstance(model_or_model_path, str):
+            self.model, self.tokenizer = utils.create_model_and_tokenizer(
+                model_or_model_path, compile=False
+            )
+        else:
+            assert tokenizer is not None
+            self.model = model_or_model_path
+            self.tokenizer = tokenizer
+        
+        # load and process archive puzzles into strings
+        self.archive_name = archive_dataset_name
+        with open(archive_dataset_name, 'r') as f:
+            puzzle_archive = json.load(f)
+        self.archive_puzzle_strs = [utils.make_puzzle(p, use_docstring) 
+                               for p in puzzle_archive if p['sol_bodies']]
+        self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
+
+        # load reference probsol
+        if reference_probsol is None:
+            if use_docstring:
+                self.ref_puzzle = utils.REF_PUZZLE.replace('def sat(', 'def f(')
+            else:
+                self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
+        self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
+
+        # load few_shot_prompt
+        with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+            self.prompt_text = f.read()
+                
+        self.original_losses = self._get_original_losses()
+
+    def _get_original_losses(self):
+        # try to load values based on the archive dataset
+        path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
+        if os.exists(path):
+            return torch.load(path)
+        else:
+            # compute the values and cache them (for future runs)
+            return self._get_losses(self.ref_puzzle, self.re)
+
+    def _get_losses(self, puzzle: str, solution: str):
+        # format prompts with archive and ref puzzles
+        archive_puzzle_sols = [
+            self.prompt_text.format(
+                puzzle=puzzle,
+                solution=solution,
+                archive_puzzle=apuz,
+                archive_solution=asol)
+            for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+
+        archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
+
+        # get solution mask
+        solution_attention_mask = utils.get_all_solution_masks(
+            archive_tokenized_puzzles,
+            self.tokenizer,
+            self.archive_sol_strs,
+            num_workers=self.num_workers
+        )
+
+        return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size)
+
+    def fitness(self, probsol: P3ProbSolResult, use_pass_k = False) -> float:
+        solving_fitness = super().fitness(probsol, use_pass_k)
+        if solving_fitness <= 0:
+            return solving_fitness  # we require that the problem be solvable by chatgpt
+
+        # check the docstring works fine
+        puzzle = probsol.problem_func
+        solution = probsol.solution_func
+
+        final_losses = self._get_losses(puzzle, solution)
+        
+        differences = final_losses - self.original_losses
+        return differences.mean()
+

@@ -4,7 +4,7 @@ import os
 import pickle
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 
 import numpy as np
@@ -359,7 +359,7 @@ class MAPElitesBase:
 
             print("Loading finished")
             
-    def __getallitems__(self) -> list[Phenotype]:
+    def __getallitems__(self) -> List[Phenotype]:
         """
         Returns all the phenotypes that are in the Map."""
         valid_phenotype=[]
