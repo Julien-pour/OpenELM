@@ -8,7 +8,7 @@ from typing import Any, Optional
 import numpy as np
 import torch
 #need to remove all langchain dependencies
-from langchain.chat_models import ChatOpenAI
+# from langchain.chat_models import ChatOpenAI
 # from langchain.llms.base import LLM
 # from langchain.schema import Generation#, LLMResult
 from concurrent.futures import ThreadPoolExecutor
@@ -101,24 +101,38 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
     if isinstance(batch_prompt, str):
         batch_prompt = [batch_prompt]
     completions = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for sub_batch in chunks(batch_prompt, max_workers):
-            for idx,message_list in enumerate(sub_batch):
-                # kwargs_modified = args.copy()
-                # kwargs_modified["messages"] = message_list
-                kwargs = {"client":client, "prompt":message_list}
-                kwargs["cfg_generation"]=cfg_generation
-                if temperature is not None:
-                    kwargs["temperature"]= temperature
-                # if "kwargs" in kwargs_modified:
-                #     original_kwargs = kwargs_modified.pop("kwargs")
-                future = executor.submit(
-                    get_completion,**kwargs
-                )
-                completions.append(future)
+    if max_workers>1:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for sub_batch in chunks(batch_prompt, max_workers):
+                for idx,message_list in enumerate(sub_batch):
+                    # kwargs_modified = args.copy()
+                    # kwargs_modified["messages"] = message_list
+                    kwargs = {"client":client, "prompt":message_list}
+                    kwargs["cfg_generation"]=cfg_generation
+                    if temperature is not None:
+                        kwargs["temperature"]= temperature
+                    # if "kwargs" in kwargs_modified:
+                    #     original_kwargs = kwargs_modified.pop("kwargs")
+                    future = executor.submit(
+                        get_completion,**kwargs
+                    )
+                    completions.append(future)
+        # Retrieve the results from the futures
+        results = [future.result() for future in completions]
+    else:
+        for idx,message_list in enumerate(batch_prompt):
+            # kwargs_modified = args.copy()
+            # kwargs_modified["messages"] = message_list
+            kwargs = {"client":client, "prompt":message_list}
+            kwargs["cfg_generation"]=cfg_generation
+            if temperature is not None:
+                kwargs["temperature"]= temperature
+            # if "kwargs" in kwargs_modified:
+            #     original_kwargs = kwargs_modified.pop("kwargs")
+            result = get_completion(**kwargs)
+            completions.append(result)
+            results = completions
 
-    # Retrieve the results from the futures
-    results = [future.result() for future in completions]
     return results
 
 class MutationModel(ABC):
@@ -149,9 +163,9 @@ class PromptModel(MutationModel):
         if self.config.gen_max_len != -1:
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
     
-    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None) -> list[str]:
+    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,activate_parrallel=True) -> list[str]:
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
-            if self.config.parrallel_call:
+            if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
                 results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature)
             else:

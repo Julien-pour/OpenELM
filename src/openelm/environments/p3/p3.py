@@ -39,15 +39,16 @@ from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import preprocessing_P3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
-from joblib import Parallel, delayed, parallel_config
 import itertools
 # from joblib import parallel_config
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Optional, Union
 
 import transformers
 
-# non-local imports, move quality in openelm?
-from quality_metrics import utils
-from quality_metrics.dataset_progress import get_solution_logprobs
+# non-local imports, move quality in openelm? 
+# from quality_metrics import utils
+# from quality_metrics.dataset_progress import get_solution_logprobs
 
 
 from tqdm import tqdm
@@ -863,7 +864,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 return [0. for i in range(n_skills)],save_completion
             else:
                 return [0. for i in range(n_skills)]
-        response = self.mutation_model.generate_completion(list_prompt=[prompt],temperature=0.)[0]
+        response = self.mutation_model.generate_completion(list_prompt=[prompt],temperature=0.,activate_parrallel=False)[0]
         
         split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
         if len(split_completion) == 2 :#"Skills parsing
@@ -933,7 +934,39 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
         else:
             raise NotImplementedError
-        
+    
+
+
+
+    def to_multiple_phenotype(self, list_program_str: List[str]):
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i : i + n]
+        if self.config.GPT_feedback:
+            # for api based model
+            completions=[]
+            max_workers = self.mutation_model.config.processes
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for sub_batch in chunks(list_program_str, max_workers):
+                    for idx,message_list in enumerate(sub_batch):
+                        kwargs={"program_str":message_list}
+                        # if "kwargs" in kwargs_modified:
+                        #     original_kwargs = kwargs_modified.pop("kwargs")
+                        future = executor.submit(
+                            self.to_phenotype,**kwargs
+                        )
+                        completions.append(future)
+            # Retrieve the results from the futures
+            list_phenotype_correct_puzzle = [future.result() for future in completions]
+        else:
+            # for local model
+            list_phenotype_correct_puzzle = []
+            for program_str in list_program_str:
+                list_phenotype_correct_puzzle.append(self.to_phenotype(program_str))
+        return list_phenotype_correct_puzzle
+
+
     def preprocess_p3(self, split="train",load_embedding=True,debug=False):
         """
         Preprocess the trainset of P3 
@@ -1131,7 +1164,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
 
     def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
-        """Generate new programs with a mutation model and evaluate them."""
+        """Generate new programs with a mutation model parse them, compute fitness and evaluate them."""
         local_scope_exec = False
         start_t0 = time.time()
         _generated_programs = self.mutation_model.generate_programs(
@@ -1140,8 +1173,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         start_t1 = time.time()
         
         list_pb=[]
+
         # parse the generated code 
         # as we generate multiple puzzle for each batch_size (in total 3*batch_size) we need to associate skill targeted with the list of all pb (list_pb)
+        
         skill_targeted_list_duplicate=[]
         for idx_gen_prog,gen_prog in enumerate(_generated_programs): #_generated_programs => batch_size params
             # should probably use regex (faster)
@@ -1197,16 +1232,20 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
         start_t4 = time.time()
+        
+        #compute fitness
         list_fitness = [self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
         idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit > 0.0]
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
+
+        # compute phenotype of correct puzzle
         start_t6 = time.time()
-        with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading', 
-            list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype 
-        # list_phenotype_correct_puzzle = Parallel(n_jobs=self.config.processes)(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle)
+        list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle)
+        # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading', 
+        #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype 
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
         list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
@@ -1220,10 +1259,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
             for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list_duplicate,list_phenotype,list_fitness)
         ]
-        # results = [
-        #     {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": self.to_phenotype(gen_prog), "idx_generation": self.idx_generation, "target_skills":target_skills}
-        #     for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list,)
-        # ]
         return [P3ProbSolResult(**p) for p in results]
     
     
