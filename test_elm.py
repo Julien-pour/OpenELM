@@ -8,6 +8,7 @@ os.environ["HYDRA_FULL_ERROR"] = "1"
 
 
 @hydra.main(
+    # config_path='conf',
     config_name="elmconfig",
     version_base="1.2",
 )

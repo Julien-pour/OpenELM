@@ -25,7 +25,7 @@ from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer # maybe this is the pb (bitsandbytes launch message when doing multiprocess)?
 import torch
 # from langchain.chat_models import ChatOpenAI
-from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig
+from openelm.configs import P3ProblemEnvConfig, P3ProbSolEnvConfig, P3ProbSolChatEnv_PP_ELM_NLP_Config
 from openelm.environments.base import BaseEnvironment, Genotype, Phenotype
 from openelm.environments.p3 import (
     P3_IMPORTS,
@@ -46,9 +46,9 @@ from typing import List, Optional, Union
 
 import transformers
 
-# non-local imports, move quality in openelm? 
-# from quality_metrics import utils
-# from quality_metrics.dataset_progress import get_solution_logprobs
+# non-local imports, move quality in openelm?
+from quality_metrics import utils
+from quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
 
 from tqdm import tqdm
@@ -326,7 +326,6 @@ class P3Problem(BaseEnvironment[P3Solution]):
         program_list = list(map(self.construct_prompt, sols))
         new_sols = self.generate_programs(program_list)
         return new_sols
-
 
 
 class P3ProbSolResult(Genotype):
@@ -934,7 +933,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
         else:
             raise NotImplementedError
-    
+
 
 
 
@@ -1174,9 +1173,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         list_pb=[]
 
-        # parse the generated code 
+        # parse the generated code
         # as we generate multiple puzzle for each batch_size (in total 3*batch_size) we need to associate skill targeted with the list of all pb (list_pb)
-        
+
         skill_targeted_list_duplicate=[]
         for idx_gen_prog,gen_prog in enumerate(_generated_programs): #_generated_programs => batch_size params
             # should probably use regex (faster)
@@ -1232,7 +1231,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
         start_t4 = time.time()
-        
+
         #compute fitness
         list_fitness = [self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
@@ -1244,8 +1243,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # compute phenotype of correct puzzle
         start_t6 = time.time()
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle)
-        # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading', 
-        #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype 
+        # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
+        #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
         list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
@@ -1404,53 +1403,50 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 class P3ProbSol_Chat_PP(P3ProbSol_Chat):
     def __init__(
         self,
-        config: P3ProbSolEnvConfig,
+        config: P3ProbSolChatEnv_PP_ELM_NLP_Config,
         mutation_model: MutationModel,
-        archive_dataset_name: str,
-        model_or_model_path: Union[str, transformers.PreTrainedModel],
-        tokenizer: Optional[transformers.PreTrainedTokenizer],
-        reference_probsol: Optional[str] = None,
-        one_shot_prompt_id: str = '',
-        use_docstring: bool = True,
-        num_workers: int = 12,
-        batch_size: int = 2,
     ) -> None:
         """
         Version of the P3 Problem-solution environment with the Prediction Progress (PP)
         fitness measure. This emvironment implements the in=context version of PP.
 
-        PP needs a model and an archive probsol dataset. For the currently evaluated 
+        PP needs a model and an archive probsol dataset. For the currently evaluated
         probsol, we put it as an example in the prompt before a probsol from the archive
         and we measure how much loss decreases compared to a reference probsol. We average
         out this value for probsols on the whole archive.
         """
+        self.archive_dataset_name = config.archive_dataset_name
+        self.reference_probsol = config.reference_probsol
+        one_shot_prompt_id = config.one_shot_prompt_id
+        self.use_docstring = config.use_docstring
+        # for computing the solution attention mask in parallel
+        self.num_workers = config.num_workers
+        self.batch_size = config.batch_size
+
         super().__init__(config, mutation_model)
 
-        # for computing the solution attention mask in parallel
-        self.num_workers = num_workers
-        self.batch_size = batch_size
-
         # load model and tokenizer
-        if isinstance(model_or_model_path, str):
-            self.model, self.tokenizer = utils.create_model_and_tokenizer(
-                model_or_model_path, compile=False
-            )
-        else:
-            assert tokenizer is not None
-            self.model = model_or_model_path
-            self.tokenizer = tokenizer
-        
+        self.model, self.tokenizer = utils.create_model_and_tokenizer(
+            config.model_or_model_path, compile=False
+        )
+
+        print(f'bsize {self.batch_size}')
+        print(self.model)
+        print(self.model.config.max_position_embeddings)
+        print('BWAAA')
+
         # load and process archive puzzles into strings
-        self.archive_name = archive_dataset_name
-        with open(archive_dataset_name, 'r') as f:
+        self.archive_name = self.archive_dataset_name
+        with open(self.archive_dataset_name, 'r') as f:
             puzzle_archive = json.load(f)
-        self.archive_puzzle_strs = [utils.make_puzzle(p, use_docstring) 
-                               for p in puzzle_archive if p['sol_bodies']]
+        self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
+                                    for p in puzzle_archive if p['sol_bodies']]
         self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
+        self.solutions_tokenized = None  # will be populated after filtering
 
         # load reference probsol
-        if reference_probsol is None:
-            if use_docstring:
+        if self.reference_probsol is None:
+            if self.use_docstring:
                 self.ref_puzzle = utils.REF_PUZZLE.replace('def sat(', 'def f(')
             else:
                 self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
@@ -1459,17 +1455,40 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         # load few_shot_prompt
         with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
             self.prompt_text = f.read()
-                
+
+        self._filter_puzzles()
         self.original_losses = self._get_original_losses()
+
+    def _filter_puzzles(self, tolerance=800):
+        print('Filtering long puzzles in the archive')
+        num_max_tokens = self.model.config.max_position_embeddings
+        archive_puzzle_sols = [
+            self.prompt_text.format(
+                puzzle=self.ref_puzzle,
+                solution=self.ref_solution,
+                archive_puzzle=apuz,
+                archive_solution=asol)
+            for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+
+        archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols)
+        indices_to_keep = []
+
+        for i, ts in enumerate(archive_tokenized_puzzles.input_ids):
+            if len(ts) + tolerance < num_max_tokens:
+                indices_to_keep.append(i)
+
+        self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in indices_to_keep]
+        self.archive_sol_strs = [self.archive_sol_strs[i] for i in indices_to_keep]
+        self.solutions_tokenized = self.tokenizer(self.archive_sol_strs)
 
     def _get_original_losses(self):
         # try to load values based on the archive dataset
         path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
-        if os.exists(path):
+        if os.path.exists(path):
             return torch.load(path)
         else:
             # compute the values and cache them (for future runs)
-            return self._get_losses(self.ref_puzzle, self.re)
+            return self._get_losses(self.ref_puzzle, self.ref_solution)
 
     def _get_losses(self, puzzle: str, solution: str):
         # format prompts with archive and ref puzzles
@@ -1484,16 +1503,19 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
         # get solution mask
-        solution_attention_mask = utils.get_all_solution_masks(
-            archive_tokenized_puzzles,
-            self.tokenizer,
-            self.archive_sol_strs,
-            num_workers=self.num_workers
+        solution_attention_mask = utils.get_solution_mask_from_str_loop(
+            full_prompts=archive_puzzle_sols,
+            solutions=self.archive_sol_strs,
+            tokenizer=self.tokenizer,
+            num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized],
+            archive_attention_mask=archive_tokenized_puzzles.attention_mask,
+            offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask]
         )
+        archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
         return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size)
 
-    def fitness(self, probsol: P3ProbSolResult, use_pass_k = False) -> float:
+    def fitness(self, probsol: P3ProbSolResult, use_pass_k=False) -> float:
         solving_fitness = super().fitness(probsol, use_pass_k)
         if solving_fitness <= 0:
             return solving_fitness  # we require that the problem be solvable by chatgpt

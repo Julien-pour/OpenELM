@@ -1,5 +1,6 @@
 from typing import List
 import ast
+import re
 import numpy as np
 from tqdm import tqdm
 
@@ -144,8 +145,7 @@ def split_samples(samples, num_workers):
     return split
 
 
-def get_all_solution_masks(archive_tokenized_puzzles, tokenizer, archive_sol_strs, num_workers=None):
-    solutions_tokenized = tokenizer(archive_sol_strs)
+def get_all_solution_masks(archive_tokenized_puzzles, solutions_tokenized, num_workers=None):
     solution_attention_mask = torch.zeros_like(archive_tokenized_puzzles.attention_mask)
     # compute the solution attention mask
 
@@ -175,6 +175,39 @@ def get_all_solution_masks(archive_tokenized_puzzles, tokenizer, archive_sol_str
             i += len(el)
 
         return solution_attention_mask
+
+
+def get_solution_mask_from_str(full_prompt: str, solution: str, tokenizer, num_solution_tokens: int,
+                               num_total_tokens, return_type='pt'):
+    # should be parallelizable (saves in the tokenizer)
+    assert solution in full_prompt
+    # use pattern matching to get the text before the solution
+    pattern = f'(.*){solution}(.*)'
+    match = re.match(pattern, full_prompt)
+    assert match is not None  # should never happen
+    # count tokens
+    num_tokens_before = len(tokenizer(match[0]))
+    # create mask
+    if return_type == 'pt':
+        mask = torch.zeros(num_total_tokens)
+        mask[num_tokens_before:num_tokens_before+num_solution_tokens] = 1.
+    else:
+        mask = [0] * len(num_total_tokens)
+        for i in range(num_solution_tokens):
+            mask[num_tokens_before+i] = 1
+    return mask
+
+
+def get_solution_mask_from_str_loop(full_prompts, solutions, tokenizer, num_solution_tokenss,
+                                    archive_attention_mask, offsets):
+    # offset is due to padding (there might be a way to bypass using it)
+    matches = [full_prompt.split(solution)[0] for solution, full_prompt in zip(solutions, full_prompts)]
+    num_tokens_before = [len(t) for t in tokenizer(matches).input_ids]
+    masks = torch.zeros_like(archive_attention_mask)
+    for i, (t, num_solution_tokens, o) in enumerate(zip(num_tokens_before, num_solution_tokenss, offsets)):
+        masks[i, o+t:o+t+num_solution_tokens] = 1.
+
+    return masks
 
 
 REF_PUZZLE = '''def sat(s: List[str]):

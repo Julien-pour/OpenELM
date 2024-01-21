@@ -37,6 +37,7 @@ loss_fct = torch.nn.CrossEntropyLoss(reduce=False)
 def get_cross_entropy(model, input_ids, attention_mask, loss_attention_mask=None):
     batch_size, seq_len = input_ids.shape
     labels = input_ids.clone()
+    print(input_ids.shape)
     logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
     # Shift so that tokens < n predict n
     shift_logits = logits[..., :-1, :].contiguous()
@@ -231,8 +232,22 @@ def incontext_compression_progress_wrapper(
 
     # if we only get the loss on the solution, compute the solution masks
     if mask_puzzle:
-        solution_attention_mask = utils.get_all_solution_masks(archive_tokenized_puzzles, tokenizer,
-                                                               archive_sol_strs, num_workers=num_workers)
+        solutions_tokenized = tokenizer(archive_sol_strs)
+
+        t = time.time()
+        solution_attention_mask = utils.get_all_solution_masks(archive_tokenized_puzzles,
+                                                               solutions_tokenized, num_workers=num_workers)
+        print(f'Duration {time.time() - t}')
+        t = time.time()
+        solution_attention_mask_2 = utils.get_solution_mask_from_str_loop(
+            archive_puzzle_sols,
+            archive_sol_strs,
+            tokenizer,
+            [len(t) - 1 for t in solutions_tokenized.input_ids],  # first token is start token
+            archive_tokenized_puzzles.attention_mask,
+            [l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],  # offset
+        )
+        print(f'Duration {time.time() - t}')
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
     # make the prompts to measure how much a given puzzle helps on solving the archive puzzles

@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
+
+import transformers
 
 
 @dataclass
@@ -334,8 +336,22 @@ class P3ProbSolChatEnv_ELM_NLP_Config(EnvConfig):
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
     remove_doc = True # remove doc in f 
-    
-    
+
+
+@dataclass
+class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
+    """
+    Prediction Progress version.
+    """
+    env_name: str = "p3_probsol_Chat_PP"
+    batch_size: Optional[int] = 2
+    archive_dataset_name: str = 'puzzles_train.json'
+    model_or_model_path: str = 'openlm-research/open_llama_3b_v2'
+    reference_probsol: Optional[str] = None
+    one_shot_prompt_id: str = 'progress_base_example_prompt.md'
+    use_docstring: bool = True
+    num_workers: int = 12
+
 @dataclass
 class QDEnvConfig(EnvConfig):
     env_name: str = "qdaif"
@@ -442,6 +458,7 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="sodarace", node=SodaraceEnvConfig)
     cs.store(group="env", name="image_evolution", node=ImageEnvConfig)
     cs.store(group="env", name="string_evolution", node=StringEnvConfig)
+    
     cs.store(group="env", name="p3_probsol", node=P3ProbSolEnvConfig)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart", node=P3ProbSolChatEnv_IMGEP_smart_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_random", node=P3ProbSolChatEnv_IMGEP_random_Config)
@@ -449,6 +466,8 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="P3ProbSolChatEnv_ELM_NLP", node=P3ProbSolChatEnv_ELM_NLP_Config)
     cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolChatEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
+    cs.store(group="env", name="P3ProbSolChatEnv_PP_ELM_NLP", node=P3ProbSolChatEnv_PP_ELM_NLP_Config)
+
     cs.store(group="env", name="prompt_evolution", node=PromptEnvConfig)
     cs.store(group="env", name="qdaif", node=QDEnvConfig)
     cs.store(group="qd", name="mapelites", node=MAPElitesConfig)

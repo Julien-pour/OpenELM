@@ -7,54 +7,44 @@ from openelm.mutation_model import DiffModel, MutationModel, PromptModel
 
 
 def load_env(env_name: str) -> Any:
-    if env_name == "sodarace":
-        from openelm.environments.sodaracer.sodarace import Sodarace
-
-        return Sodarace
-    elif env_name == "image_evolution":
-        from openelm.environments.base import ImageOptim
-
-        return ImageOptim
-    elif env_name == "match_string":
-        from openelm.environments.base import MatchString
-
-        return MatchString
-    elif env_name == "function_optim":
-        from openelm.environments.base import FunctionOptim
-
-        return FunctionOptim
-    elif env_name == "p3_probsol":
-        from openelm.environments.p3.p3 import P3ProbSol
-
-        return P3ProbSol
-    elif env_name == "p3_probsol":
-        from openelm.environments.p3.p3 import P3ProbSol
-
-        return P3ProbSol
-    elif env_name == "p3_probsol_Chat":
-        from openelm.environments.p3.p3 import P3ProbSol_Chat
-
-        return P3ProbSol_Chat
-    elif env_name == "prompt_evolution":
-        from openelm.environments.prompt.prompt import PromptEvolution
-
-        return PromptEvolution
-    elif env_name == "qdaif":
-        from openelm.environments.poetry import PoetryEvolution
-
-        return PoetryEvolution
-    else:
-        raise ValueError(f"Unknown environment {env_name}")
+    match env_name:
+        case "sodarace":
+            from openelm.environments.sodaracer.sodarace import Sodarace
+            return Sodarace
+        case "image_evolution":
+            from openelm.environments.base import ImageOptim
+            return ImageOptim
+        case "match_string":
+            from openelm.environments.base import MatchString
+            return MatchString
+        case "function_optim":
+            from openelm.environments.base import FunctionOptim
+            return FunctionOptim
+        case "p3_probsol":
+            from openelm.environments.p3.p3 import P3ProbSol
+            return P3ProbSol
+        case "p3_probsol_Chat":
+            from openelm.environments.p3.p3 import P3ProbSol_Chat
+            return P3ProbSol_Chat
+        case "p3_probsol_Chat_PP":
+            from openelm.environments.p3.p3 import P3ProbSol_Chat_PP
+            return P3ProbSol_Chat_PP
+        case "prompt_evolution":
+            from openelm.environments.prompt.prompt import PromptEvolution
+            return PromptEvolution
+        case "qdaif":
+            from openelm.environments.poetry import PoetryEvolution
+            return PoetryEvolution
+        case _:
+            raise ValueError(f"Unknown environment {env_name}")
 
 
 def load_algorithm(algorithm_name: str) -> Any:
     if algorithm_name == "mapelites":
         from openelm.algorithms.map_elites import MAPElites
-
         return MAPElites
     elif algorithm_name == "cvtmapelites":
         from openelm.algorithms.map_elites import CVTMAPElites
-
         return CVTMAPElites
 
 
