@@ -10,7 +10,7 @@ scikit-learn
 matplotlib
 # langchain==0.0.225
 typing_extensions==4.5
-openai=1.7.1
+openai==1.7.1
 pandas
 plotly
 scikit-learn
