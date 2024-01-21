@@ -291,7 +291,7 @@ class HuggingFaceLLM: #(LLM): <- removed langchain.llms.base.LLM inheritance nee
 
         extra = Extra.allow
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def setup(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Validate the config."""
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
