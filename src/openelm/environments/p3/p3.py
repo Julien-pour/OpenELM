@@ -781,7 +781,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             raise ValueError("long prompt no implemented yet ")
         elif self.config.prompt_size == "med":
             self.prompt_seed_function = get_programming_puzzles_prompt
-            self.prompt_seed= self.prompt_seed_function()
+            # self.prompt_seed= self.prompt_seed_function()
         else:
             raise ValueError("No seed string found")
 
