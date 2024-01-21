@@ -49,14 +49,16 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     puzzles = [puzz for puzz in list_few_shot_example[:n_fewshot_ex]]
     
     examples = ""
-    for i, puzzle in enumerate(puzzles):        
+    for i, puzzle in enumerate(puzzles):   
+        puzzle_description ="" # /!\ need to implement that puzzle.description /!\
+
         if i == 0:
-            examples += f"Puzzle {i}:\nPuzzle description: {puzzle.description}\n```python\n{puzzle.program_str}\n```\n"
+            examples += f"Puzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
         if i != 0:
             examples += "\n"
     if elm_mode:
         prompt_elm=f", each being a **mutation** derived from the Puzzle {i+1}." #the structure of Puzzle 2
-        examples += f"Puzzle to mutate {i+1}:\nPuzzle description: {puzzle.description}\n```python\n{puzzle.program_str}\n```"
+        examples += f"Puzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```"
 
     prompt = """
     I have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
