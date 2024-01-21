@@ -1412,6 +1412,9 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         super().__init__(config, mutation_model)
 
+        # from vllm import LLM, SamplingParams
+        # llm = LLM('microsoft/phi-1')
+
         # load model and tokenizer
         self.model, self.tokenizer = utils.create_model_and_tokenizer(
             config.model_or_model_path, compile=self.compile

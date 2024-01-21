@@ -52,13 +52,24 @@ def create_model_and_tokenizer(model_id, compile=True, dtype=torch.bfloat16):
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=True)
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        torch_dtype=dtype,
-        # quantization_config=quantization_config,
-        device_map="auto",
-        local_files_only=True
-    )
+    try:
+        import flash_attn
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=dtype,
+            # quantization_config=quantization_config,
+            device_map="auto",
+            local_files_only=True,
+            attn_implementation="flash_attention_2",
+        )
+    except ImportError:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=dtype,
+            # quantization_config=quantization_config,
+            device_map="auto",
+            local_files_only=True
+        )
     # model.cuda()
     tokenizer.padding_side = 'left'
     tokenizer.pad_token = tokenizer.eos_token
