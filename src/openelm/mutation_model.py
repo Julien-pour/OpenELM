@@ -4,6 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Optional
+# import instructor
 
 import numpy as np
 import torch
@@ -46,7 +47,8 @@ def get_model(config: ModelConfig):
 
         # if config.gen_max_len!=-1:
         #     cfg["max_tokens"]=config.gen_max_len
-        return OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)#ChatOpenAI(**cfg)
+        client = OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)
+        return client#ChatOpenAI(**cfg)
 
     else:
         raise NotImplementedError
@@ -155,6 +157,9 @@ class PromptModel(MutationModel):
         # Use RNG to rotate random seeds during inference.
         self.rng = np.random.default_rng(seed=seed)
         self.model = get_model(self.config)
+        # if self.config.model_type == "openai":
+        #     self.instructor_model = instructor.patch(OpenAI(self.model),max)
+        # else: raise NotImplementedError #need to implement instructor for huggingface
         self.cfg_generation: dict = {
             "temperature": self.config.temp,
             "top_p": self.config.top_p,
