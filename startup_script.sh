@@ -11,3 +11,4 @@ echo 'export OPENAI_API_KEY="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
 source ~/.bashrc
 # download models
 python -c "from transformers import LlamaTokenizer, LlamaForCausalLM; model_path = 'openlm-research/open_llama_3b_v2'; tokenizer = LlamaTokenizer.from_pretrained(model_path); import torch; model = LlamaForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, device_map='auto')"
+echo "export PATH=$PATH:/sbin" >> ~/.bashrc

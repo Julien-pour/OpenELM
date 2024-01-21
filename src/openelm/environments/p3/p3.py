@@ -1445,6 +1445,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         self._filter_puzzles()
         self.original_losses = self._get_original_losses()
+        self.original_losses = self._get_original_losses()
 
     def _filter_puzzles(self, tolerance=800):
         print('Filtering long puzzles in the archive')
