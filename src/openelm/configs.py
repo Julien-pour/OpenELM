@@ -352,6 +352,8 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     use_docstring: bool = True
     num_workers: int = 12
     compile: bool = False
+    flash_attn: bool = False
+
 
 @dataclass
 class QDEnvConfig(EnvConfig):
