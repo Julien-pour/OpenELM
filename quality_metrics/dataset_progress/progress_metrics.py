@@ -41,7 +41,7 @@ def get_cross_entropy(model, input_ids, attention_mask, loss_attention_mask=None
     print("torch.cuda.memory_allocated: %fGB" % (torch.cuda.memory_allocated(0) / 1024 / 1024 / 1024))
     print("torch.cuda.memory_reserved: %fGB" % (torch.cuda.memory_reserved(0) / 1024 / 1024 / 1024))
     print("torch.cuda.max_memory_reserved: %fGB" % (torch.cuda.max_memory_reserved(0) / 1024 / 1024 / 1024))
-    print("torch.cuda.utilization: %f" % (print(torch.cuda.utilization())))
+    print(f"torch.cuda.utilization: {(torch.cuda.utilization())}%")
     logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
     # Shift so that tokens < n predict n
     shift_logits = logits[..., :-1, :].contiguous()
