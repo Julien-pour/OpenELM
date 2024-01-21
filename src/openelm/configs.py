@@ -351,6 +351,7 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     one_shot_prompt_id: str = 'progress_base_example_prompt.md'
     use_docstring: bool = True
     num_workers: int = 12
+    compile: bool = False
 
 @dataclass
 class QDEnvConfig(EnvConfig):

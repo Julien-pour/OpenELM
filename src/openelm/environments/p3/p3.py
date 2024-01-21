@@ -1408,12 +1408,13 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         # for computing the solution attention mask in parallel
         self.num_workers = config.num_workers
         self.batch_size = config.batch_size
+        self.compile = config.compile
 
         super().__init__(config, mutation_model)
 
         # load model and tokenizer
         self.model, self.tokenizer = utils.create_model_and_tokenizer(
-            config.model_or_model_path, compile=False
+            config.model_or_model_path, compile=self.compile
         )
 
         print(f'bsize {self.batch_size}')
