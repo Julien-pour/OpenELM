@@ -22,3 +22,4 @@ pandas
 sentencepiece
 seaborn
 peft
+pynvml
