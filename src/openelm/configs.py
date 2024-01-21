@@ -345,7 +345,7 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     """
     env_name: str = "p3_probsol_Chat_PP"
     batch_size: Optional[int] = 2
-    archive_dataset_name: str = 'puzzles_train.json'
+    archive_dataset_name: str = 'puzzles_train_1.json'
     model_or_model_path: str = 'openlm-research/open_llama_3b_v2'
     reference_probsol: Optional[str] = None
     one_shot_prompt_id: str = 'progress_base_example_prompt.md'
