@@ -1409,6 +1409,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         self.num_workers = config.num_workers
         self.batch_size = config.batch_size
         self.compile = config.compile
+        self.flash_attn = config.flash_attn
 
         super().__init__(config, mutation_model)
 
@@ -1417,7 +1418,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         # load model and tokenizer
         self.model, self.tokenizer = utils.create_model_and_tokenizer(
-            config.model_or_model_path, compile=self.compile
+            config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn
         )
 
         print(f'bsize {self.batch_size}')
@@ -1500,7 +1501,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
             tokenizer=self.tokenizer,
             num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized],
             archive_attention_mask=archive_tokenized_puzzles.attention_mask,
-            offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask]
+            offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
         )
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
