@@ -1,39 +1,113 @@
 from typing import Optional, Union, List
 import json
-# from langchain.chat_models import ChatOpenAI
-# from langchain.schema import HumanMessage
+
 import numpy as np
-# cfg: dict = {
-#     "max_tokens": 1024,
-#     "temperature": 0.0,
-#     "top_p": 1.,
-#     "model_name": "gpt-3.5-turbo-0613",
-#     "request_timeout": 70,
-#     "max_retries": 20
-# }
-
-# chatGPT = ChatOpenAI(**cfg)    
-
-# # @retry(stop=stop_after_attempt(10),wait=wait_random_exponential(min=1, max=40))
-# def gen_response(prompt):
-#     return chatGPT.generate([[HumanMessage(content=prompt)]])
+import textwrap
 
 
+skill_list = [
+    "String Manipulation",
+    "Mathematical Operations",
+    "Conditional Logic",
+    "Recursion",
+    "Brute Force Search",
+    "Dynamic Programming",
+    "Greedy Algorithms",
+    "Backtracking",
+    "Exception Handling",
+    "Set Operations",
+    "Permutations and Combinations",
+    "Probability and Statistics",
+    "Importing Modules (Itertools, etc.)",
+    "Pattern Recognition", 
+    "Sorting and Ordering",
+    "Binary Operations (bitwise shifting, AND, OR)",
+    "Geometry and Coordinate Manipulation",
+    "Algorithm Optimization",
+    "Number Theory (factors, primes, etc.)",
+    "Graph Theory (paths, edges, vertices)"
+]
+
+def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_batch: Optional[List[str]] = None, skill_targeted: Optional[List[int]]=None,n_fewshot_ex=2):
+    """
+    should change that to list_few_shot_example from list to Phenotype type
+    skill_targeted list of binary vector
+    """
+    elm_mode=False
+    prompt_elm=""
+    aces_mode=False
+    if not code_batch is None:
+        elm_mode = True
+    if not skill_targeted is None:
+        aces_mode = True
+
+    if not isinstance(list_few_shot_example, list):
+        list_few_shot_example = [list_few_shot_example]
+    if all(isinstance(x, str) for x in list_few_shot_example):
+        raise NameError("should be phenotype not str") 
+
+    puzzles = [puzz for puzz in list_few_shot_example[:n_fewshot_ex]]
+    
+    examples = ""
+    for i, puzzle in enumerate(puzzles):        
+        if i == 0:
+            examples += f"Puzzle {i}:\nPuzzle description: {puzzle.description}\n```python\n{puzzle.program_str}\n```\n"
+        if i != 0:
+            examples += "\n"
+    if elm_mode:
+        prompt_elm=f", each being a **mutation** derived from the Puzzle {i+1}." #the structure of Puzzle 2
+        examples += f"Puzzle to mutate {i+1}:\nPuzzle description: {puzzle.description}\n```python\n{puzzle.program_str}\n```"
+
+    prompt = """
+    I have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
+    I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
+    
+    Rules:
+    1. Each puzzle includes two functions: `def f(...)` and `def g(...)`.
+    2. The first argument of `f` is always the output from `g()`.
+    3. Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
+    4. Avoid using `f` inside `g`.
+    5. Include any necessary imports for your code to run smoothly.
+
+    Puzzle Format:
+    Problem description: ...
+    ```python
+    def f(solution, args=...) -> bool:
+        # Python code to test the solution returned by g.
+        # This function is a test unit and must return True if the solution is correct, False otherwise.
+
+    def g(args=...) -> solution:
+        # Python code to generate a solution for the problem.
+        # The solution should generalize to all possible args.
+        return solution
+
+    assert f(g()) == True
+    ```
+
+    {examples}
+
+    Your Task:
+    Create three new Python Programming Puzzles (Puzzle 2 to Puzzle 4)."""
+    prompt = textwrap.dedent(prompt)
+    if elm_mode == True:
+        prompt2add = f"Ensure that each new puzzles dervied from a mutated Puzzle {i+1}."
+    if aces_mode == True:
+        skill_target=" "
+        idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
+        for idx in idx_skill_targeted:
+            skill_target += f"\n- {skill_list[idx]}"
+
+        prompt2add = "Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging"# and adhere to the specified format."
+        prompt2add += f"and they should incorporate the following skills:{skill_target}"
+    prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
+    prompt += prompt2add
+    return prompt
 
 
-# path_puzzles = "puzzles.json"
-# path_split= "split.json"
 
-# print("load puzzles")
-# with open(path_puzzles, "r") as f:
-#     puzzles = json.load(f)
-# with open(path_split, "r") as f:
-#     split = json.load(f)
-# print("load puzzles done")
+### mostly old stuff (need to check and remove it)
 
-
-
-skill_list = ['Sorting and Searching', 'Counting and combinatorics', 'Tree and Graph problem', 'Math', 'Bit Manipulation', 'String Manipulation', 'Geometry', 'Recursion and Dynamic Programming', 'Stacks and Queues', 'Optimization']
+old_skill_list = ['Sorting and Searching', 'Counting and combinatorics', 'Tree and Graph problem', 'Math', 'Bit Manipulation', 'String Manipulation', 'Geometry', 'Recursion and Dynamic Programming', 'Stacks and Queues', 'Optimization']
 SKILLS ="""
 0 - Sorting or Searching: Sorting refers to arranging a data structure (list, string, grid,...) in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element or pattern in a data structure (list, string, grid,...).
 1 - Counting or combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities, occurrence or arrangements. Counting the number of occurrences of something also falls in this category.
@@ -45,30 +119,6 @@ SKILLS ="""
 7 - Recursion or Dynamic Programming: Utilizing recursive techniques and dynamic programming to solve problems by factoring them down into smaller subproblems and building solutions incrementally. Puzzles that can be solved through a modular approach.
 8 - Stacks or Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
 9 - Optimization: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, brute force search, etc...
-"""
-# SKILLS ="""
-# 0 - Sorting and Searching: Sorting refers to arranging a collection of elements in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element in a collection, or an element of a set that satisfies given constraints.
-# 1 - Counting and combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities or arrangements. Counting the number of occurrences of something also falls in this category.
-# 2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as graph or tree traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes, problems on grids, among others.
-# 3 - Math: Strong understanding of mathematical concepts such as summations, probability, arithmetics, polynomials, solving equations, matrices, algebra, formal and informal logic....
-# 4 - Bit Manipulation: Performing operations at the bit level to solve problems. This includes boolean operation (and, or, not, xor, etc), bit shifting, bit masking, and other bitwise operations.
-# 5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, parsing strings, and pattern matching.
-# 6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for geometrical problem-solving. For instance puzzles involving shapes on the plane (triangles, etc), angles, figures, space, surfaces, curvature, 3d geometry, discrete geometry, rotations...
-# 7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming to solve problems by factoring them down into smaller subproblems and building solutions incrementally. Puzzles that can be solved through a modular approach.
-# 8 - Stacks or Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
-# 9 - Optimization Algorithms: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, etc...
-# """
-SKILLS_backup ="""
-0 - Sorting and Searching: Sorting refers to arranging a collection of elements in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element in a collection, or an element of a set that satisfies given constraints.
-1 - Counting and combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities or arrangements. Counting the number of occurrences of something also falls in this category.
-2 - Tree and Graph problem: Analyzing and solving problems related to tree and graph structures involving nodes connected by edges. This includes tasks such as graph or tree traversal, finding shortest paths, detecting cycles, and determining connectivity between nodes, problems on grids, among others.
-3 - Math: Strong understanding of mathematical concepts such as summations, probability, arithmetics, polynomials, equations, matrices, algebra....
-4 - Bit Manipulation: Performing operations at the bit level to solve problems. This includes boolean operation (and, or, not, xor, etc), bit shifting, bit masking, and other bitwise operations.
-5 - String Manipulation: Operations and algorithms specifically designed for working with strings. This includes tasks like concatenation, searching, replacing, parsing strings, and pattern matching.
-6 - Geometry and Grid Problems: Understanding geometric concepts and algorithms for geometrical problem-solving. For instance puzzles involving shapes on the plane (triangles, etc), angles, figures, space, surfaces, curvature, 3d geometry, discrete geometry, rotations...
-7 - Recursion and Dynamic Programming: Utilizing recursive techniques and dynamic programming to solve problems by factoring them down into smaller subproblems and building solutions incrementally. Puzzles that can be solved through a modular approach.
-8 - Stacks or Queues: Data structures used to store and retrieve elements in a specific order. Stacks follow Last-In-First-Out, while queues follow First-In-First-Out. They are used for managing function calls, recursion, and implementing search algorithms.
-9 - Optimization Algorithms: Problems involving finding the best possible solution for a given problem by minimizing or maximizing an objective function. In this category go all puzzles involving finding maximal and minimal elements, shortest and longest paths, etc...
 """
 
 def skills_evaluation(puzzle):

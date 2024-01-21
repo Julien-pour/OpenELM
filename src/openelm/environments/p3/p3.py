@@ -34,7 +34,7 @@ from openelm.environments.p3 import (
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
 )
-from openelm.environments.p3 import P3_probsol_chat_med_seed,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
+from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
@@ -780,7 +780,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if self.config.prompt_size == "long":
             raise ValueError("long prompt no implemented yet ")
         elif self.config.prompt_size == "med":
-            self.prompt_seed_function = P3_probsol_chat_med_seed
+            self.prompt_seed_function = get_programming_puzzles_prompt
             self.prompt_seed= self.prompt_seed_function()
         else:
             raise ValueError("No seed string found")
@@ -801,21 +801,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
-        # if self.config.GPT_feedback: #init openai model with temp = 0 
-        #     cfg: dict = {
-        #         "max_tokens": 1024,
-        #         "temperature": 0.0,
-        #         "top_p": 1.,
-        #         "max_retries":100,
-        #         # TODO: rename config option?
-        #         "model_name": "gpt-3.5-turbo-0613",#"gpt-4-0613",
-        #         "request_timeout": 70
-        #     }
-            
-            # self.chatGPT = OpenAI(max_retries=self.mutation_model.config.max_retries,timeout=self.mutation_model.config.request_timeout)
-        # Use the first example in the prompt seed as basis for embedding sizes
-        # i_first = self.prompt_seed.find("assert")
-        # first_example = self.prompt_seed[:i_first].strip()
         
         first_example ="def f(x,a=1,b=1): return a*x==b \ndef g(x,a=1,b=1): return b/a\nassert f(g())==True"
         _,n_skills = skills_evaluation(first_example)
@@ -823,8 +808,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         out = self.to_phenotype(first_example)
         if self.config.embedding_model_type == "openai" and not "embedding" in self.config.embedding_model_type: 
             #NLP space
-            # prompt,n_skills = skills_evaluation("aaaa")
-            # self.n_skills = n_skills
+
             self.genotype_ndim = np.array(out).shape[-1]
             #  in poetry self.genotype_space = np.array(self.config.behavior_space).T
             self.genotype_space = np.repeat([[0, 1]], self.genotype_ndim, axis=0).T 
@@ -849,6 +833,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
     def label_puzzle_chatgpt(self,program_str,n_attempts=0,save_completion={},return_completion=False):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
         """
+        /!\ need to change that /!\ 
+        
         Label a puzzle with the skills it requires
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
         """
@@ -1055,7 +1041,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         """
         construct the prompt for the LLM
         """
-        n_few_shot_example=3 # that are in the prompt to gen puzzle
+        n_few_shot_example=2 # that are in the prompt to gen puzzle
         # n_few_shot_example_from_trainset =  1
         # n_few_shot_example_from_archive = n_few_shot_example - n_few_shot_example_from_trainset
         
@@ -1104,13 +1090,13 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             all_emb = np.array(copy.deepcopy(all_emb))            
 
             # choose puzzle from closest niches half from trainset
-            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=3)
+            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=n_few_shot_example)
             
             for puzzz in list_few_shot_example_phenotypes: # remove example in doc
                 puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)
 
 
-            prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
+            prompt_str = self.prompt_seed_function(list_few_shot_example_phenotypes=list_few_shot_example_phenotypes,skill_targeted=skill_targeted)
             # skill_targeted.dtype=int
             # check if skill_targeted is a list
             if not isinstance(skill_targeted, list):
@@ -1143,19 +1129,19 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
             list_few_shot_example_phenotypes= []
             # choose puzzle from closest niches half from trainset
-            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=3)
+            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=n_few_shot_example)
 
             # remove example given in docstring  
             list_few_shot_example_phenotypes=copy.deepcopy(list_few_shot_example_phenotypes)
             for puzzz in list_few_shot_example_phenotypes:
                 puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
                 
-            prompt_str = P3_probsol_chat_med_seed_goal_targeted(list_few_shot_example_phenotypes,skill_targeted)
+            prompt_str = self.prompt_seed_function(list_few_shot_example=list_few_shot_example_phenotypes,skill_targeted=skill_targeted)
             
         else:
-            list_few_shot_example = [pb.program_str for pb in list_few_shot_example_phenotypes]
+            list_few_shot_example = [pb for pb in list_few_shot_example_phenotypes]
             skill_targeted=code_batch
-            prompt_str = self.prompt_seed_function(list_few_shot_example, code_batch)
+            prompt_str = self.prompt_seed_function(list_few_shot_example=list_few_shot_example, code_batch=code_batch)
 
 
         template = f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
