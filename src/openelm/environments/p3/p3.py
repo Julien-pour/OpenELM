@@ -1519,7 +1519,11 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         solution = probsol.solution_func
 
         final_losses = self._get_losses(puzzle, solution)
-        
+        print(f'final_losses {final_losses}')
+        print(f'original_losses {self.original_losses}')
+
         differences = final_losses - self.original_losses
+        fitness = differences.mean()
+        print(f'fitness {fitness}')
         return differences.mean()
 
