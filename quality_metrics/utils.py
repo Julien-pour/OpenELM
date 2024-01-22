@@ -63,6 +63,7 @@ def create_model_and_tokenizer(model_id, compile=True, dtype=torch.bfloat16, fla
                 device_map="auto",
                 local_files_only=True,
                 attn_implementation="flash_attention_2",
+                trust_remote_code=True,
             )
         except ImportError:
             model = AutoModelForCausalLM.from_pretrained(
@@ -70,7 +71,8 @@ def create_model_and_tokenizer(model_id, compile=True, dtype=torch.bfloat16, fla
                 torch_dtype=dtype,
                 # quantization_config=quantization_config,
                 device_map="auto",
-                local_files_only=True
+                # local_files_only=True,
+                trust_remote_code=True
             )
     else:
         model = AutoModelForCausalLM.from_pretrained(
@@ -78,7 +80,8 @@ def create_model_and_tokenizer(model_id, compile=True, dtype=torch.bfloat16, fla
             torch_dtype=dtype,
             # quantization_config=quantization_config,
             device_map="auto",
-            local_files_only=True
+            # local_files_only=True,
+            trust_remote_code=True
         )
     # model.cuda()
     tokenizer.padding_side = 'left'

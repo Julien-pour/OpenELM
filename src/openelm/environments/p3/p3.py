@@ -1451,9 +1451,10 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         self.original_losses = self._get_original_losses()
         self.original_losses = self._get_original_losses()
 
-    def _filter_puzzles(self, tolerance=800):
+    def _filter_puzzles(self, tolerance=800, num_max_tokens=2048):
         print('Filtering long puzzles in the archive')
-        num_max_tokens = self.model.config.max_position_embeddings
+        if num_max_tokens is None:
+            num_max_tokens = self.model.config.max_position_embeddings
         archive_puzzle_sols = [
             self.prompt_text.format(
                 puzzle=self.ref_puzzle,
