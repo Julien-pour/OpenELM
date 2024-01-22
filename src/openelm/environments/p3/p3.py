@@ -1410,6 +1410,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         self.batch_size = config.batch_size
         self.compile = config.compile
         self.flash_attn = config.flash_attn
+        self.num_max_tokens = config.num_max_tokens
 
         super().__init__(config, mutation_model)
 

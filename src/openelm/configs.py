@@ -353,6 +353,7 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     num_workers: int = 12
     compile: bool = False
     flash_attn: bool = False
+    num_max_tokens: Optional[int] = 2048
 
 
 @dataclass
