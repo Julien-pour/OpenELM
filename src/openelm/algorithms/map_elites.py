@@ -457,6 +457,7 @@ class MAPElitesBase:
                 new_individuals, max_genome, max_fitness
             )
             tbar.set_description(f"{max_fitness=:.4f}")
+            print(f'Fitnesses: {self.fitnesses}')
 
             self.fitness_history["max"].append(self.max_fitness())
             self.fitness_history["min"].append(self.min_fitness())
