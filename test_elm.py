@@ -20,10 +20,10 @@ def main(config):
     config = OmegaConf.to_object(config)
 
     elm = ELM(config)
-    # print(
-    #     "Best Individual: ",
-    #     elm.run(init_steps=config.qd.init_steps, total_steps=config.qd.total_steps),
-    # )
+    print(
+        "Best Individual: ",
+        elm.run(init_steps=config.qd.init_steps, total_steps=config.qd.total_steps),
+    )
 
 
 if __name__ == "__main__":

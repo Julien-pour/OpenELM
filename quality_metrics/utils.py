@@ -46,11 +46,11 @@ bi = "zou"
 
 def create_model_and_tokenizer(model_id, compile=True, dtype=torch.bfloat16, flash_attn=True):
     if 'codellama' in model_id:
-        tokenizer = CodeLlamaTokenizer.from_pretrained(model_id, local_files_only=True)
+        tokenizer = CodeLlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
     elif 'llama' in model_id:
-        tokenizer = LlamaTokenizer.from_pretrained(model_id, local_files_only=True)
+        tokenizer = LlamaTokenizer.from_pretrained(model_id, trust_remote_code=True)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
 
     # todo: simplify
     if flash_attn:
@@ -61,7 +61,6 @@ def create_model_and_tokenizer(model_id, compile=True, dtype=torch.bfloat16, fla
                 torch_dtype=dtype,
                 # quantization_config=quantization_config,
                 device_map="auto",
-                local_files_only=True,
                 attn_implementation="flash_attention_2",
                 trust_remote_code=True,
             )
