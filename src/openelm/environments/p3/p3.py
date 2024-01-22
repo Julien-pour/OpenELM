@@ -1450,7 +1450,8 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         self._filter_puzzles()
         self.original_losses = self._get_original_losses()
-        self.original_losses = self._get_original_losses()
+        print(f'original losses {self.original_losses}')
+        pass
 
     def _filter_puzzles(self, tolerance=800, num_max_tokens=2048):
         print('Filtering long puzzles in the archive')
@@ -1501,7 +1502,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
             full_prompts=archive_puzzle_sols,
             solutions=self.archive_sol_strs,
             tokenizer=self.tokenizer,
-            num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized],
+            num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
             archive_attention_mask=archive_tokenized_puzzles.attention_mask,
             offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
         )
@@ -1514,13 +1515,13 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         if solving_fitness <= 0:
             return solving_fitness  # we require that the problem be solvable by chatgpt
 
+        print(f'probsol: {probsol}')
+
         # check the docstring works fine
         puzzle = probsol.problem_func
         solution = probsol.solution_func
 
         final_losses = self._get_losses(puzzle, solution)
-        print(f'final_losses {final_losses}')
-        print(f'original_losses {self.original_losses}')
 
         differences = final_losses - self.original_losses
         fitness = differences.mean()

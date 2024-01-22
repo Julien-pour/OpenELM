@@ -37,12 +37,8 @@ loss_fct = torch.nn.CrossEntropyLoss(reduce=False)
 def get_cross_entropy(model, input_ids, attention_mask, loss_attention_mask=None):
     batch_size, seq_len = input_ids.shape
     labels = input_ids.clone()
-    print(input_ids.shape)
+    # print(input_ids.shape)
     logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-    print("torch.cuda.memory_allocated: %fGB" % (torch.cuda.memory_allocated(0) / 1024 / 1024 / 1024))
-    print("torch.cuda.memory_reserved: %fGB" % (torch.cuda.memory_reserved(0) / 1024 / 1024 / 1024))
-    print("torch.cuda.max_memory_reserved: %fGB" % (torch.cuda.max_memory_reserved(0) / 1024 / 1024 / 1024))
-    print(f"torch.cuda.utilization: {(torch.cuda.utilization())}%")
     # Shift so that tokens < n predict n
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
@@ -252,7 +248,7 @@ def incontext_compression_progress_wrapper(
             [l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],  # offset
         )
         print(f'Duration {time.time() - t}')
-        archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
+        archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask_2
 
     # make the prompts to measure how much a given puzzle helps on solving the archive puzzles
     puzzle_strs = [utils.make_puzzle(p, use_docstring) for p in puzzles if p['sol_bodies']]
