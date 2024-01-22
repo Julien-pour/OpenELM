@@ -6,7 +6,7 @@ source ~/.bashrc
 git clone https://github.com/Julien-pour/OpenELM.git
 cd OpenELM
 git checkout imgep-qdaif
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+conda install pytorch torchvision torchaudio cpuonly -c pytorch
 pip install -r requirements.txt
 pip install -e .
 echo 'export OPENAI_API_KEY="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"' >> ~/.bashrc
