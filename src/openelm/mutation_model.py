@@ -4,8 +4,8 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Optional
-# import instructor
-
+import instructor
+from tqdm import tqdm
 import numpy as np
 import torch
 #need to remove all langchain dependencies
@@ -93,6 +93,7 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
 
+
 def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20,temperature=None)->list[str]:
     """Get multiple completions from OpenAI API
     batch_tools =[[tools]] tools is the function, toll_name is the name of the tool
@@ -137,6 +138,80 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
 
     return results
 
+
+def get_completion_instructor(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
+    """Get completion from OpenAI API with instructor"""
+    kwargs={}
+    kwargs.update(cfg_generation)
+    if temperature is not None:
+        kwargs["temperature"]= temperature
+    flag_tool=tools is not None
+    if flag_tool:
+        kwargs.update({"response_model": tools})
+    try :
+        completion = client.chat.completions.create(
+        messages=[
+            {"role": "user", "content": prompt}
+        ],**kwargs
+        )
+    except Exception as e:
+        print("completion problem: ",e)
+        return None 
+    return completion
+
+def chunks_instructor(lst1,lst2, n):
+    """Yield successive n-sized chunks from lst."""
+    assert len(lst1)==len(lst2), "lst1 and lst2 must be the same length"
+    for i in range(0, len(lst1), n):
+        yield zip(lst1[i : i + n],lst2[i : i + n])
+
+def get_multiple_completions_instructor(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]],max_workers=20,temperature=None)->list[str]:
+    """Get multiple completions from OpenAI API
+    batch_tools =[tools1,tools2,...] tools is a class, must be the same length as batch_prompt
+
+                    /!\ need to integrate batch tools in the loop /!\
+    """
+    # check that batch_prompt is list[str]
+    if isinstance(batch_prompt, str):
+        batch_prompt = [batch_prompt]
+    assert len(batch_prompt)==len(batch_tools), "batch_prompt and batch_tools must be the same length"
+    completions = []
+    if max_workers>1:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for sub_batch in chunks_instructor(batch_prompt,batch_tools, max_workers):
+                for idx,(message_list,tool) in enumerate(sub_batch):
+                    # kwargs_modified = args.copy()
+                    # kwargs_modified["messages"] = message_list
+                    kwargs = {"client":client, "prompt":message_list,"tools":tool}
+                    kwargs["cfg_generation"]=cfg_generation
+                    if temperature is not None:
+                        kwargs["temperature"]= temperature
+                    # if "kwargs" in kwargs_modified:
+                    #     original_kwargs = kwargs_modified.pop("kwargs")
+                    future = executor.submit(
+                        get_completion_instructor,**kwargs
+                    )
+                    completions.append(future)
+        # Retrieve the results from the futures
+        results = [future.result() for future in tqdm(completions)] # add timeout to result (timeout=None))?
+    else:
+        for idx,(message_list,tool) in enumerate(zip(batch_prompt,batch_tools)):
+            # kwargs_modified = args.copy()
+            # kwargs_modified["messages"] = message_list
+            kwargs = {"client":client, "prompt":message_list,"tools":tool}
+            kwargs["cfg_generation"]=cfg_generation
+            if temperature is not None:
+                kwargs["temperature"]= temperature
+            # if "kwargs" in kwargs_modified:
+            #     original_kwargs = kwargs_modified.pop("kwargs")
+            result = get_completion_instructor(**kwargs)
+            completions.append(result)
+            results = completions
+
+    return results
+
+
+
 class MutationModel(ABC):
     """Base model class for all mutation models."""
 
@@ -157,8 +232,8 @@ class PromptModel(MutationModel):
         # Use RNG to rotate random seeds during inference.
         self.rng = np.random.default_rng(seed=seed)
         self.model = get_model(self.config)
-        # if self.config.model_type == "openai":
-        #     self.instructor_model = instructor.patch(OpenAI(self.model),max)
+        if self.config.model_type == "openai":
+            self.instructor_model = instructor.patch(self.model)
         # else: raise NotImplementedError #need to implement instructor for huggingface
         self.cfg_generation: dict = {
             "temperature": self.config.temp,
@@ -175,6 +250,16 @@ class PromptModel(MutationModel):
                 results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature)
             else:
                 results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature)
+        else: raise NotImplementedError
+        return results
+
+    def generate_completion_instructor(self,list_prompt: list[str],batch_tools=None,temperature=None,activate_parrallel=True) -> list[str]:
+        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
+            if self.config.parrallel_call and activate_parrallel:
+                # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
+                results = get_multiple_completions_instructor(self.instructor_model, batch_prompt=list_prompt, cfg_generation = self.cfg_generation, batch_tools= batch_tools ,max_workers=self.config.processes,temperature=temperature)
+            else:
+                results = get_multiple_completions_instructor(self.instructor_model, batch_prompt=list_prompt, cfg_generation = self.cfg_generation, batch_tools= batch_tools ,max_workers=1,temperature=temperature)
         else: raise NotImplementedError
         return results
     
