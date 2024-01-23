@@ -1,5 +1,4 @@
 import sys
-# the mock-0.3.1 dir contains testcase.py, testutils.py & mock.py
 sys.path.append('/home/flowers/work/OpenELM')
 from src.openelm.utils.code_eval import pool_exec_processes
 from utils_label import preprocessing_P3
@@ -38,7 +37,6 @@ config = OmegaConf.to_object(cfg)
 
 cfg_generation: dict = {
             "temperature": 0.,
-            "top_p": config.model.top_p,
             "model": config.model.model_path,
         }
 n_skills=config.env.n_skills
