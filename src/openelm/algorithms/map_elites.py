@@ -17,6 +17,7 @@ from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 Phenotype = Optional[np.ndarray]
 MapIndex = Optional[tuple]
 
+
 class Map:
     """
     Class to represent a map of any dimensionality, backed by a numpy array.
@@ -61,8 +62,6 @@ class Map:
         #     self.array = np.full(
         #         (history_length,) + tuple(dims), fill_value, dtype=dtype
         #     ) # array to save all puzzles 
-        self.empty = True
-        
 
     def __getitem__(self, map_ix):
         """If history length > 1, the history dim is an n-dim circular buffer."""
@@ -78,13 +77,14 @@ class Map:
             return "" 
         else:
             return ""
-            
-    
+
+    @property
+    def empty(self):
+        return len(self.archive) == 0
+
     def __setitem__(self, map_ix, value):
         # need to just append item to archive 
-        self.empty = False
         self.archive.append(value)
-        
 
     def assign_fitness_in_depth(self, map_ix, value: float) -> int:
         # never used what is it for?
@@ -342,7 +342,6 @@ class MAPElitesBase:
                 # correct stats
                 # self.genomes.top = top_array.copy()
                 # self.fitnesses.top = top_array.copy()
-            self.genomes.empty = False
             # self.fitnesses.empty = False
 
             history_path = log_path / "history.pkl"
@@ -369,11 +368,24 @@ class MAPElitesBase:
         """Randomly select a niche (cell) in the map that has been explored."""
         return eval(self.rng.choice(self.nonzero.keys()))
     
-    def random_selection(self) -> MapIndex:
+    def random_selection(self, strategy='uniform') -> MapIndex:
         """Randomly select a niche (cell) in the map that has been explored."""
-        idx_sampled=self.rng.choice(len(self.nonzero.keys()))
-        niche_idx = list(self.nonzero.keys())[idx_sampled]
-        return self.rng.choice(self.nonzero[niche_idx])
+        match strategy:
+            case 'uniform':
+                # sample a random niche
+                print(f'nonzero {self.nonzero}')
+                idx_sampled = self.rng.choice(len(self.nonzero.keys()))
+                niche_idx = list(self.nonzero.keys())[idx_sampled]
+                archive_index = self.rng.choice(self.nonzero[niche_idx])
+            case 'prob_best_5':
+                # sample a random niche and a random individual in a niche
+                idx_sampled = self.rng.choice(len(self.nonzero.keys()))
+                # sort_keys = sorted(lisself.nonzero.keys())
+                range = [self.min_fitness(), self.max_fitness()]  # can these be -inf/+inf?
+            case _:
+                raise NotImplementedError(f'Unrecognized strategy {strategy}')
+
+        return archive_index
 
     def search(self, init_steps: int, total_steps: int, atol: float = 0.0) -> str:
         """
@@ -392,17 +404,22 @@ class MAPElitesBase:
                 best performing solution object can be accessed via the
                 `current_max_genome` class attribute.
         """
-        
+
+        print(f'use_preprocessed_trainset {self.env.config.use_preprocessed_trainset}')
+        print(f'len archive puzzle {len(self.env.archive_P3puzzle)}')
+        print(f'load snapshot map {self.config.loading_snapshot_map}')
+
         # bad coding but huge time gain at initialization should remove it to be compatible with openELM
         if self.env.config.env_name == "p3_probsol_Chat" and not self.config.loading_snapshot_map:
             # add trainset to the MAP
             print("loading P3 trainset to map")
-            if self.env.config.use_preprocessed_trainset :
+            if self.env.config.use_preprocessed_trainset:
                 for individual in self.env.archive_P3puzzle:
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
+                    # TODO compute quality
                     self.fitnesses.append(1.0) # need to add quality here individual.quality
-                    self.genomes[map_ix]= individual
+                    self.genomes[map_ix] = individual
                     key_embedding = str(map_ix)
                     value_nonzero = len(self.fitnesses)-1
                     if key_embedding in self.nonzero:
@@ -426,15 +443,19 @@ class MAPElitesBase:
             self.history = defaultdict(list)
 
         for n_steps in tbar:
+            print(f'nsteps {n_steps}')
+            print(f'genomes {self.genomes}')
             self.env.idx_generation = n_steps
             self.env.all_phenotypes = self.__getallitems__()
             self.env.n_steps = n_steps
             if n_steps < init_steps or self.genomes.empty:
+                print('init steps')
                 # Initialise by generating initsteps random solutions.
                 # If map is still empty: force to do generation instead of mutation.
                 # TODO: use a separate sampler, move batch size to qd config.
                 new_individuals: list[Genotype] = self.env.random()
             else:
+                print('select')
                 # Randomly select a batch of elites from the map.
                 batch: list[Genotype] = []
                 if self.config.crossover:
@@ -450,6 +471,8 @@ class MAPElitesBase:
                     for _ in range(self.env.batch_size):
                         map_ix = self.random_selection()
                         batch.append(self.genomes[map_ix])
+
+                print(f'BATCH {batch}')
                 # Mutate the elite.
                 new_individuals = self.env.mutate(batch)
 
@@ -492,6 +515,9 @@ class MAPElitesBase:
         # `new_individuals` is a list of generation/mutation. We put them
         # into the behavior space one-by-one.
         for individual in new_individuals:
+
+            print(f"Individual {individual}")
+
             fitness = self.env.fitness(individual)
             condition_add_individual = fitness != -np.inf
             if condition_add_individual:

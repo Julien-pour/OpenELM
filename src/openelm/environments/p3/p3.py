@@ -1497,6 +1497,8 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
+        print(archive_puzzle_sols[0])
+
         # get solution mask
         solution_attention_mask = utils.get_solution_mask_from_str_loop(
             full_prompts=archive_puzzle_sols,
@@ -1508,6 +1510,30 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         )
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
+        print(f'Puzzle {puzzle}')
+        print(f'Solution {solution}')
+        # print()
+        # print(self.archive_sol_strs[0])
+        # start = solution_attention_mask[0].tolist().index(1)
+        # stop = start + solution_attention_mask[0].sum().item()
+        # print('---')
+        # print(f'Start {start}, Stop {stop}')
+        # print(bool(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[0][start:stop])))
+        # print(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[0][start:stop]))
+        #
+        # print('++++++++++++++++++++++++')
+        #
+        # print(puzzle)
+        # print(solution)
+        # print()
+        # print(self.archive_sol_strs[1])
+        # start = solution_attention_mask[1].tolist().index(1)
+        # stop = start + solution_attention_mask[1].sum().item()
+        # print('---')
+        # print(f'Start {start}, Stop {stop}')
+        # print(bool(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[1][start:stop])))
+        # print(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[1][start:stop]))
+
         return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size)
 
     def fitness(self, probsol: P3ProbSolResult, use_pass_k=False) -> float:
@@ -1515,16 +1541,12 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         if solving_fitness <= 0:
             return solving_fitness  # we require that the problem be solvable by chatgpt
 
-        print(f'probsol: {probsol}')
-
         # check the docstring works fine
-        puzzle = probsol.problem_func
-        solution = probsol.solution_func
+        puzzle, solution = utils.parse_puzzle_from_str(probsol.program_str)
 
         final_losses = self._get_losses(puzzle, solution)
 
         differences = final_losses - self.original_losses
-        fitness = differences.mean()
-        print(f'fitness {fitness}')
-        return differences.mean()
+        fitness = differences.mean().item()
+        return - fitness
 

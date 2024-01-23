@@ -39,7 +39,14 @@ def make_puzzle(puzzle, include_docstring=False):
     return puz_str.replace('def sat(', 'def f(')
 
 
-bi = "zou"
+def parse_puzzle_from_str(s):
+    try:
+        functions = [el for el in ast.parse(s).body if isinstance(el, ast.FunctionDef)]
+        f = ast.unparse(functions[0])
+        g = ast.unparse(functions[1])
+        return f, g
+    except:
+        return '', ''
 
 ### transformer utils
 
