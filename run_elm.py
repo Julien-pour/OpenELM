@@ -13,8 +13,6 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
 
-import multiprocessing as mp
-
 import os
 os.environ['TRANSFORMERS_CACHE'] = "models"
 
@@ -43,6 +41,5 @@ def main(config):
 
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
     main()
     
