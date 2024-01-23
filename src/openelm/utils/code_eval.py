@@ -14,6 +14,7 @@ import os
 
 import re
 
+
 def just_remove_example_in_docstring(source_code: str) -> str:
     puzzle_formated= source_code
 

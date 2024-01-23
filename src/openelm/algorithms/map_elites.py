@@ -394,6 +394,8 @@ class MAPElitesBase:
                 normalized_fitnesses = [(f - fitness_range[0]) / L for i, f in fit_idx]
                 normalized_fitnesses = np.array(normalized_fitnesses)
                 normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
+                if normalized_fitnesses.sum() == 0:  # all the individuals have the lowest possible fitness
+                    normalized_fitnesses = np.ones_like(normalized_fitnesses)
                 archive_index = np.random.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
                 
             case _:
@@ -424,15 +426,15 @@ class MAPElitesBase:
         print(f'load snapshot map {self.config.loading_snapshot_map}')
 
         # bad coding but huge time gain at initialization should remove it to be compatible with openELM
-        if self.env.config.env_name == "p3_probsol_Chat" and not self.config.loading_snapshot_map:
+        if "p3_probsol_Chat" in self.env.config.env_name and not self.config.loading_snapshot_map:
             # add trainset to the MAP
             print("loading P3 trainset to map")
             if self.env.config.use_preprocessed_trainset:
-                for individual in self.env.archive_P3puzzle:
+                for individual in self.env.archive_P3puzzle[:10]:
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
                     # TODO compute quality
-                    self.fitnesses.append(1.0) # need to add quality here individual.quality
+                    self.fitnesses.append(self.env.fitness(individual)) # need to add quality here individual.quality
                     self.genomes[map_ix] = individual
                     key_embedding = str(map_ix)
                     value_nonzero = len(self.fitnesses)-1
