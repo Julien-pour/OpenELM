@@ -332,7 +332,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
 class P3ProbSolResult(Genotype):
     def __init__(self, program_str: str, config: P3ProbSolEnvConfig, emb: list= None,
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
-                  description:str="", interestingness_f:int=None, interestingness_g:float=None, is_valid:bool=None, is_valid_explanation:str=None,result_obj : Optional[dict]={}) -> None:
+                  description:str="[description of the puzzle]", interestingness_f:int=None, interestingness_g:float=None, is_valid:bool=None, is_valid_explanation:str=None,result_obj : Optional[dict]={}) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -855,54 +855,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         warnings.warn("WARNING: rng state not used in this environment")
         pass
 
-    def label_puzzle_chatgpt(self,program_str,n_attempts=0,save_completion={},return_completion=False):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
-        """
-        /!\ need to change that /!\ 
-        
-        Label a puzzle with the skills it requires
-        TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
-        """
-        # prompt,n_skills = skills_evaluation(program_str)
-        # if n_attempts > 2: # should not append but just in case
-        #     # raise ValueError("too many attempts to label the puzzle")
-        #     print("WARNING: too many attempts to label the puzzle")
-        #     if return_completion:
-        #         return [0. for i in range(n_skills)],save_completion
-        #     else:
-        #         return [0. for i in range(n_skills)]
-        # response = self.mutation_model.generate_completion(list_prompt=[prompt],temperature=0.,activate_parrallel=False)[0]
-        
-        # split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
-        # if len(split_completion) == 2 :#"Skills parsing
-        #     split_completion=split_completion[1].split("]")[0]+"]"
-        #     try: 
-        #         category_idx_predicted = eval(split_completion)
-                
-        #         if len(category_idx_predicted)!=0:
-        #             cond1=not(len(category_idx_predicted) > n_skills or max(category_idx_predicted) > n_skills) # if one skills is hallucinated
-        #             cond2= response.count("Not required")>=10 and len(category_idx_predicted)==10 # hallucination when all skills are not required but vector of all 1.
-        #         else: cond1=True 
-        #         if cond1:
-        #             list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-        #             if cond2:
-        #                 list_skill = [0.for i in range(n_skills)]
-        #             save_completion[str(n_attempts)]=[response,list_skill]
-        #             # if len(list_skill)==n_skills:
-        #             if return_completion :
-        #                 save_completion[str(n_attempts)]=[response,list_skill]
-        #                 return list_skill,save_completion
-        #             else:
-        #                 return list_skill
-        #     except:
-        #         pass
-        # if return_completion:
-        #     save_completion[str(n_attempts)]=[response,None]
-        #     return self.label_puzzle_chatgpt(program_str,n_attempts=n_attempts+1,save_completion=save_completion,return_completion=return_completion)
-        # else:
-        #     return self.label_puzzle_chatgpt(program_str,n_attempts=n_attempts+1)
 
-
-    def label_puzzle(self,program_str,n_attempts=0):
+    def label_puzzle(self,program_str):
         """
         Label a puzzle with the skills it requires
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
