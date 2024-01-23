@@ -64,6 +64,7 @@ class QDConfig(BaseConfig):
     crossover: bool = False
     crossover_parents: int = 2
     save_all_individual: bool = True
+    sampling_strategy: str = 'prob_best_5'  # one of {'prob_best_5', 'uniform'}
 
 
 @dataclass

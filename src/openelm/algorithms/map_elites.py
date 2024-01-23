@@ -368,22 +368,36 @@ class MAPElitesBase:
         """Randomly select a niche (cell) in the map that has been explored."""
         return eval(self.rng.choice(self.nonzero.keys()))
     
-    def random_selection(self, strategy='uniform') -> MapIndex:
+    def random_selection(self, strategy='prob_best_5') -> MapIndex:
         """Randomly select a niche (cell) in the map that has been explored."""
-        match strategy:
+        match self.config.sampling_strategy:
             case 'uniform':
                 # sample a random niche
                 print(f'nonzero {self.nonzero}')
                 idx_sampled = self.rng.choice(len(self.nonzero.keys()))
                 niche_idx = list(self.nonzero.keys())[idx_sampled]
                 archive_index = self.rng.choice(self.nonzero[niche_idx])
+
             case 'prob_best_5':
                 # sample a random niche and a random individual in a niche
                 idx_sampled = self.rng.choice(len(self.nonzero.keys()))
+                niche_idx = list(self.nonzero.keys())[idx_sampled]
                 # sort_keys = sorted(lisself.nonzero.keys())
-                range = [self.min_fitness(), self.max_fitness()]  # can these be -inf/+inf?
+                fitness_range = [self.min_fitness(), self.max_fitness()]  # can these be -inf/+inf?
+                # sort indices by fitness 
+                fit_idx = [(idx, self.fitnesses[idx]) for idx in self.nonzero[niche_idx]]
+                fit_idx = sorted(fit_idx, key=lambda x: x[1])[::-1][:5]  # 5 most fit
+                if fitness_range[1] - fitness_range[0] == 0:
+                    L = 1.
+                else:
+                    L = fitness_range[1] - fitness_range[0]
+                normalized_fitnesses = [(f - fitness_range[0]) / L for i, f in fit_idx]
+                normalized_fitnesses = np.array(normalized_fitnesses)
+                normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
+                archive_index = np.random.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
+                
             case _:
-                raise NotImplementedError(f'Unrecognized strategy {strategy}')
+                raise NotImplementedError(f'Unrecognized sampling strategy "{strategy}"')
 
         return archive_index
 
