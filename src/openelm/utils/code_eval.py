@@ -347,10 +347,10 @@ def return_f(puzzle_json):
     f = puzzle_json["sat"]
     #  add 'sol_docstring' (description of the problem) to the function f
     f = f.replace("sat(", "f(")
-    idx_add_problem_description = f.find("\n")
 
-    if type(puzzle_json["sol_docstring"]) == str:
-        f=f[:idx_add_problem_description+1]+ puzzle_json["sol_docstring"]+"\n"+f[idx_add_problem_description+1:]
+    # idx_add_problem_description = f.find("\n")
+    # if type(puzzle_json["sol_docstring"]) == str:
+    #     f=f[:idx_add_problem_description+1]+ puzzle_json["sol_docstring"]+"\n"+f[idx_add_problem_description+1:]
     return f
 
 def extract_args_f(f):
@@ -396,7 +396,7 @@ def return_g(puzzle_json,f):
 def merge_Q_and_A(liste_fg):
     parsed = copy.deepcopy(liste_fg) # format [(f,g),(f,g),...]
 
-    judge_srcs = [f"{f}\n{g}\nassert f(g())" for (f, g) in parsed] # format the code to be judged
+    judge_srcs = [f"{f}\n{g}\nassert f(g()) == True" for (f, g) in parsed] # format the code to be judged
     return judge_srcs
 
 def scrap_f_g(list_pb):
@@ -476,6 +476,13 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512, load_embedding
                 puzz["emb"] = np.random.randint(0, 2, 10)
         return puzzles_set
     
+def load_examples_p3():
+    script_dir = os.path.dirname(__file__) 
+    path_embed = script_dir+"/preprocess_p3_emb.json"
+    with open(path_embed, "r") as f:
+        list_p3 = json.load(f)
+    return list_p3    
+
 def get_limited_trainset():
     import os
     script_dir = os.path.dirname(__file__) 

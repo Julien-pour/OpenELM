@@ -3,6 +3,7 @@ import json
 
 import numpy as np
 import textwrap
+from pydantic import BaseModel,Field
 
 
 skill_list = [
@@ -27,6 +28,56 @@ skill_list = [
     "Number Theory (factors, primes, etc.)",
     "Graph Theory (paths, edges, vertices)"
 ]
+
+# class for instructor skill labelling prompt for P3
+class PuzzleCheck(BaseModel):
+    """Puzzle must be filtered if the problem does not respect those rules:
+    **Rules:**
+    1. Avoid using `f` inside `g`.
+    2. The function g must return the solution to the problem. And not just a function that gives arguments to f.
+    """
+    explanations: str = Field(decription="Short explanation of whether the puzzle adheres to the following rules: 1. Avoid using `f` within `g`. 2. The function `g` must return the solution to the problem, not merely a function that passes arguments to `f`.")
+    is_valid: bool = Field(description="Whether the puzzle is valid or not based on the previous explanations and rules")
+
+class Topics_evaluation(BaseModel):
+    """List of topics that are used in the problem and solution."""
+    index_topics: List[int] = Field(description="list of at most 5 index correponding to topics that are actually used in the problem or solution")
+
+
+# class Puzzle_Quality_Diversity(BaseModel):
+#     """Evaluate the quality of a given pair of programming problem and solution."""
+#     interestingness: Puzzle_Interestingness = Field(description="evaluate the interestingness of the problem-solution pair")
+#     puzzle_check: PuzzleCheck = Field(description="check the validity of the problem-solution pair")
+#     topics: Topics_evaluation = Field(description="list of topics that are used in the problem and solution")
+
+class Puzzle_Diversity(BaseModel):
+    """Evaluate the quality of a given pair of programming problem and solution."""
+    puzzle_check: PuzzleCheck = Field(description="check if the problem-solution pair respect the rules given")
+    topics: Topics_evaluation = Field(description="list of topics that are used in the problem and solution")
+
+class Puzzle_Interestingness(BaseModel):
+    """Evaluate the interestingness of a pair of programming problem and solution. The problem should be complexe and original, it should be relevant as a leetcode problem. And it should serve as good learning tools and have high educational value for **master's student**."""
+    puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+    interestingness_score_f: int = Field(description="Assess the level of interest in the problem (function f) on a scale of 0 to 10, where the rating must be an integer.")
+    interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
+# maybe interestingne in term of pedagogy?
+
+def create_prompt_label(puzzle : str, Puzzle_Interestingness=False):
+    """create prompt for label_puzzle goes with Quality_Diversity_Measure"""
+    format_skills=""
+
+    for idx,skill in enumerate(skill_list):
+        format_skills+=f"{idx}. {skill}\n"
+    skills = f"\n{format_skills}"
+    if Puzzle_Interestingness:
+        prompt= "Given the following puzzle, exctract the information requested."
+    else:
+        prompt= "Given the following puzzle, and the list of topics, exctract the information requested."
+    prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n\n"
+    if not Puzzle_Interestingness:
+        prompt += "The list of topics is:\n"+ skills + "\n"
+    return prompt
+
 
 def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_batch: Optional[List[str]] = None, skill_targeted: Optional[List[int]]=None,n_fewshot_ex=2):
     """
@@ -624,4 +675,9 @@ __all__ = [
     "P3_PROBLEM_LONG_SEED",
     "P3_PROBSOL_LONG_SEED",
     "P3_IMPORTS",
+    "get_programming_puzzles_prompt",
+    "skill_list",
+    "create_prompt_label",
+    "Puzzle_Interestingness",
+    "Puzzle_Diversity",skill_list
 ]

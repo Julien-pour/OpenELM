@@ -1,1 +1,133 @@
-[{"program_str": "def f(n: int, s='RObAQuYK', t='robaQUYKkuLY') -> bool:\n    \"\"\"Ignoring case, compare s, t lexicographically. Output 0 if they are =, -1 if s < t, 1 if s > t.\"\"\"\n    if n == 0:\n        return s.lower() == t.lower()\n    if n == 1:\n        return s.lower() > t.lower()\n    if n == -1:\n        return s.lower() < t.lower()\n    return False\ndef g(s = 'RObAQuYK', t = 'robaQUYKkuLY'):\n    if s.lower() == t.lower():\n        return 0\n    if s.lower() > t.lower():\n        return 1\n    return -1\nassert f(g())", "emb": [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]}, {"program_str": "def f(s: str, a=2996, d=6808) -> bool:\n    \"\"\"Find a string with a given number of a's and d's\"\"\"\n    return s.count('a') == a and s.count('d') == d and (len(s) == a + d)\ndef g(a = 2996, d = 6808):\n    return \"a\" * a + \"d\" * d\nassert f(g())", "emb": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]}, {"program_str": "def f(start: int, k=9, lower=-183, seq=[44, -94, 25, -63, -39, -71, -34, 84, -35]) -> bool:\n    \"\"\"Find a sequence of k consecutive indices whose sum is maximal\"\"\"\n    return 0 <= start <= len(seq) - k and sum(seq[start:start + k]) >= lower\ndef g(k = 9, lower = -183, seq = [44, -94, 25, -63, -39, -71, -34, 84, -35]):\n    return max(range(len(seq) - k + 1), key=lambda start: sum(seq[start:start + k]))\nassert f(g())", "emb": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]}]
+[{
+    "fitness": null,
+    "program_str": "def f(n: int, s='RObAQuYK', t='robaQUYKkuLY') -> bool:\n    if n == 0:\n        return s.lower() == t.lower()\n    if n == 1:\n        return s.lower() > t.lower()\n    if n == -1:\n        return s.lower() < t.lower()\n    return False\ndef g(s = 'RObAQuYK', t = 'robaQUYKkuLY'):\n    if s.lower() == t.lower():\n        return 0\n    if s.lower() > t.lower():\n        return 1\n    return -1\nassert f(g()) == True",
+    "emb": [
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "idx_generation": -1,
+    "target_skills": [],
+    "quality": [
+        7.5
+    ],
+    "description": [
+        "Given two strings s and t, and an integer n, determine if the comparison of s and t based on n is true."
+    ],
+    "interestingness_f": [
+        8
+    ],
+    "interestingness_g": [
+        7
+    ],
+    "is_valid": [
+        true
+    ],
+    "is_valid_explanation": "The function g returns the result of the comparison between the lowercase versions of strings s and t. The function f takes the result of g and checks if it's True."
+},
+{
+    "fitness": null,
+    "program_str": "def f(s: str, a=2996, d=6808) -> bool:\n    return s.count('a') == a and s.count('d') == d and (len(s) == a + d)\ndef g(a = 2996, d = 6808):\n    return \"a\" * a + \"d\" * d\nassert f(g()) == True",
+    "emb": [
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "idx_generation": -1,
+    "target_skills": [],
+    "quality": [
+        7.5
+    ],
+    "description": [
+        "Given a function f that takes a string and two integers a and d, and a function g that takes two integers a and d, the puzzle is to determine if the function f applied to the result of function g returns True."
+    ],
+    "interestingness_f": [
+        8
+    ],
+    "interestingness_g": [
+        7
+    ],
+    "is_valid": [
+        true
+    ],
+    "is_valid_explanation": "The function g returns the solution to the problem by generating a string of 'a's and 'd's based on the input arguments. The function f checks if the input string satisfies certain conditions based on the counts of 'a's and 'd's. There is no use of f inside g. The puzzle is valid."
+},
+{
+    "fitness": null,
+    "program_str": "def f(start: int, k=9, lower=-183, seq=[44, -94, 25, -63, -39, -71, -34, 84, -35]) -> bool:\n    return 0 <= start <= len(seq) - k and sum(seq[start:start + k]) >= lower\ndef g(k = 9, lower = -183, seq = [44, -94, 25, -63, -39, -71, -34, 84, -35]):\n    return max(range(len(seq) - k + 1), key=lambda start: sum(seq[start:start + k]))\nassert f(g()) == True",
+    "emb": [
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+    ],
+    "idx_generation": -1,
+    "target_skills": [],
+    "quality": [
+        7.5
+    ],
+    "description": [
+        "Given a sequence of integers, find the starting index of a subsequence of length k with the highest sum, and check if the sum of the subsequence is greater than or equal to a given lower bound."
+    ],
+    "interestingness_f": [
+        8
+    ],
+    "interestingness_g": [
+        7
+    ],
+    "is_valid": [
+        true
+    ],
+    "is_valid_explanation": "The function g returns the maximum sum of a subsequence of length k in the given sequence. The function f checks if the start index is valid and if the sum of the subsequence starting from the start index is greater than or equal to the lower bound."
+}
+]

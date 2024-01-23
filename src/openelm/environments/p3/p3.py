@@ -33,12 +33,13 @@ from openelm.environments.p3 import (
     P3_PROBLEM_MED_SEED,
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
+    create_prompt_label,Puzzle_Diversity,Puzzle_Interestingness,Topics_evaluation,skill_list
 )
 from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import preprocessing_P3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
+from openelm.utils.code_eval import load_examples_p3,preprocessing_P3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
 import itertools
 # from joblib import parallel_config
 from concurrent.futures import ThreadPoolExecutor
@@ -329,7 +330,9 @@ class P3Problem(BaseEnvironment[P3Solution]):
 
 
 class P3ProbSolResult(Genotype):
-    def __init__(self, program_str: str,result_obj: dict, config: P3ProbSolEnvConfig, emb: list= None, idx_generation: int=-1,target_skills=None,fitness=None):
+    def __init__(self, program_str: str, config: P3ProbSolEnvConfig, emb: list= None,
+                  idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
+                  description:str="[description of the puzzle]", interestingness_f:int=None, interestingness_g:float=None, is_valid:bool=None, is_valid_explanation:str=None,result_obj : Optional[dict]={}) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -355,6 +358,14 @@ class P3ProbSolResult(Genotype):
             i_assert = self.solution_func.find("assert") 
             self.solution_func = self.solution_func[:i_assert].strip() 
 
+        if self.config.GPT_feedback:
+            self.quality = quality,
+            self.description=description,
+            self.interestingness_f = interestingness_f, 
+            self.interestingness_g = interestingness_g,
+            self.is_valid = is_valid, 
+            self.is_valid_explanation = is_valid_explanation
+
         else:
             i_f6 = program_str.find("def f6_2(")
             i_g6 = program_str.find("def g6_2(")
@@ -366,6 +377,17 @@ class P3ProbSolResult(Genotype):
 
     def __str__(self) -> str:
         return self.program_str
+    
+    def __to_dict__(self) -> dict:
+        if self.emb is None:
+            self.emb = []
+        if self.target_skills is None:
+            self.target_skills = []
+        dic={"fitness":self.fitness,"program_str":self.program_str, "emb":list(self.emb)}
+        dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills)})
+        dic.update({"quality":self.quality,"description" : self.description, "interestingness_f": self.interestingness_f})
+        dic.update({"interestingness_g":self.interestingness_g,"is_valid":self.is_valid,"is_valid_explanation":self.is_valid_explanation})
+        return dic
 
     def to_phenotype(self) -> Optional[Phenotype]:
         if not self.emb is None:
@@ -502,43 +524,45 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         self.preprocess_p3()
         
     def preprocess_p3(self):
-        trainset = preprocessing_P3(split ="train", n_token_max=512)
-        for puz in trainset:
-            del puz["f"], puz["g"],puz["attempts"]
-            puz["config"] = self.config
+        trainset = load_examples_p3()
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
-        correct_pb=0
-        list_incorrect_puzzle = []
-        for i,probsol in enumerate(list_p3):
-            if isinstance(probsol.result_obj, ExecResult):
-                continue
-            if isinstance(probsol.result_obj, str):
-                eval_code = (
-                    f"{probsol.program_str}\n"
-                    f"def run_eval():\n"
-                    f"    return f('{probsol.result_obj}')"
-                )
-            else:
-                eval_code = (
-                    f"{probsol.program_str}\n"
-                    f"def run_eval():\n"
-                    f"    return f({probsol.result_obj})"
-                )
-            # Run code to see if g6_2 solves f6_2
-            result = pool_exec_processes(
-                eval_code,
-                func_name="run_eval",
-                debug=True
-            )
-            if result[0] is False:
+        # trainset = preprocessing_P3(split ="train", n_token_max=512)
+        # for puz in trainset:
+        #     del puz["f"], puz["g"],puz["attempts"]
+        #     puz["config"] = self.config
+        # list_p3 = [P3ProbSolResult(**p) for p in trainset]
+        # correct_pb=0
+        # list_incorrect_puzzle = []
+        # for i,probsol in enumerate(list_p3):
+        #     if isinstance(probsol.result_obj, ExecResult):
+        #         continue
+        #     if isinstance(probsol.result_obj, str):
+        #         eval_code = (
+        #             f"{probsol.program_str}\n"
+        #             f"def run_eval():\n"
+        #             f"    return f('{probsol.result_obj}')"
+        #         )
+        #     else:
+        #         eval_code = (
+        #             f"{probsol.program_str}\n"
+        #             f"def run_eval():\n"
+        #             f"    return f({probsol.result_obj})"
+        #         )
+        #     # Run code to see if g6_2 solves f6_2
+        #     result = pool_exec_processes(
+        #         eval_code,
+        #         func_name="run_eval",
+        #         debug=True
+        #     )
+        #     if result[0] is False:
                 
-                list_incorrect_puzzle.append(i)
-            else: 
-                correct_pb+=1
+        #         list_incorrect_puzzle.append(i)
+        #     else: 
+        #         correct_pb+=1
                 
-        # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
-        for i in list_incorrect_puzzle[::-1]:
-            del list_p3[i]
+        # # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
+        # for i in list_incorrect_puzzle[::-1]:
+        #     del list_p3[i]
             
         if self.config.limited_trainset:
             list_puzzle=get_limited_trainset()
@@ -770,6 +794,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             mutation_model: the diff model (or alternatives).
             ans_type: answer type
         """
+        self.n_skills = len(skill_list)
         self.mutation_model = mutation_model
         self.config = config
         print(f" \n\n ======================\n\n ======================\n\n{self.config.IMGEP_mode} \n\n ======================\n\n\n ======================\n\n")
@@ -803,8 +828,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             )
         
         first_example ="def f(x,a=1,b=1): return a*x==b \ndef g(x,a=1,b=1): return b/a\nassert f(g())==True"
-        _,n_skills = skills_evaluation(first_example)
-        self.n_skills = n_skills
+        # self.n_skills = n_skills
         out = self.to_phenotype(first_example)
         if self.config.embedding_model_type == "openai" and not "embedding" in self.config.embedding_model_type: 
             #NLP space
@@ -831,62 +855,24 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         warnings.warn("WARNING: rng state not used in this environment")
         pass
 
-    def label_puzzle_chatgpt(self,program_str,n_attempts=0,save_completion={},return_completion=False):#,list_prgrm_str=list_prgrm_str,labels_2=labels_2):
-        """
-        /!\ need to change that /!\ 
-        
-        Label a puzzle with the skills it requires
-        TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
-        """
-        # if program_str in list_prgrm_str:
-        #     idx_prgm=list_prgrm_str.index(program_str)
-        #     return list(labels_2[idx_prgm])
-        prompt,n_skills = skills_evaluation(program_str)
-        if n_attempts > 2: # should not append but just in case
-            # raise ValueError("too many attempts to label the puzzle")
-            print("WARNING: too many attempts to label the puzzle")
-            if return_completion:
-                return [0. for i in range(n_skills)],save_completion
-            else:
-                return [0. for i in range(n_skills)]
-        response = self.mutation_model.generate_completion(list_prompt=[prompt],temperature=0.,activate_parrallel=False)[0]
-        
-        split_completion = response.split("he list of indices for the problem is:") #Therefore, the list of indices for the problem is: 
-        if len(split_completion) == 2 :#"Skills parsing
-            split_completion=split_completion[1].split("]")[0]+"]"
-            try: 
-                category_idx_predicted = eval(split_completion)
-                
-                if len(category_idx_predicted)!=0:
-                    cond1=not(len(category_idx_predicted) > n_skills or max(category_idx_predicted) > n_skills) # if one skills is hallucinated
-                    cond2= response.count("Not required")>=10 and len(category_idx_predicted)==10 # hallucination when all skills are not required but vector of all 1.
-                else: cond1=True 
-                if cond1:
-                    list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-                    if cond2:
-                        list_skill = [0.for i in range(n_skills)]
-                    save_completion[str(n_attempts)]=[response,list_skill]
-                    # if len(list_skill)==n_skills:
-                    if return_completion :
-                        save_completion[str(n_attempts)]=[response,list_skill]
-                        return list_skill,save_completion
-                    else:
-                        return list_skill
-            except:
-                pass
-        if return_completion:
-            save_completion[str(n_attempts)]=[response,None]
-            return self.label_puzzle_chatgpt(program_str,n_attempts=n_attempts+1,save_completion=save_completion,return_completion=return_completion)
-        else:
-            return self.label_puzzle_chatgpt(program_str,n_attempts=n_attempts+1)
 
-
-    def label_puzzle(self,program_str,n_attempts=0):
+    def label_puzzle(self,program_str):
         """
         Label a puzzle with the skills it requires
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
         """
-        return self.label_puzzle_chatgpt(program_str,n_attempts=0,return_completion=False)
+        
+        prompt = create_prompt_label(program_str)
+        tool_skill_labeling = Topics_evaluation
+        result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
+        skill=result.index_topics
+        if not len(skill)<=5: # we should have at most 5 topics
+            skill=skill[:5]
+        skill =[1 if i in skill else 0 for i in range(self.n_skills)]
+        # tool_diversity = Puzzle_Diversity
+        # tool_interstingness = Puzzle_Interestingness
+
+        return skill
 
     
     def to_phenotype(self,program_str: str):
@@ -959,71 +945,23 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         debug give random embedding to the puzzles for debugging purpose
         """
         load_embedding = self.config.use_preprocessed_trainset_emb
-        print("start loading p3 trainset into map")
-        trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding,debug=debug)
+        if self.config.limited_trainset:
+            trainset=get_limited_trainset()
+        else:
+            trainset = load_examples_p3()
+        # print("start loading p3 trainset into map")
+        # trainset = preprocessing_P3(split =split, n_token_max=512,load_embedding = load_embedding,debug=debug)
         
         for puz in tqdm(trainset):
-            del puz["f"], puz["g"],puz["attempts"]
             puz["config"] = self.config
             if not load_embedding:
                 puz["emb"]=self.to_phenotype(puz["program_str"])
                 
-            
-            puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring 
-                
-                
+        #     puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring       
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
-        
-        correct_pb=0
-        list_incorrect_puzzle = []
-        for i,probsol in enumerate(list_p3):
-            if isinstance(probsol.result_obj, ExecResult):
-                continue
-            if isinstance(probsol.result_obj, str):
-                eval_code = (
-                    f"{probsol.program_str}\n"
-                    f"def run_eval():\n"
-                    f"    return f('{probsol.result_obj}')"
-                )
-            else:
-                eval_code = (
-                    f"{probsol.program_str}\n"
-                    f"def run_eval():\n"
-                    f"    return f({probsol.result_obj})"
-                )
-            # Run code to see if g6_2 solves f6_2
-            result = pool_exec_processes(
-                eval_code,
-                func_name="run_eval",
-                debug=True
-            )
-            if result[0] is False:
-                
-                list_incorrect_puzzle.append(i)
-            else: 
-                correct_pb+=1
-                
-        # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
-        for i in list_incorrect_puzzle[::-1]:
-            del list_p3[i]
-            
-        if self.config.limited_trainset:
-            list_puzzle=get_limited_trainset()
-            list_puzzle_prgrm_str=[just_remove_example_in_docstring(p["program_str"]) for p in list_puzzle]
-            list_p3_prgrm_str=[p.program_str for p in list_p3]
-            list_p3_limited=[]
-            for prgr_str in list_puzzle_prgrm_str:
-                assert prgr_str in list_p3_prgrm_str
-                idx_selected=list_p3_prgrm_str.index(prgr_str)
-                list_p3_limited.append(list_p3[idx_selected])   
-                         
-            list_p3=list_p3_limited
-            assert len(list_p3)==len(list_puzzle)
-            
+
         self.archive_P3puzzle = list_p3
 
-        print("correct pb", correct_pb)
-        print("total_pb",len(list_p3))
 
 
     def mutate_vec(self, vec2mutate,k=1):
