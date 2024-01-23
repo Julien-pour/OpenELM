@@ -1,98 +1,84 @@
-from src.openelm.utils.code_eval import preprocessing_P3,pool_exec_processes
+import sys
+# the mock-0.3.1 dir contains testcase.py, testutils.py & mock.py
+sys.path.append('/home/flowers/work/OpenELM')
+from src.openelm.utils.code_eval import pool_exec_processes
+from utils_label import preprocessing_P3
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.environments.p3.p3 import P3ProbSolResult
 from hydra import initialize, initialize_config_module, initialize_config_dir, compose
 from omegaconf import OmegaConf
 import pickle
 import json
-from langchain.chat_models import ChatOpenAI
-from langchain.schema.messages import HumanMessage
 from joblib import Parallel, delayed
-from openelm.environments.p3 import label_puzzle_chatgpt
+from openelm.environments.p3 import get_programming_puzzles_prompt,Puzzle_Diversity,Puzzle_Interestingness,create_prompt_label,skill_list
+from openelm.mutation_model import get_model,get_multiple_completions_instructor
 from tqdm import tqdm
 import os
 from tenacity import *
+import instructor
 
-cfg: dict = {
-    "max_tokens": 1024,
-    "temperature": 0.0,
-    "top_p": 1.,
-    # TODO: rename config option?
-    "model_name": "gpt-3.5-turbo-0613",
-    "request_timeout": 70,
-    "max_retries": 20
-}
-
-chatGPT = ChatOpenAI(**cfg)    
 script_dir = os.path.dirname(__file__) 
 
 # @retry(stop=stop_after_attempt(10),wait=wait_random_exponential(min=1, max=40))
 def gen_response(prompt):
-    response=chatGPT.generate([[HumanMessage(content=prompt)]])
-    return response.generations[0][0].text  
+    return None
 
 
     
-def label_puzzle(program_str,n_attempts=0,chatGPT=chatGPT):
-    return label_puzzle_chatgpt(chatGPT,program_str,n_attempts=n_attempts,return_completion=False)
 
-n_jobs=6
 
-path_embed = script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
-# print(script_dir)
-# def label_puzzle(program_str,n_attempts=0):
-#     """
-#     Label a puzzle with the skills it requires"""
-#     prompt,n_skills = skills_evaluation(program_str)
-#     if n_attempts > 4: # should not append but just in case
-#         return [0. for i in range(n_skills)]
-    
-#     response = gen_response(prompt)
-#     response = response.generations[0][0].text    
-#     split_completion = response.split("Therefore, the list of indices for the problem is:") # add assert 
-#     if len(split_completion) == 2 :#"Skills parsing
-#         if split_completion[1][-1] == ".":
-#             split_completion[1] = split_completion[1][:-1] 
-#         try :
-#             category_idx_predicted = eval(split_completion[1]) 
-#             list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)]
-#             return list_skill
-        
-#         except: # if pb when parsing try to fix them
-#             if split_completion[1].count("]")==1:
-#                 try:
-#                     category_idx_predicted = eval(split_completion[1].split("]")[0]+"]")
-#                     list_skill = [1. if i in category_idx_predicted else 0. for i in range(n_skills)] 
-#                     return list_skill
-#                 except:
-#                     return label_puzzle(program_str,n_attempts=n_attempts+1)
-#             else:
-#                 return label_puzzle(program_str,n_attempts=n_attempts+1)
-        
-#     else: 
-#         return label_puzzle(program_str,n_attempts=n_attempts+1)
+
+max_workers=40
+path_embed = "/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb.json"#"/home/flowers/work/OpenELM/label_puzzles/preprocess_p3_emb.json"#script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
 
 with initialize(version_base="1.2"):
     cfg = compose(config_name="elmconfig")
     # print(cfg)
 config = OmegaConf.to_object(cfg)
 
-out = preprocessing_P3(load_embedding = False)
+cfg_generation: dict = {
+            "temperature": 0.,
+            "top_p": config.model.top_p,
+            "model": config.model.model_path,
+        }
+n_skills=config.env.n_skills
 
-# results = [
-#     {"program_str": gen_prog, "result_obj": res_obj, "config": self.config}
-#     for (gen_prog, res_obj) in zip(generated_programs, results)
-# ]
+client = get_model(config.model)
+instructor_client = instructor.patch(client)
+#config.model
+
+
+
+out = preprocessing_P3()
+
+# preprocess puzzles
+out=out
 for i in out:
     del i["f"], i["g"],i["attempts"]
+    config.env.GPT_feedback=True
     i["config"] = config.env
 
-out=out
-# compute embedding in NLP space
-results = Parallel(n_jobs=n_jobs)(delayed(label_puzzle)(puzz["program_str"]) for puzz in tqdm(out))
-for i,r in enumerate(results):
-    out[i]["emb"] = r
+batch_prompt1=[create_prompt_label(puzz["program_str"]) for puzz in out]
+batch_tools1=[Puzzle_Diversity for _ in range(len(batch_prompt1))]
+batch_prompt2=[create_prompt_label(puzz["program_str"],Puzzle_Interestingness=True) for puzz in out]
+batch_tools2=[Puzzle_Interestingness for _ in range(len(batch_prompt1))]
 
+results1 = get_multiple_completions_instructor(client, batch_prompt = batch_prompt1, cfg_generation=cfg_generation, batch_tools= batch_tools1,max_workers=max_workers,temperature=0.0)
+results2 = get_multiple_completions_instructor(client, batch_prompt = batch_prompt2, cfg_generation=cfg_generation, batch_tools= batch_tools2,max_workers=max_workers,temperature=0.0)
+assert len(results1)==len(results2), "results1 and results2 should have the same length"
+for idx in range(len(results1)):  
+    emb = results1[idx].topics.index_topics
+    if not len(emb)<=5: # we should have at most 5 topics
+        emb=emb[:5]
+
+    emb =[1 if i in emb else 0 for i in range(n_skills)]
+    out[idx]["emb"] = emb 
+    out[idx]["description"] = results2[idx].puzzle_description
+    out[idx]["interestingness_f"] = results2[idx].interestingness_score_f
+    out[idx]["interestingness_g"] = results2[idx].interestingness_score_g
+    out[idx]["quality"] = (out[idx]["interestingness_f"]+out[idx]["interestingness_g"])/2
+    out[idx]["is_valid"] = results1[idx].puzzle_check.is_valid
+    out[idx]["is_valid_explanation"] = results1[idx].puzzle_check.explanations
 
 list_p3 = [P3ProbSolResult(**p) for p in out]
 correct_pb=0
@@ -125,7 +111,7 @@ for probsol in list_p3:
 print("correct pb", correct_pb)
 print("total_pb",len(list_p3))
 
-list_program_str=[{"program_str" : p.program_str,"emb" : p.emb} for p in list_p3]
+list_program_str=[p.__to_dict__() for p in list_p3]
 
 # path = "/media/data/flowers/OpenELM/preprocess_p3.json"
 with open(path_embed, "w") as f:
