@@ -1,7 +1,7 @@
-conda init -y
+conda init
 source ~/.bashrc
 conda create -y -n aces python=3.10
-echo "conda activate aces" > ~/.bashrc
+echo "conda activate aces" >> ~/.bashrc
 source ~/.bashrc
 git clone https://github.com/Julien-pour/OpenELM.git
 cd OpenELM
