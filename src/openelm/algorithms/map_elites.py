@@ -430,7 +430,7 @@ class MAPElitesBase:
             # add trainset to the MAP
             print("loading P3 trainset to map")
             if self.env.config.use_preprocessed_trainset:
-                for individual in self.env.archive_P3puzzle[:10]:
+                for individual in self.env.archive_P3puzzle:
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
                     # TODO compute quality
