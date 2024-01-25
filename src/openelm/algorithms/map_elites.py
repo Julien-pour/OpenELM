@@ -384,18 +384,22 @@ class MAPElitesBase:
                 niche_idx = list(self.nonzero.keys())[idx_sampled]
                 # sort_keys = sorted(lisself.nonzero.keys())
                 fitness_range = [self.min_fitness(), self.max_fitness()]  # can these be -inf/+inf?
-                # sort indices by fitness 
+                # sort indices by fitness
                 fit_idx = [(idx, self.fitnesses[idx]) for idx in self.nonzero[niche_idx]]
+                print(f'fitnesses {[f for _, f in fit_idx]}')
+                print(f'fitness range {fitness_range}')
                 fit_idx = sorted(fit_idx, key=lambda x: x[1])[::-1][:5]  # 5 most fit
                 if fitness_range[1] - fitness_range[0] == 0:
                     L = 1.
                 else:
                     L = fitness_range[1] - fitness_range[0]
-                normalized_fitnesses = [(f - fitness_range[0]) / L for i, f in fit_idx]
+                normalized_fitnesses = [(f - fitness_range[0]) / L for _, f in fit_idx]
                 normalized_fitnesses = np.array(normalized_fitnesses)
-                normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
                 if normalized_fitnesses.sum() == 0:  # all the individuals have the lowest possible fitness
                     normalized_fitnesses = np.ones_like(normalized_fitnesses)
+                else:
+                    normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
+                print(f'probabilities {normalized_fitnesses}')
                 archive_index = np.random.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
                 
             case _:
