@@ -895,22 +895,8 @@ class CVTMAPElites(MAPElitesBase):
     def __getallitems__(self) -> list[Phenotype]:
         """
         Returns all the phenotypes that are in the CVT Map."""
-        valid_phenotype=[]
-        for idx in range(len(self.nonzero.array)):
-            if self.nonzero.array[idx]:
-                if self.history_length == 1:
-                    gen = self.genomes.array[idx,1]
-                    if type(gen)!=float and type(gen)!=int:
-                        valid_phenotype.append(gen) # self.genomes.array
-                        
-                else : # self.history_length > 1:
-                    for idx_history in range(len(self.genomes.array[:,idx])):
-                        gen = self.genomes.array[idx_history,idx]
-                        if type(gen)!=float and type(gen)!=int:
-                            valid_phenotype.append(gen) # self.genomes.array
-                        else:
-                            continue
-        return valid_phenotype
+
+        return self.genomes.archive
 
     def _get_map_dimensions(self):
         """Returns the dimensions of the map."""

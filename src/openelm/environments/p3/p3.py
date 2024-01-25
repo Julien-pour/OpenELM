@@ -954,7 +954,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         for puz in tqdm(trainset):
             puz["config"] = self.config
-            if not load_embedding:
+            
+            if not load_embedding or self.config.embedding_model_type == "hf":
                 puz["emb"]=self.to_phenotype(puz["program_str"])
                 
         #     puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring       
