@@ -1005,7 +1005,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 if resp.status_code == 200:
                     return_dict = json.loads(resp.text)
                     results.append(return_dict)
-        print('done')
+            print('done')
 
         else: results=[None]*len(generated_programs) # remove get output function
         # Just label correct problem to save computation time or $$ (chatGPT):
@@ -1017,10 +1017,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         start_t4 = time.time()
 
         #compute fitness
-        list_fitness = [self.fitness(puzz) for puzz in probsol_2_test]
+        list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
-        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit > 0.0]
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit >= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
@@ -1144,7 +1144,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
 
         if parrallel_fitness:
-            list_fitness = [None for puzz in list_probsol]
+            list_fitness = []
             eval_codes = []
             for probsol in list_probsol:
                 prog = probsol.program_str.split("\nassert f")
@@ -1157,7 +1157,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 eval_codes.append(eval_code_)
             # Run code to see if g6_2 solves f6_2
             try:
-                result = pool_exec_processes(
+                results = pool_exec_processes(
                     eval_codes,
                     func_name="run_eval",
                     timeout=self.config.timeout,
@@ -1168,18 +1168,20 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 result = [False]*len(list_probsol)
                 print("pb when computing fitness")
 
-            if self.config.eval_k<=1 : # one try doesn't compute pass@k
-                if result[0] == True:
-                    return 1.0
-                
+            assert len(list_probsol) == len(results), "pb when computing fitness"
+            # if self.config.eval_k<=1 : # one try doesn't compute pass@k
+            for result in results:
+                if result == True:
+                    list_fitness.append(1.0)
                 else:
-                    return -np.inf
+                    list_fitness.append(-np.inf)
                 
             # if not probsol.fitness == None:
             #     return probsol.fitness
 
         else:
             list_fitness = [self.fitness(puzz) for puzz in list_probsol]
+            
         return list_fitness
 
     def random(self,batch) -> list[P3ProbSolResult]:
@@ -1352,3 +1354,20 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         fitness = differences.mean().item()
         return - fitness
 
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
+        
+        list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
+        assert len(list_solving_fitness) == len(list_probsol)
+
+        for idx,solving_fitness in enumerate(list_solving_fitness):
+            if solving_fitness <= 0:
+                continue
+            else:
+                # check the docstring works fine
+                puzzle, solution = utils.parse_puzzle_from_str(list_probsol[idx].program_str)
+
+                final_losses = self._get_losses(puzzle, solution)
+
+                differences = final_losses - self.original_losses
+                fitness = differences.mean().item()
+                list_solving_fitness[idx] = - fitness

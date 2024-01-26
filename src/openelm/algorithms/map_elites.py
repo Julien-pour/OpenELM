@@ -553,7 +553,7 @@ class MAPElitesBase:
         
         for n_steps in tbar:
             print(f'nsteps {n_steps}')
-            print(f'genomes {self.genomes}')
+            # print(f'genomes {self.genomes}')
             self.env.idx_generation = n_steps
             self.env.all_phenotypes = self.__getallitems__() # need remove that
             self.env.n_steps = n_steps
@@ -634,7 +634,7 @@ class MAPElitesBase:
         # into the behavior space one-by-one.
         for individual in new_individuals:
 
-            print(f"Individual {individual}")
+            # print(f"Individual {individual}")
 
             fitness = self.env.fitness(individual)
             condition_add_individual = fitness != -np.inf
