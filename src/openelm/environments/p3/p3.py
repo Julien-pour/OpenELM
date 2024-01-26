@@ -1119,6 +1119,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         # compute phenotype of correct puzzle
         start_t6 = time.time()
+        print('begin phenotype computation')
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle)
         # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
         #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
