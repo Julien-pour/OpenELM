@@ -5,6 +5,8 @@ import pickle
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional, List
+from itertools import combinations
+from scipy.spatial.distance import cdist
 
 
 import numpy as np
@@ -269,12 +271,7 @@ class MAPElitesBase:
 
             #check fitnesses
 
-            self.fitnesses =[] #Map = Map(  
-            #     dims=self.map_dims,
-            #     fill_value=-np.inf,
-            #     dtype=float,
-            #     history_length=self.history_length,
-            # )
+            self.fitnesses =[]
         else:
             self.map_dims = init_map.dims
             self.fitnesses = init_map
@@ -287,7 +284,7 @@ class MAPElitesBase:
             history_length=self.history_length,
         )
         # index over explored niches to select from
-        self.nonzero = {} #Map = Map(dims=self.map_dims, fill_value=False, dtype=bool)
+        self.nonzero = {}
 
         log_path = Path(log_snapshot_dir)
         
@@ -314,9 +311,6 @@ class MAPElitesBase:
             with open(snapshot_path, "rb") as f:
                 maps = pickle.load(f)
 
-            # assert (
-            #     self.genomes.array.shape == maps["genomes"].shape
-            # ), f"expected shape of map doesn't match init config settings, got {self.genomes.array.shape} and {maps['genomes'].shape}"
 
             self.genomes.archive = maps["genomes"]
             self.fitnesses = maps["fitnesses"]
@@ -328,21 +322,7 @@ class MAPElitesBase:
                 self.env.config.env_name == old_config["env_name"]
             ), f'unmatching environments, got {self.env.config.env_name} and {old_config["env_name"]}'
 
-            # compute top indices
-            # if hasattr(self.fitnesses, "top"):
-            #     top_array = np.array(self.fitnesses.top)
-            #     for cell_idx in np.ndindex(
-            #         self.fitnesses.array.shape[1:]
-            #     ):  # all indices of cells in map
-            #         nonzero = np.nonzero(
-            #             self.fitnesses.array[(slice(None),) + cell_idx] != -np.inf
-            #         )  # check full history depth at cell
-            #         if len(nonzero[0]) > 0:
-            #             top_array[cell_idx] = nonzero[0][-1]
-                # correct stats
-                # self.genomes.top = top_array.copy()
-                # self.fitnesses.top = top_array.copy()
-            # self.fitnesses.empty = False
+
 
             history_path = log_path / "history.pkl"
             if self.save_history and os.path.isfile(history_path):
@@ -369,14 +349,14 @@ class MAPElitesBase:
         return eval(self.rng.choice(self.nonzero.keys()))
     
     def random_selection(self, strategy='prob_best_5') -> MapIndex:
-        """Randomly select a niche (cell) in the map that has been explored."""
+        """select a individual from a random niche (cell) in the map that has been explored."""
         match self.config.sampling_strategy:
             case 'uniform':
                 # sample a random niche
-                print(f'nonzero {self.nonzero}')
-                idx_sampled = self.rng.choice(len(self.nonzero.keys()))
-                niche_idx = list(self.nonzero.keys())[idx_sampled]
-                archive_index = self.rng.choice(self.nonzero[niche_idx])
+                # print(f'nonzero {self.nonzero}')
+                idx_sampled = self.rng.choice(len(self.nonzero.keys())) 
+                niche_idx = list(self.nonzero.keys())[idx_sampled] # sample a random niche
+                archive_index = self.rng.choice(self.nonzero[niche_idx]) # sample a random individual
 
             case 'prob_best_5':
                 # sample a random niche and a random individual in a niche
@@ -406,6 +386,65 @@ class MAPElitesBase:
                 raise NotImplementedError(f'Unrecognized sampling strategy "{strategy}"')
 
         return archive_index
+
+
+    def skill_sampling(self,mode):
+        n_skills=self.env.config.n_descriptor
+        max_descriptor_targeted = self.env.config.max_descriptor_targeted
+        skills = list(range(1, n_skills+1)) # need to put n_skills in confige
+
+        # Generate all combinations of up to 5 skills
+        skill_combinations = set()
+        for r in range(1, max_descriptor_targeted+1):  # From 1 skill to 5 skills
+            skill_combinations.update(combinations(skills, r))
+        skill_combinations = list(skill_combinations)
+        match mode:
+            case 'uniform':
+                idx = self.rng.choice(len(skill_combinations))
+                out = skill_combinations[idx]
+                skill_targeted = [1 if i in out else 0 for i in range(n_skills)]
+            case 'smart':
+                
+                all_emb = list(self.nonzero.keys())
+                all_emb = np.array([list(eval(i)) for i in all_emb]) # list of all explored niches
+                
+                skill_combinations_bin = [[1 if i in vec else 0 for i in range(n_skills)] for vec in skill_combinations] #list of all possible niches 
+                
+                #compute distance between all possible niche and all explored niches
+                out=cdist(skill_combinations_bin, all_emb, metric='cityblock') 
+                density=(out==1).sum(axis=1) # find every niches within a distance of 1
+                density=density*(out.min(axis=1)!=0) # remove already explored niches (sampling weight = 0)
+                norm= np.sum(density)
+                if norm == 0.:
+                    norm=1
+                density_norm=density/norm
+
+                idx_niches_sampled=np.random.choice(len(skill_combinations_bin),p=density_norm)
+                binary_vectors_sampled=skill_combinations_bin[idx_niches_sampled]
+                target_skill=list(binary_vectors_sampled)
+                target_skill = [int(element) for element in target_skill]
+                return target_skill
+            case 'none':
+                skill_targeted=[None]
+        return skill_targeted
+    
+    def sample_examples(self,random=False,skill_targeted=None):
+        """Sample a batch of examples from the map."""
+        n_fewshot = self.config.n_fewshot_examples 
+
+        if random: # only use example from trainset
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.env.archive_P3puzzle,size=n_fewshot))
+        else:
+            # use example from archive (and so trainset)
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.genotype.archive,size=n_fewshot))
+        skill_targeted = self.skill_sampling(self.env.config.IMGEP_mode)
+        match self.env.config.IMGEP_mode:
+            case "random":
+            # uniform sampling of skills among explored and unexplored cells
+                return None
+            case "smart":
+                return None
+        return skill_targeted
 
     def search(self, init_steps: int, total_steps: int, atol: float = 0.0) -> str:
         """

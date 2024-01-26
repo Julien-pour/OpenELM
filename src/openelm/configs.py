@@ -50,7 +50,7 @@ class QDConfig(BaseConfig):
     """
 
     """
-    model_path: str = "gpt-3.5-turbo-0613" # just for register the model
+    model_path: str = "gpt-3.5-turbo-1106" # just for register the model
     init_steps: int = 0  #250 # only mutation with base prompt, then sample from map and mutation after init_steps
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
@@ -64,8 +64,8 @@ class QDConfig(BaseConfig):
     crossover: bool = False
     crossover_parents: int = 2
     save_all_individual: bool = True
-    sampling_strategy: str = 'prob_best_5'  # one of {'prob_best_5', 'uniform'}
-
+    sampling_strategy: str = 'uniform'  # one of {'prob_best_5', 'uniform'}
+    n_fewshot_examples: int = 2 # number of example to give to the model before generation
 
 @dataclass
 class MAPElitesConfig(QDConfig):
@@ -97,6 +97,9 @@ class EnvConfig(BaseConfig):
     env_name: str = MISSING
     debug: bool = False
     seed: Optional[int] = 43 #[42, 43, 44, 45, 46] #None
+    n_descriptor: int = 20 # number of descriptor for MAP-Elites
+    max_descriptor_targeted: int = 5 # max number of target descriptor for MAP-Elites
+    IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
 
 
 @dataclass
@@ -153,8 +156,9 @@ class P3ProbSolEnvConfig(EnvConfig):
     embedding_model_type: str = "openai"  # openai or hf
     embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation
+    
 
-use_limited_trainset=False
+use_limited_trainset=True
 @dataclass
 class P3ProbSolChatEnvConfig(EnvConfig):
     """
@@ -394,13 +398,13 @@ IMGEP smart: "qd": "mapelites"
 ELM-NLP: "qd": "mapelites"
 rd-gen: "qd": "mapelites"
 
-ELM: "qd": "cvtmapelites"
+ELM: "qd": "cvtmapelites" P3ProbSolChatEnv_ELM
 
 """
 defaults_elm = [
     {"model": "prompt"},
-    {"qd": "mapelites"}, #"cvtmapelites"},
-    {"env": "p3_probsol_Chat_IMGEP_smart"}, #sodarace"},p3_probsol_Chat
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_smart"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",
 ]
 
