@@ -378,7 +378,7 @@ class MAPElitesBase:
                 normalized_fitnesses = [(f - fitness_range[0]) / L for _, f in fit_idx]
                 normalized_fitnesses = np.array(normalized_fitnesses)
                 if normalized_fitnesses.sum() == 0:  # all the individuals have the lowest possible fitness
-                    normalized_fitnesses = np.ones_like(normalized_fitnesses)
+                    normalized_fitnesses = np.ones_like(normalized_fitnesses) / len(normalized_fitnesses)
                 else:
                     normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
                 print(f'probabilities {normalized_fitnesses}')
