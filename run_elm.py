@@ -23,6 +23,9 @@ os.environ["TOKENIZERS_PARALLELISM"] = "True"
                         
 os.environ["HYDRA_FULL_ERROR"] = "1"
 
+from transformers import logging
+logging.set_verbosity_error()  # avoid all FutureWarnings
+
 
 @hydra.main(
     config_name="elmconfig",
