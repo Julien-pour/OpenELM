@@ -67,13 +67,8 @@ class Map:
 
     def __getitem__(self, map_ix):
         """If history length > 1, the history dim is an n-dim circular buffer."""
-        # need to change that to return every item from a map_ix
         return self.archive[map_ix]
-        # if self.history_length == 1:
-        #     return self.array[map_ix]
-        # else:
-        #     return self.array[(self.top[map_ix], *map_ix)]
-        
+      
     def __getrandomitem__(self):
         if self.history_length == 1:
             return "" 
@@ -345,20 +340,26 @@ class MAPElitesBase:
         Returns all the phenotypes that are in the Map."""
         return self.genomes.archive
     
-    def random_niche_selection(self) -> MapIndex:
+    def rd_niche_selection_explored(self,n=1) -> MapIndex:
         """Randomly select a niche (cell) in the map that has been explored."""
-        return eval(self.rng.choice(self.nonzero.keys()))
+        if len(self.nonzero.keys()) == 0:
+            raise ValueError('Empty map')
+        
+        list_idx_sampled = self.rng.choice(len(self.nonzero.keys()),size=n) 
+        list_niche_idx =  [list(self.nonzero.keys())[idx_sampled] for idx_sampled in list_idx_sampled]
+        return list_niche_idx
     
-    def random_selection(self, strategy='prob_best_5') -> MapIndex:
-        """select a individual from a random niche (cell) in the map that has been explored."""
-        print('random selection')
+    def sample_examples_from_niche(self,niche_idx):
+        """Sample on example given a niche"""
+        size_niche = len(self.nonzero[niche_idx])
         match self.config.sampling_strategy:
             case 'uniform':
                 # sample a random niche
                 # print(f'nonzero {self.nonzero}')
-                idx_sampled = self.rng.choice(len(self.nonzero.keys())) 
-                niche_idx = list(self.nonzero.keys())[idx_sampled] # sample a random niche
-                archive_index = self.rng.choice(self.nonzero[niche_idx]) # sample a random individual
+                
+                if size_niche == 0:
+                    raise ValueError('Empty niche')
+                list_archive_index = self.rng.choice(self.nonzero[niche_idx]) # sample a random individual
 
             case 'prob_best_5':
                 # sample a random niche and a random individual in a niche
@@ -382,16 +383,25 @@ class MAPElitesBase:
                 else:
                     normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
                 print(f'probabilities {normalized_fitnesses}')
-                archive_index = np.random.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
+                list_archive_index = self.rng.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
                 
             case _:
-                raise NotImplementedError(f'Unrecognized sampling strategy "{strategy}"')
+                raise NotImplementedError(f'Unrecognized sampling strategy "{self.config.sampling_strategy}"')
+        return list_archive_index
+    
+    def random_selection(self,trainset_only=False) -> MapIndex:
+        """select a individual from a random niche (cell) in the map that has been explored.
+        trainset_only = True -> don't use archive to select examples just p3 trainset"""
+        #sample a niche
+        (list_few_shot_example_phenotypes, skill_targeted) = self.sample_examples(trainset_only)
+            
+        return (list_few_shot_example_phenotypes, skill_targeted)
 
-        return archive_index
 
-
-    def skill_sampling(self,mode):
-        n_skills=self.env.config.n_descriptor
+    def skill_sampling(self,mode=None):
+        if mode is None:
+            mode = self.env.config.IMGEP_mode
+        n_skills = self.env.config.n_descriptor
         max_descriptor_targeted = self.env.config.max_descriptor_targeted
         skills = list(range(1, n_skills+1)) # need to put n_skills in confige
 
@@ -427,44 +437,61 @@ class MAPElitesBase:
                 target_skill = [int(element) for element in target_skill]
                 return target_skill
             case 'none':
-                skill_targeted = [None]
+                skill_targeted = []
         return skill_targeted
     
-    def sample_examples(self,random=False):
+    def sample_from_trainset(self,n_examples):
+        return list(self.rng.choice(self.env.archive_P3puzzle,size=n_examples))
+
+    def sample_examples(self,trainset_only=False, mode_skill_sampling=None):
         """Sample a batch of examples from the map."""
+
         n_fewshot = self.config.n_fewshot_examples 
+        list_archive_index = []
 
-        if random: # only use example from trainset
+        skill_targeted = self.skill_sampling(mode_skill_sampling)
+
+        if trainset_only: # only use example from trainset
             list_few_shot_example_phenotypes = list(self.rng.choice(self.env.archive_P3puzzle,size=n_fewshot))
-        else:
-            # use example from archive (and so trainset)
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.genomes.archive,size=n_fewshot))
-        skill_targeted = self.skill_sampling(self.env.config.IMGEP_mode)
+            return (list_few_shot_example_phenotypes, skill_targeted)
+        
 
-        if skill_targeted == [None]:
+
+        if skill_targeted == []: # no target
+            #choose random cells 
+            liste_niche_idx = self.rd_niche_selection_explored(n=n_fewshot)
+            # select n_fewshot examples
+            
+            for niche_idx in liste_niche_idx:
+                archive_indexs = self.sample_examples_from_niche(niche_idx)
+                list_archive_index.extend(list(archive_indexs))
+
+        else: # imgep mode
+            #all niches explored
             all_emb = list(self.nonzero.keys())
             all_emb = np.array([list(eval(i)) for i in all_emb])
 
-            list_few_shot_example_phenotypes= []
             list_coord_niches_sampled = []
-
+            
+            # compute distance between all cells explored and the target cell
             dists = cdist([skill_targeted], all_emb)[0]
+
             # shuffle indices to have true uniform sampling of closest niches
+            # (otherwise, if two niches are at the same distance, the first one will be always sampled)
             shuffled_indices = np.arange(len(dists))
             np.random.shuffle(shuffled_indices)
             nearest_niches = shuffled_indices[np.argsort(dists[shuffled_indices])]
+            
             for idx in nearest_niches:
-                emb_2_add = list(self.nonzero.keys())[idx] #list(all_emb[idx])
-                if not(emb_2_add in list_coord_niches_sampled):
-                    list_coord_niches_sampled.append(emb_2_add)
-                    idxs_niche = self.nonzero[emb_2_add]
-                    list_2_sample = [self.genotype.archive[id] for id in idxs_niche]
-                    idx_sample = np.random.choice(len(list_2_sample))
-                    list_few_shot_example_phenotypes.append(list_2_sample[idx_sample])
-                if len(list_few_shot_example_phenotypes)>=n_fewshot:
+                niche_idx = list(self.nonzero.keys())[idx]
+                if not(niche_idx in list_coord_niches_sampled):
+                    list_coord_niches_sampled.append(niche_idx)
+                    archive_indexs = self.sample_examples_from_niche(niche_idx)
+                    list_archive_index.append(archive_indexs)
+                if len(list_archive_index)>=n_fewshot:
                     break
-
-        return list_few_shot_example_phenotypes, skill_targeted
+        list_few_shot_example_phenotypes = [self.genomes[idx] for idx in list_archive_index]
+        return (list_few_shot_example_phenotypes, skill_targeted)
 
     def search(self, init_steps: int, total_steps: int, atol: float = 0.0) -> str:
         """
@@ -520,37 +547,44 @@ class MAPElitesBase:
             max_genome = self.genomes[max_index]
         if self.save_history:
             self.history = defaultdict(list)
-
+        
+        
+        #                           Main loop
+        
         for n_steps in tbar:
             print(f'nsteps {n_steps}')
             print(f'genomes {self.genomes}')
             self.env.idx_generation = n_steps
-            self.env.all_phenotypes = self.__getallitems__()
+            self.env.all_phenotypes = self.__getallitems__() # need remove that
             self.env.n_steps = n_steps
-            if n_steps < init_steps or self.genomes.empty:
+            if self.genomes.empty:
+                raise ValueError("Empty map after init")
+            
+            batch: list[Genotype] = []
+            if n_steps < init_steps: #or self.genomes.empty:
                 print('init steps')
                 # Initialise by generating initsteps random solutions.
                 # If map is still empty: force to do generation instead of mutation.
                 # TODO: use a separate sampler, move batch size to qd config.
-                new_individuals: list[Genotype] = self.env.random()
+                for _ in range(self.env.batch_size):
+                    batch.append(self.random_selection(trainset_only=True))
+                new_individuals: list[Genotype] =  self.env.random(batch)
             else:
                 print('select')
                 # Randomly select a batch of elites from the map.
-                batch: list[Genotype] = []
-                if self.config.crossover:
-                    print('performing crossover')
-                    crossover_parents = []
-                    previous_ix = None
-                    for i in range(self.config.crossover_parents):
-                        map_ix = self.random_selection()
-                        if map_ix != previous_ix:
-                            crossover_parents.append(self.genomes[map_ix])
-                            previous_ix = map_ix
-                    batch.append(crossover_parents)
-                else:
-                    for _ in range(self.env.batch_size):
-                        map_ix = self.random_selection()
-                        batch.append(self.genomes[map_ix])
+                
+                # if self.config.crossover:
+                #     crossover_parents = []
+                #     previous_ix = None
+                #     for i in range(self.config.crossover_parents):
+                #         map_ix = self.random_selection()
+                #         if map_ix != previous_ix:
+                #             crossover_parents.append(self.genomes[map_ix])
+                #             previous_ix = map_ix
+                #     batch.append(crossover_parents)
+                # else:
+                for _ in range(self.env.batch_size):
+                    batch.append(self.random_selection(trainset_only=False))
 
                 # print(f'BATCH {batch}')
                 # Mutate the elite.

@@ -108,7 +108,7 @@ def pool_exec_processes(
         prompts = [prompts]
     prompts_2_test=[]
     for i in prompts:
-        prompts_2_test.append("\nfrom typing import*\n"+ i) # overkill need to check usefull imports
+        prompts_2_test.append("\nfrom typing import List \n"+ i) # overkill need to check usefull imports
 
     eval_fn = functools.partial(
         unsafe_execute,
