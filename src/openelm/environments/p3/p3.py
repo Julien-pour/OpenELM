@@ -525,64 +525,15 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
         
     def preprocess_p3(self):
         trainset = load_examples_p3()
-        list_p3 = [P3ProbSolResult(**p) for p in trainset]
-        # trainset = preprocessing_P3(split ="train", n_token_max=512)
-        # for puz in trainset:
-        #     del puz["f"], puz["g"],puz["attempts"]
-        #     puz["config"] = self.config
-        # list_p3 = [P3ProbSolResult(**p) for p in trainset]
-        # correct_pb=0
-        # list_incorrect_puzzle = []
-        # for i,probsol in enumerate(list_p3):
-        #     if isinstance(probsol.result_obj, ExecResult):
-        #         continue
-        #     if isinstance(probsol.result_obj, str):
-        #         eval_code = (
-        #             f"{probsol.program_str}\n"
-        #             f"def run_eval():\n"
-        #             f"    return f('{probsol.result_obj}')"
-        #         )
-        #     else:
-        #         eval_code = (
-        #             f"{probsol.program_str}\n"
-        #             f"def run_eval():\n"
-        #             f"    return f({probsol.result_obj})"
-        #         )
-        #     # Run code to see if g6_2 solves f6_2
-        #     result = pool_exec_processes(
-        #         eval_code,
-        #         func_name="run_eval",
-        #         debug=True
-        #     )
-        #     if result[0] is False:
-                
-        #         list_incorrect_puzzle.append(i)
-        #     else: 
-        #         correct_pb+=1
-                
-        # # remove incorrect_puzzle 2 puzzle are not correct need to fix that (534/536)
-        # for i in list_incorrect_puzzle[::-1]:
-        #     del list_p3[i]
-            
         if self.config.limited_trainset:
-            list_puzzle=get_limited_trainset()
-            list_puzzle_prgrm_str=[p["program_str"] for p in list_puzzle]
-            list_p3_prgrm_str=[p.program_str for p in list_p3]
-            list_p3_limited=[]
-            for prgr_str in list_puzzle_prgrm_str:
-                assert list_puzzle_prgrm_str in list_p3_prgrm_str
-                idx_selected=list_p3_prgrm_str.index(prgr_str)
-                list_p3_limited.append(list_p3[idx_selected])   
-                         
-            list_p3=list_p3_limited
-            assert len(list_p3)==len(list_puzzle)
-            
+            trainset=get_limited_trainset()
+        list_p3 = [P3ProbSolResult(**p) for p in trainset]
+
         self.archive_P3puzzle = list_p3
 
             
                 
-        print("correct pb", correct_pb)
-        print("total_pb",len(list_p3))
+
         
     def get_rng_state(self) -> Optional[np.random._generator.Generator]:
         warnings.warn("WARNING: rng state not used in this environment")
@@ -954,7 +905,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         for puz in tqdm(trainset):
             puz["config"] = self.config
-            if not load_embedding:
+            
+            if not load_embedding or self.config.embedding_model_type == "hf":
                 puz["emb"]=self.to_phenotype(puz["program_str"])
                 
         #     puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring       

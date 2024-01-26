@@ -27,7 +27,6 @@ from transformers import BatchEncoding
 from openelm.codegen import model_setup, set_seed, truncate
 from openelm.configs import ModelConfig
 from openelm.utils.diff_eval import apply_diff, split_diff
-from joblib import Parallel, delayed
 from openai import OpenAI
 
 
