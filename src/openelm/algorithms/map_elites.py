@@ -351,6 +351,7 @@ class MAPElitesBase:
     
     def random_selection(self, strategy='prob_best_5') -> MapIndex:
         """select a individual from a random niche (cell) in the map that has been explored."""
+        print('random selection')
         match self.config.sampling_strategy:
             case 'uniform':
                 # sample a random niche
@@ -537,6 +538,7 @@ class MAPElitesBase:
                 # Randomly select a batch of elites from the map.
                 batch: list[Genotype] = []
                 if self.config.crossover:
+                    print('performing crossover')
                     crossover_parents = []
                     previous_ix = None
                     for i in range(self.config.crossover_parents):
@@ -550,15 +552,17 @@ class MAPElitesBase:
                         map_ix = self.random_selection()
                         batch.append(self.genomes[map_ix])
 
-                print(f'BATCH {batch}')
+                # print(f'BATCH {batch}')
                 # Mutate the elite.
                 new_individuals = self.env.mutate(batch)
 
+            print('update map')
             max_genome, max_fitness = self.update_map(
                 new_individuals, max_genome, max_fitness
             )
+            print('done')
             tbar.set_description(f"{max_fitness=:.4f}")
-            print(f'Fitnesses: {self.fitnesses}')
+            # print(f'Fitnesses: {self.fitnesses}')
 
             self.fitness_history["max"].append(self.max_fitness())
             self.fitness_history["min"].append(self.min_fitness())
@@ -570,7 +574,9 @@ class MAPElitesBase:
                 and n_steps != 0
                 and n_steps % self.save_snapshot_interval == 0
             ):
+                print('save results')
                 self.save_results(step=n_steps)
+                print('done')
 
         self.current_max_genome = max_genome
         self.save_results(step=n_steps)

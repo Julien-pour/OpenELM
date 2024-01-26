@@ -858,8 +858,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             raise NotImplementedError
 
 
-
-
     def to_multiple_phenotype(self, list_program_str: List[str]):
         def chunks(lst, n):
             """Yield successive n-sized chunks from lst."""
@@ -1040,11 +1038,13 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
     def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model parse them, compute fitness and evaluate them."""
+        print('generating programs')
         local_scope_exec = False
         start_t0 = time.time()
         _generated_programs = self.mutation_model.generate_programs(
             code_batch, local_scope_exec,do_trunc=False
         )
+        print('done')
         start_t1 = time.time()
         
         list_pb=[]
@@ -1066,9 +1066,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             if not "assert f(" in list_pb[idx_assert]:
                 list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
         generated_programs = list_pb
-        
+        print('parsing finished')
         print(f"time to generate {len(generated_programs)} program = {start_t1-start_t0} sec")
         
+        print('evaluating pbs')
         list_lib = ["math", "random", "itertools"]
         
         for idx in range(len(generated_programs)):
@@ -1098,7 +1099,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # which causes the whole thing to error out.
             # For now, try/except and re-try.
             results=[None]*len(generated_programs) # remove get output function
-
+        print('done')
                 
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
@@ -1134,6 +1135,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
             for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list_duplicate,list_phenotype,list_fitness)
         ]
+        print('finished generation')
         return [P3ProbSolResult(**p) for p in results]
     
     
@@ -1265,8 +1267,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         else:
             probsols = [pb.program_str for pb in probsol_list]
             # skill_targeted_list = [None for _ in range(len(probsols))]
+            print('building prompts')
             program_list_targerted_list = list(map(self.construct_prompt, probsols))
-            program_list,skill_targeted_list=[],[]
+            print('done')
+            program_list, skill_targeted_list = [], []
             for (prgrm_list,skill_targeted) in program_list_targerted_list:
                 program_list.append(prgrm_list)
                 skill_targeted_list.append(skill_targeted)
@@ -1387,7 +1391,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
-        print(archive_puzzle_sols[0])
+        # print(archive_puzzle_sols[0])
 
         # get solution mask
         solution_attention_mask = utils.get_solution_mask_from_str_loop(
@@ -1399,30 +1403,6 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
             offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
         )
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
-
-        print(f'Puzzle {puzzle}')
-        print(f'Solution {solution}')
-        # print()
-        # print(self.archive_sol_strs[0])
-        # start = solution_attention_mask[0].tolist().index(1)
-        # stop = start + solution_attention_mask[0].sum().item()
-        # print('---')
-        # print(f'Start {start}, Stop {stop}')
-        # print(bool(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[0][start:stop])))
-        # print(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[0][start:stop]))
-        #
-        # print('++++++++++++++++++++++++')
-        #
-        # print(puzzle)
-        # print(solution)
-        # print()
-        # print(self.archive_sol_strs[1])
-        # start = solution_attention_mask[1].tolist().index(1)
-        # stop = start + solution_attention_mask[1].sum().item()
-        # print('---')
-        # print(f'Start {start}, Stop {stop}')
-        # print(bool(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[1][start:stop])))
-        # print(self.tokenizer.decode(archive_tokenized_puzzles.input_ids[1][start:stop]))
 
         return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size)
 

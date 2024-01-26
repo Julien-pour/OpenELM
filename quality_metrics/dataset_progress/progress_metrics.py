@@ -75,7 +75,7 @@ def get_solution_logprobs(tokenized_puzzle_archive, model, batch_size=2):
         mask_puzzle = False
 
     all_losses = []
-    for i in tqdm(range(0, tokenized_puzzle_archive.input_ids.shape[0], batch_size)):
+    for i in range(0, tokenized_puzzle_archive.input_ids.shape[0], batch_size):
         input_ids = tokenized_puzzle_archive.input_ids[i:i+batch_size].to(model.device)
         attention_mask = tokenized_puzzle_archive.attention_mask[i:i+batch_size].to(model.device)
 
