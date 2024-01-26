@@ -232,6 +232,7 @@ class MAPElitesBase:
         self.save_np_rng_state = self.config.save_np_rng_state
         self.load_np_rng_state = self.config.load_np_rng_state
         self.rng = np.random.default_rng(self.config.seed)
+        np.random.seed(self.config.seed)  
         self.rng_generators = None
 
         # self.history will be set/reset each time when calling `.search(...)`
@@ -425,10 +426,10 @@ class MAPElitesBase:
                 target_skill = [int(element) for element in target_skill]
                 return target_skill
             case 'none':
-                skill_targeted=[None]
+                skill_targeted = [None]
         return skill_targeted
     
-    def sample_examples(self,random=False,skill_targeted=None):
+    def sample_examples(self,random=False):
         """Sample a batch of examples from the map."""
         n_fewshot = self.config.n_fewshot_examples 
 
@@ -436,15 +437,33 @@ class MAPElitesBase:
             list_few_shot_example_phenotypes = list(self.rng.choice(self.env.archive_P3puzzle,size=n_fewshot))
         else:
             # use example from archive (and so trainset)
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.genotype.archive,size=n_fewshot))
+            list_few_shot_example_phenotypes = list(self.rng.choice(self.genomes.archive,size=n_fewshot))
         skill_targeted = self.skill_sampling(self.env.config.IMGEP_mode)
-        match self.env.config.IMGEP_mode:
-            case "random":
-            # uniform sampling of skills among explored and unexplored cells
-                return None
-            case "smart":
-                return None
-        return skill_targeted
+
+        if skill_targeted == [None]:
+            all_emb = list(self.nonzero.keys())
+            all_emb = np.array([list(eval(i)) for i in all_emb])
+
+            list_few_shot_example_phenotypes= []
+            list_coord_niches_sampled = []
+
+            dists = cdist([skill_targeted], all_emb)[0]
+            # shuffle indices to have true uniform sampling of closest niches
+            shuffled_indices = np.arange(len(dists))
+            np.random.shuffle(shuffled_indices)
+            nearest_niches = shuffled_indices[np.argsort(dists[shuffled_indices])]
+            for idx in nearest_niches:
+                emb_2_add = list(self.nonzero.keys())[idx] #list(all_emb[idx])
+                if not(emb_2_add in list_coord_niches_sampled):
+                    list_coord_niches_sampled.append(emb_2_add)
+                    idxs_niche = self.nonzero[emb_2_add]
+                    list_2_sample = [self.genotype.archive[id] for id in idxs_niche]
+                    idx_sample = np.random.choice(len(list_2_sample))
+                    list_few_shot_example_phenotypes.append(list_2_sample[idx_sample])
+                if len(list_few_shot_example_phenotypes)>=n_fewshot:
+                    break
+
+        return list_few_shot_example_phenotypes, skill_targeted
 
     def search(self, init_steps: int, total_steps: int, atol: float = 0.0) -> str:
         """
