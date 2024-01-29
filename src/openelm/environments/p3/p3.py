@@ -985,7 +985,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_lib = ["math", "random", "itertools"]
         
         for idx in range(len(generated_programs)):
-            if not(P3_IMPORTS in generated_programs[idx] and List in generated_programs[idx] ):
+            if not(P3_IMPORTS in generated_programs[idx] and "List" in generated_programs[idx] ):
                 generated_programs[idx] = P3_IMPORTS + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
@@ -1165,7 +1165,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     debug=self.config.debug,
                 )
             except:
-                result = [False]*len(list_probsol)
+                results = [False]*len(list_probsol) 
                 print("pb when computing fitness")
 
             assert len(list_probsol) == len(results), "pb when computing fitness"
