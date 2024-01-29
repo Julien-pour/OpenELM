@@ -11,7 +11,7 @@ import requests
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult, unsafe_execute
 import json
 import os
-
+import time
 import re
 
 
@@ -121,11 +121,56 @@ def pool_exec_processes(
 
     if processes <= 1:
         return list(map(eval_fn, prompts_2_test))
+    # https://stackoverflow.com/questions/26063877/python-multiprocessing-module-join-processes-with-timeout
+    # TIMEOUT = timeout
+    # start = time.time()
+    # while time.time() - start <= TIMEOUT:
+    #     if not any(p.is_alive() for p in procs):
+    #         # All the processes are done, break now.
+    #         break
+
+    #     time.sleep(.1)  # Just to avoid hogging the CPU
+    # else:
+    #     # We only enter this if we didn't 'break' above.
+    #     print("timed out, killing all processes")
+    #     for p in procs:
+    #         p.terminate()
+    #         p.join()
+
+    results = []
+
+    # Function to handle the result
+    def collect_result(result, prompt):
+        results.append((prompt, result))
+
     with mp.Pool(processes=processes) as pool:
-        results = list(pool.map(eval_fn, prompts_2_test)) # timeout here bug: too much process?
-    if debug:
-        print(results)
+        result_objects = {prompt: pool.apply_async(eval_fn, args=(prompt,)) for prompt in prompts_2_test}
+        
+        # Close the pool and wait for each running task to complete
+        pool.close()
+        
+        for prompt, result_object in result_objects.items():
+            try:
+                result = result_object.get(timeout=timeout)
+                collect_result(result, prompt)
+            except mp.TimeoutError:
+                print(f"The process for prompt '{prompt}' has exceeded the timeout limit and will be terminated.")
+                results.append((prompt, False))  # You can decide how to represent the timeout cases.
+        # just get the results
+        
+        pool.terminate()  # Terminate any remaining tasks
+        pool.join()  # Wait for the pool to be terminated
+
+    results =  [result for (_, result) in results]
     return results
+
+
+    # old version
+    # with mp.Pool(processes=processes) as pool:
+    #     results = list(pool.map(eval_fn, prompts_2_test)) # timeout here bug: too much process?
+    # if debug:
+    #     print(results)
+    # return results
 
 
 def eval_completions(

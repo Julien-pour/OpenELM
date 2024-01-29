@@ -89,7 +89,7 @@ class CVTMAPElitesConfig(QDConfig):
 
 @dataclass
 class EnvConfig(BaseConfig):
-    timeout: float = 5.0  # Seconds
+    timeout: float = 10.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
     processes: int = 10
@@ -136,7 +136,6 @@ class StringEnvConfig(EnvConfig):
 class P3ProblemEnvConfig(EnvConfig):
     env_name: str = "p3_problem"
     prompt_size: str = "long"  # med or long
-    timeout: float = 5.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
@@ -148,7 +147,6 @@ class P3ProblemEnvConfig(EnvConfig):
 class P3ProbSolEnvConfig(EnvConfig):
     env_name: str = "p3_probsol"
     prompt_size: str = "long"  # med or long
-    timeout: float = 5.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
@@ -186,7 +184,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
     limited_trainset= True # start with few example (3)
-    timeout: float = 1.0  # timeout for running a solution
+    timeout: float = 10.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
