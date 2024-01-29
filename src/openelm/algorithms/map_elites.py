@@ -308,11 +308,11 @@ class MAPElitesBase:
                 maps = pickle.load(f)
 
 
-            self.genomes.archive = maps["genomes"]
+            self.genomes = maps["genomes"]
             self.fitnesses = maps["fitnesses"]
             self.nonzero = maps["nonzero"] #self.nonzero.array = maps["nonzero"]
             # check if one of the solutions in the snapshot contains the expected genotype type for the run
-            assert  len(self.nonzero.keys())==0, "snapshot to load contains empty map"
+            assert  len(self.nonzero.keys())!=0, "snapshot to load contains empty map"
 
             assert (
                 self.env.config.env_name == old_config["env_name"]
