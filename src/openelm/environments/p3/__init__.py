@@ -387,7 +387,7 @@ Problem 3:
     full_prompt = PY_SIMPLE_CHAT_INSTRUCTION_V2 + "\n" + prompt_base + "\n" + fewshot_problems 
     return full_prompt
 
-P3_IMPORTS = "from typing import*\n"#"from typing import List\n" # The only import that's necessary as of P3 v0.2
+P3_IMPORTS = "from typing import List \n"#"from typing import List\n" # The only import that's necessary as of P3 v0.2
 
 
 P3_PROBLEM_MED_SEED = '''from typing import List

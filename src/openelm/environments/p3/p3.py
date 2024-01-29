@@ -985,8 +985,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_lib = ["math", "random", "itertools"]
         
         for idx in range(len(generated_programs)):
-            if not("from typing import*" in generated_programs[idx] or "from typing import *" in generated_programs[idx]):
-                generated_programs[idx] = "from typing import *"+ generated_programs[idx]
+            if not(P3_IMPORTS in generated_programs[idx] and List in generated_programs[idx] ):
+                generated_programs[idx] = P3_IMPORTS + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
             for lib in list_lib:
