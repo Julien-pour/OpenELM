@@ -140,8 +140,8 @@ def pool_exec_processes(
     results = []
 
     # Function to handle the result
-    def collect_result(result, prompt):
-        results.append((prompt, result))
+    # def collect_result(result, prompt):
+        # results.append((prompt, result))
 
     with mp.Pool(processes=processes) as pool:
         result_objects = {prompt: pool.apply_async(eval_fn, args=(prompt,)) for prompt in prompts_2_test}
@@ -152,7 +152,7 @@ def pool_exec_processes(
         for prompt, result_object in result_objects.items():
             try:
                 result = result_object.get(timeout=timeout)
-                collect_result(result, prompt)
+                results.append((prompt, result))
             except mp.TimeoutError:
                 print(f"The process for prompt '{prompt}' has exceeded the timeout limit and will be terminated.")
                 results.append((prompt, False))  # You can decide how to represent the timeout cases.
@@ -161,8 +161,17 @@ def pool_exec_processes(
         pool.terminate()  # Terminate any remaining tasks
         pool.join()  # Wait for the pool to be terminated
 
-    results =  [result for (_, result) in results]
-    return results
+    results_only =  [result for (_, result) in results]
+    try:
+        assert len(results_only) == len(results), "The number of results only should be equal to the number of prompts + results."
+        assert len(results_only) == len(prompts_2_test), "The number of results should be equal to the number of prompts."
+    except:
+        for idx, (prompt, result) in enumerate(results):
+            print(f"\n================= Puzzle: {idx}")
+            print(f"Prompt: {prompt}")
+            print(f"Result: {result}")
+            raise ValueError("The number of results only should be equal to the number of prompts (and results).")
+    return results_only
 
 
     # old version
