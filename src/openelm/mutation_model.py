@@ -373,7 +373,7 @@ class HuggingFaceLLM: #(LLM): <- removed langchain.llms.base.LLM inheritance nee
     class Config:
         """Configuration for this pydantic object."""
 
-        extra = Extra.allow
+        extra = 'allow'
 
     @root_validator(skip_on_failure=True)
     def setup(cls, values: dict[str, Any]) -> dict[str, Any]:

@@ -924,113 +924,25 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         return vec_mutate
     
     def construct_prompt(
-        self, code_batch: Optional[Union[list[str], str]] = [],random: bool =False
+        self, list_phenotype,skill_targeted=[], trainset_only = False
     ) -> dict[str, str]:
         """
         construct the prompt for the LLM
         """
-        n_few_shot_example=2 # that are in the prompt to gen puzzle
-        # n_few_shot_example_from_trainset =  1
-        # n_few_shot_example_from_archive = n_few_shot_example - n_few_shot_example_from_trainset
+
+        if not isinstance(skill_targeted, list):
+            skill_targeted=skill_targeted.tolist()
+
+        if trainset_only: # rd gen
+            prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype)                    
         
-        skill_targeted=None
-        # prompt with prob+sol that is given (one that was the output of a prev mutation)
-        if isinstance(code_batch, list):
-            # TODO: get nearby genotypes
-            code_batch = code_batch
-        elif isinstance(code_batch, str):
-            code_batch = [code_batch]
-        
-        if len(code_batch) >=1:
-            skill_targeted = code_batch
-            
-        # choose few shot example
-        if random: 
-            #random: only use example from trainset
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.archive_P3puzzle,size=n_few_shot_example+1))
-        else: 
-            # use example from archive (and so trainset)
-            list_few_shot_example_phenotypes = list(self.rng.choice(self.all_phenotypes,size=n_few_shot_example+1))
-                 
-            
-        
-        if self.config.IMGEP_mode == "random":
-            # target are chosen randomly 
-            # choose few shot example that are close in embed space
-            
-            # target radom skill 
-            skill_targeted = np.random.randint(0, 2, self.n_skills,dtype=int).tolist()
-            
-            
-            # choose example that are close in embed space
-
-            
-            all_emb=[]
-            all_emb_trainset=[]
-            
-            for puzz in self.all_phenotypes:    
-                all_emb.append(puzz.emb)
-                
-            for puzz in self.archive_P3puzzle:    
-                all_emb_trainset.append(puzz.emb)
-            all_emb_trainset = np.array(copy.deepcopy(all_emb_trainset))
-            
-            all_emb = np.array(copy.deepcopy(all_emb))            
-
-            # choose puzzle from closest niches half from trainset
-            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=n_few_shot_example)
-            
-            for puzzz in list_few_shot_example_phenotypes: # remove example in doc
-                puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)
-
-
-            prompt_str = self.prompt_seed_function(list_few_shot_example_phenotypes=list_few_shot_example_phenotypes,skill_targeted=skill_targeted)
-            # skill_targeted.dtype=int
-            # check if skill_targeted is a list
-            if not isinstance(skill_targeted, list):
-                skill_targeted=skill_targeted.tolist()
-
-                        
-        elif self.config.IMGEP_mode == "smart":
-            # target are chosen smartly + few shot example are chosen smartly
-            # target a cell that is close to existing example
-            # choose few shot example that are close in embed space
-            
-            
-            
-            all_emb=[]
-            all_emb_trainset=[]
-            
-            for puzz in self.all_phenotypes:    
-                all_emb.append(puzz.emb)
-                
-            for puzz in self.archive_P3puzzle:    
-                all_emb_trainset.append(puzz.emb)
-            all_emb_trainset = np.array(copy.deepcopy(all_emb_trainset))
-            all_emb = np.array(copy.deepcopy(all_emb))
-            
-            # target skill close from explored space
-            # Generate all possible binary vectors of dimension 10
-
-            skill_targeted=sample_target_skill_smart(all_emb)
-
-
-            list_few_shot_example_phenotypes= []
-            # choose puzzle from closest niches half from trainset
-            list_few_shot_example_phenotypes = sample_fewshot_example(skill_targeted, all_emb, self.all_phenotypes, n_few_shot_example=n_few_shot_example)
-
-            # remove example given in docstring  
-            list_few_shot_example_phenotypes=copy.deepcopy(list_few_shot_example_phenotypes)
-            for puzzz in list_few_shot_example_phenotypes:
-                puzzz.program_str=just_remove_example_in_docstring(puzzz.program_str)#remove_docstring(puzzz.program_str)
-                
-            prompt_str = self.prompt_seed_function(list_few_shot_example=list_few_shot_example_phenotypes,skill_targeted=skill_targeted)
-            
+        elif skill_targeted == []: # elm mode
+            # code_batch is puzzle to mutate (last puzzle of list_phenotype)
+            code_batch = list_phenotype[-1]
+            list_phenotype = list_phenotype[:-1]
+            prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype, code_batch=code_batch)
         else:
-            list_few_shot_example = [pb for pb in list_few_shot_example_phenotypes]
-            skill_targeted=code_batch
-            prompt_str = self.prompt_seed_function(list_few_shot_example=list_few_shot_example, code_batch=code_batch)
-
+            prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,skill_targeted=skill_targeted)
 
         template = f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         return {"prompt": prompt_str, "template": template},skill_targeted
@@ -1073,8 +985,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_lib = ["math", "random", "itertools"]
         
         for idx in range(len(generated_programs)):
-            if not("from typing import*" in generated_programs[idx] or "from typing import *" in generated_programs[idx]):
-                generated_programs[idx] = "from typing import *"+ generated_programs[idx]
+            if not(P3_IMPORTS in generated_programs[idx] and "List" in generated_programs[idx] ):
+                generated_programs[idx] = P3_IMPORTS + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
             for lib in list_lib:
@@ -1093,14 +1005,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 if resp.status_code == 200:
                     return_dict = json.loads(resp.text)
                     results.append(return_dict)
-        else:
-            # TODO: handle (probably inside of pool_exec_processes) all cases where the generated code returns
-            # a generator type. The multithreaded execution pickles things and generators can't be pickled
-            # which causes the whole thing to error out.
-            # For now, try/except and re-try.
-            results=[None]*len(generated_programs) # remove get output function
-        print('done')
-                
+            print('done')
+
+        else: results=[None]*len(generated_programs) # remove get output function
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
             {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
@@ -1110,10 +1017,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         start_t4 = time.time()
 
         #compute fitness
-        list_fitness = [self.fitness(puzz) for puzz in probsol_2_test]
+        list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
-        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit > 0.0]
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit >= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
@@ -1191,17 +1098,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if not probsol.fitness == None:
             return probsol.fitness
 
-        # if "g(" in probsol.program_str.split("assert f")[1]:
-        #     extract_run_eval_1 = "f"+probsol.program_str.split("assert f")[1]
-        # else: # "error"
-        #     extract_run_eval_1 = "f(*g())"
-        # extract_run_eval_2 = ""
-        
-        # eval_code_1 = str(
-        #     f"{probsol.program_str}\n"
-        #     f"def run_eval():\n"
-        #     f"    return {extract_run_eval_1}"
-        # )
         prog = probsol.program_str.split("\nassert f")
         probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
         eval_code_ = str(
@@ -1244,38 +1140,75 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             pak = pass_at_k(len(list_new_puzzles), c, self.config.eval_k)
             return 1 / pak if pak > 0 else 0
 
-    def random(self) -> list[P3ProbSolResult]:
+
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
+
+        if parrallel_fitness:
+            list_fitness = []
+            eval_codes = []
+            for probsol in list_probsol:
+                prog = probsol.program_str.split("\nassert f")
+                probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+                eval_code_ = str(
+                    f"{probsol.program_str}\n"
+                    f"def run_eval():\n"
+                    f"    return f(g())"
+                )
+                eval_codes.append(eval_code_)
+            # Run code to see if g6_2 solves f6_2
+            try:
+                results = pool_exec_processes(
+                    eval_codes,
+                    func_name="run_eval",
+                    timeout=self.config.timeout,
+                    processes=self.config.processes,
+                    debug=self.config.debug,
+                )
+            except:
+                results = [False]*len(list_probsol) 
+                print("pb when computing fitness")
+
+            assert len(list_probsol) == len(results), "pb when computing fitness"
+            # if self.config.eval_k<=1 : # one try doesn't compute pass@k
+            for result in results:
+                if result == True:
+                    list_fitness.append(1.0)
+                else:
+                    list_fitness.append(-np.inf)
+                
+            # if not probsol.fitness == None:
+            #     return probsol.fitness
+
+        else:
+            list_fitness = [self.fitness(puzz) for puzz in list_probsol]
+            
+        return list_fitness
+
+    def random(self,batch) -> list[P3ProbSolResult]:
         # should just take few shot example from trainset not archive
+
+        assert len(batch) == self.config.batch_size
         program_list = []
         skill_targeted_list = []
-        for _ in range(self.config.batch_size):
-            dic_prompt, skill_targeted = self.construct_prompt(random=True)
+        for (list_few_shot_example_phenotypes, skill_targeted) in batch:
+            dic_prompt, skill_targeted = self.construct_prompt(list_few_shot_example_phenotypes, skill_targeted, trainset_only=True)
             program_list.append(dic_prompt)
             skill_targeted_list.append(skill_targeted)
-            
-        # program_list = [self.construct_prompt(random=True) for _ in range(self.config.batch_size)]
+
         new_probsols = self.generate_programs(program_list,skill_targeted_list)
         return new_probsols
 
-    def mutate(self, probsol_list: list[P3ProbSolResult]) -> list[P3ProbSolResult]:
-        if self.config.IMGEP_mode == "random" or self.config.IMGEP_mode == "smart":
-            program_list = []
-            skill_targeted_list = []
-            for _ in range(self.config.batch_size):
-                dic_prompt, skill_targeted = self.construct_prompt()
-                program_list.append(dic_prompt)
-                skill_targeted_list.append(skill_targeted)
-        else:
-            probsols = [pb.program_str for pb in probsol_list]
-            # skill_targeted_list = [None for _ in range(len(probsols))]
-            print('building prompts')
-            program_list_targerted_list = list(map(self.construct_prompt, probsols))
-            print('done')
-            program_list, skill_targeted_list = [], []
-            for (prgrm_list,skill_targeted) in program_list_targerted_list:
-                program_list.append(prgrm_list)
-                skill_targeted_list.append(skill_targeted)
-            
+    def mutate(self, batch: list) -> list[P3ProbSolResult]:
+        # (list_few_shot_example_phenotypes, skill_targeted) = batch
+        assert len(batch) == self.config.batch_size
+        program_list = []
+        skill_targeted_list = []
+        for (list_few_shot_example_phenotypes, skill_targeted) in batch:
+            dic_prompt, skill_targeted = self.construct_prompt(list_few_shot_example_phenotypes, skill_targeted, trainset_only=False)
+            program_list.append(dic_prompt)
+            skill_targeted_list.append(skill_targeted)
+
+
         new_probsols = self.generate_programs(program_list,skill_targeted_list)
 
         return new_probsols
@@ -1421,3 +1354,20 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         fitness = differences.mean().item()
         return - fitness
 
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
+        
+        list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
+        assert len(list_solving_fitness) == len(list_probsol)
+
+        for idx,solving_fitness in enumerate(list_solving_fitness):
+            if solving_fitness <= 0:
+                continue
+            else:
+                # check the docstring works fine
+                puzzle, solution = utils.parse_puzzle_from_str(list_probsol[idx].program_str)
+
+                final_losses = self._get_losses(puzzle, solution)
+
+                differences = final_losses - self.original_losses
+                fitness = differences.mean().item()
+                list_solving_fitness[idx] = - fitness
