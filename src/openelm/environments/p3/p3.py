@@ -39,7 +39,7 @@ from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import load_examples_p3,preprocessing_P3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
+from openelm.utils.code_eval import load_examples_p3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
 import itertools
 # from joblib import parallel_config
 from concurrent.futures import ThreadPoolExecutor

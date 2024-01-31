@@ -83,9 +83,11 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     """
     should change that to list_few_shot_example from list to Phenotype type
     skill_targeted list of binary vector
+    remove n_fewshot_ex
     """
     elm_mode=False
     prompt_elm=""
+    prompt2add=""
     aces_mode=False
     if not code_batch is None:
         elm_mode = True
@@ -103,13 +105,10 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     for i, puzzle in enumerate(puzzles):   
         puzzle_description ="" # /!\ need to implement that puzzle.description /!\
 
-        if i == 0:
-            examples += f"Puzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
-        if i != 0:
-            examples += "\n"
+        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
     if elm_mode:
-        prompt_elm=f", each being a **mutation** derived from the Puzzle {i+1}." #the structure of Puzzle 2
-        examples += f"Puzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```"
+        prompt_elm=f", each being a **mutation** derived from Puzzle {i+1}" #the structure of Puzzle 2
+        examples += f"\nPuzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
 
     prompt = """
     I have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
@@ -136,22 +135,20 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
 
     assert f(g()) == True
     ```
-
     {examples}
-
     Your Task:
     Create three new Python Programming Puzzles (Puzzle 2 to Puzzle 4)."""
     prompt = textwrap.dedent(prompt)
     if elm_mode == True:
-        prompt2add = f"Ensure that each new puzzles dervied from a mutated Puzzle {i+1}."
+        prompt2add = f" Ensure that each new puzzle is derived from a mutated Puzzle {i+1}."
     if aces_mode == True:
         skill_target=" "
         idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
         for idx in idx_skill_targeted:
             skill_target += f"\n- {skill_list[idx]}"
 
-        prompt2add = "Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging"# and adhere to the specified format."
-        prompt2add += f"and they should incorporate the following skills:{skill_target}"
+        prompt2add = " Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging"# and adhere to the specified format."
+        prompt2add += f" and they should incorporate the following skills:{skill_target}"
     prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
     prompt += prompt2add
     return prompt
