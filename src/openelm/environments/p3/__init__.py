@@ -1,9 +1,11 @@
+# should probably move that to smthing like prompt.py
 from typing import Optional, Union, List
 import json
 
 import numpy as np
 import textwrap
 from pydantic import BaseModel,Field
+
 
 
 skill_list = [
@@ -30,11 +32,20 @@ skill_list = [
 ]
 
 # class for instructor skill labelling prompt for P3
-class PuzzleCheck(BaseModel):
-    """Puzzle description and if they should be given to the student or not."""
-    puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
-    explanations: str = Field(decription="Short explanation of whether the puzzle should be given to the student or not.")
-    give_puzzle_to_student: bool = Field(description="Whether the puzzle should be given to student or not based on the previous explanations")
+def get_class_PuzzleCheck(mode):
+    match mode:
+        case "description":
+            class PuzzleCheck(BaseModel):
+                """Puzzle description and if they should be given to the student or not."""
+                puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+
+        case "description+is_valid":
+            class PuzzleCheck(BaseModel):
+                """Puzzle description and if they should be given to the student or not."""
+                puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+                explanations: str = Field(decription="Short explanation of whether the puzzle should be given to the student or not.")
+                give_puzzle_to_student: bool = Field(description="Whether the puzzle should be given to student or not based on the previous explanations")
+    return PuzzleCheck
 
 class Topics_evaluation(BaseModel):
     """List of topics that are used in the problem and solution."""
@@ -58,7 +69,9 @@ class Topics_evaluation(BaseModel):
 def create_prompt_label(puzzle : str, mode="give_skills"):
     """
     create prompt for label_puzzle goes with Topics_evaluation class with give_skills=True
-    mode 
+    mode = "give_skills", "is_valid", "description", "description+is_valid", "general"
+    is_valid -> filtering 
+    description use to give a description of the puzzle
     """
 
     level = "undergraduate student in CS"#"master's student"
@@ -80,7 +93,7 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
             prompt=base_persona
             # prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
             prompt += "Your role is to write a **short** description of the following puzzle."
-            
+
         case "description+is_valid": # WIP
             prompt=base_persona
             prompt += "Your role is to first write a **short** description of the following puzzle. "
@@ -128,7 +141,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     
     examples = ""
     for i, puzzle in enumerate(puzzles):   
-        puzzle_description ="" # /!\ need to implement that puzzle.description /!\
+        puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
 
         examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
     if elm_mode:
@@ -704,5 +717,5 @@ __all__ = [
     "skill_list",
     "create_prompt_label",
     "Puzzle_Interestingness",
-    "Puzzle_Diversity",skill_list
+    "Puzzle_Diversity","get_class_PuzzleCheck"
 ]

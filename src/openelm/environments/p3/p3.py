@@ -33,7 +33,7 @@ from openelm.environments.p3 import (
     P3_PROBLEM_MED_SEED,
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
-    create_prompt_label,Puzzle_Diversity,Puzzle_Interestingness,Topics_evaluation,skill_list
+    create_prompt_label,get_class_PuzzleCheck,Topics_evaluation,skill_list
 )
 from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
@@ -328,7 +328,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
         new_sols = self.generate_programs(program_list)
         return new_sols
 
-
+# the one to use with P3ProbSol_Chat
 class P3ProbSolResult(Genotype):
     def __init__(self, program_str: str, config: P3ProbSolEnvConfig, emb: list= None,
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
@@ -886,6 +886,49 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 list_phenotype_correct_puzzle.append(self.to_phenotype(program_str))
         return list_phenotype_correct_puzzle
 
+    def description_filtering(self,program_str):
+        """give a description of the puzzle and a boolean if it is pass the filter or not"""
+        if self.config.activate_filtering_description and self.config.puzzle_filtering:
+            mode = "description+is_valid"
+        elif self.config.activate_filtering_description and not self.config.puzzle_filtering:
+            mode = "description"
+        else: NotImplementedError("should not go there")
+
+        prompt = create_prompt_label(program_str, mode = mode)
+        tool_skill_labeling = get_class_PuzzleCheck(mode)
+
+        result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
+        dic_features = {}
+        if "description" in mode: 
+            puzzle_description = result.puzzle_description
+            dic_features["description"] = puzzle_description
+        if "is_valid" in mode:
+            is_valid_explanation = result.explanations
+            is_valid = result.give_puzzle_to_student
+            dic_features.update({"is_valid_explanation": is_valid_explanation, "is_valid": is_valid})
+        return dic_features
+
+    def multiple_description_filtering(self,list_program_str: List[str]):
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i : i + n]
+        # for api based model
+        completions=[]
+        max_workers = self.mutation_model.config.processes
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for sub_batch in chunks(list_program_str, max_workers):
+                for idx,message_list in enumerate(sub_batch):
+                    kwargs={"program_str":message_list}
+                    # if "kwargs" in kwargs_modified:
+                    #     original_kwargs = kwargs_modified.pop("kwargs")
+                    future = executor.submit(
+                        self.description_filtering,**kwargs
+                    )
+                    completions.append(future)
+        # Retrieve the results from the futures
+        list_description_filter = [future.result() for future in completions]
+        return list_description_filter
 
     def preprocess_p3(self, split="train",load_embedding=True,debug=False):
         """
@@ -1025,13 +1068,14 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         # add gen description puzzle here (or should we do it with skill labeling ?) 
         # + add filtering step here ?
-
+        if self.config.activate_filtering_description:
+            add_to_results =self.multiple_description_filtering(list_correct_puzzle)
 
         # compute phenotype of correct puzzle
         start_t6 = time.time()
         print('begin phenotype computation')
 
-        list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle)
+        list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle) # should probably give description to label puzzle ?
         # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
         #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
         start_t7 = time.time()
@@ -1047,6 +1091,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
             for (gen_prog, target_skills,pheno,fitness) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness)
         ]
+
+        if self.config.activate_filtering_description: # add description and/or filtering to results
+            for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+                results[idx_puzzle].update(add_to_results[idx])
+            
         print('finished generation')
         return [P3ProbSolResult(**p) for p in results]
     
