@@ -149,7 +149,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
         examples += f"\nPuzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
 
 
-    #  /!\ should use persona smthing like:
+    # /!\ should use persona (could be an improved version) smthing like:
     # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
     # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
     # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?

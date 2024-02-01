@@ -358,13 +358,14 @@ class P3ProbSolResult(Genotype):
             i_assert = self.solution_func.find("assert") 
             self.solution_func = self.solution_func[:i_assert].strip() 
 
+        self.quality = quality,
+        self.description=description,
+        self.is_valid = is_valid, 
+        self.is_valid_explanation = is_valid_explanation
+
         if self.config.GPT_feedback:
-            self.quality = quality,
-            self.description=description,
             self.interestingness_f = interestingness_f, 
             self.interestingness_g = interestingness_g,
-            self.is_valid = is_valid, 
-            self.is_valid_explanation = is_valid_explanation
 
         else:
             i_f6 = program_str.find("def f6_2(")
@@ -1075,6 +1076,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         start_t6 = time.time()
         print('begin phenotype computation')
 
+        #TODO: use puzzle description in phenotype computation
+        
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle) # should probably give description to label puzzle ?
         # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
         #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
