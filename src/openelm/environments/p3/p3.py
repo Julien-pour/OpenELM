@@ -1007,11 +1007,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     results.append(return_dict)
             print('done')
 
-        else: results=[None]*len(generated_programs) # remove get output function
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
-            for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list_duplicate)
+            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
+            for (gen_prog, target_skills) in zip(generated_programs, skill_targeted_list_duplicate)
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
         start_t4 = time.time()
@@ -1024,9 +1023,14 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
+        # add gen description puzzle here (or should we do it with skill labeling ?) 
+        # + add filtering step here ?
+
+
         # compute phenotype of correct puzzle
         start_t6 = time.time()
         print('begin phenotype computation')
+
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle)
         # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
         #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
@@ -1040,8 +1044,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             
         generated_programs = [gen_prog for gen_prog in generated_programs]
         results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
-            for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list_duplicate,list_phenotype,list_fitness)
+            {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
+            for (gen_prog, target_skills,pheno,fitness) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness)
         ]
         print('finished generation')
         return [P3ProbSolResult(**p) for p in results]

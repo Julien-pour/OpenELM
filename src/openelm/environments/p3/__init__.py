@@ -31,13 +31,10 @@ skill_list = [
 
 # class for instructor skill labelling prompt for P3
 class PuzzleCheck(BaseModel):
-    """Puzzle must be filtered if the problem does not respect those rules:
-    **Rules:**
-    1. Avoid using `f` inside `g`.
-    2. The function g must return the solution to the problem. And not just a function that gives arguments to f.
-    """
-    explanations: str = Field(decription="Short explanation of whether the puzzle adheres to the following rules: 1. Avoid using `f` within `g`. 2. The function `g` must return the solution to the problem, not merely a function that passes arguments to `f`.")
-    is_valid: bool = Field(description="Whether the puzzle is valid or not based on the previous explanations and rules")
+    """Puzzle description and if they should be given to the student or not."""
+    puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+    explanations: str = Field(decription="Short explanation of whether the puzzle should be given to the student or not.")
+    assignement_pass: bool = Field(description="Whether the puzzle pass the assignement or not based on the previous explanations")
 
 class Topics_evaluation(BaseModel):
     """List of topics that are used in the problem and solution."""
@@ -62,20 +59,43 @@ class Puzzle_Interestingness(BaseModel):
     interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
 # maybe interestingne in term of pedagogy?
 
-def create_prompt_label(puzzle : str, Puzzle_Interestingness=False):
-    """create prompt for label_puzzle goes with Quality_Diversity_Measure"""
+def create_prompt_label(puzzle : str, mode="give_skills"):
+    """
+    create prompt for label_puzzle goes with Topics_evaluation class with give_skills=True
+    mode 
+    """
+    level = "undergraduate student"#"master's student"
+    # skills format
     format_skills=""
-
     for idx,skill in enumerate(skill_list):
         format_skills+=f"{idx}. {skill}\n"
     skills = f"\n{format_skills}"
-    if Puzzle_Interestingness:
-        prompt= "Given the following puzzle, exctract the information requested."
-    else:
-        prompt= "Given the following puzzle, and the list of topics, exctract the information requested."
+    
+    base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
+    base_persona += f"The Professor have assign to {level} in CS to create a python programming puzzle.\n"
+    match mode:
+        case "is valid": # WIP should also use a persona to label the puzzle
+            prompt=base_persona
+            prompt += "The Professor want to evaluate if the puzzle pass the assignment criteria, can you label the following puzzle please?"
+
+        case "description": # WIP 
+            prompt=base_persona
+            prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
+
+        case "give_skills":
+            #  /!\ should use persona smthing like:
+            # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
+            # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
+            # The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?
+
+            prompt = "Given the following puzzle, and the list of topics, exctract the information requested."
+            prompt += "\nThe list of topics is:\n"+ skills + "\n"
+
+        case "general":
+            prompt= "Given the following puzzle, exctract the information requested."
+    
     prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n\n"
-    if not Puzzle_Interestingness:
-        prompt += "The list of topics is:\n"+ skills + "\n"
+            
     return prompt
 
 
@@ -110,6 +130,11 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
         prompt_elm=f", each being a **mutation** derived from Puzzle {i+1}" #the structure of Puzzle 2
         examples += f"\nPuzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
 
+
+    #  /!\ should use persona smthing like:
+    # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
+    # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
+    # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
     prompt = """
     I have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
@@ -152,8 +177,6 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
     prompt += prompt2add
     return prompt
-
-
 
 ### mostly old stuff (need to check and remove it)
 
