@@ -34,11 +34,11 @@ class PuzzleCheck(BaseModel):
     """Puzzle description and if they should be given to the student or not."""
     puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
     explanations: str = Field(decription="Short explanation of whether the puzzle should be given to the student or not.")
-    assignement_pass: bool = Field(description="Whether the puzzle pass the assignement or not based on the previous explanations")
+    give_puzzle_to_student: bool = Field(description="Whether the puzzle should be given to student or not based on the previous explanations")
 
 class Topics_evaluation(BaseModel):
     """List of topics that are used in the problem and solution."""
-    index_topics: List[int] = Field(description="list of at most 5 index correponding to topics that are actually used in the problem or solution")
+    index_topics: List[int] = Field(description="list of at most 5 index correponding to topics that are actually used in the problem `f` or the solution `g`")
 
 
 # class Puzzle_Quality_Diversity(BaseModel):
@@ -47,24 +47,21 @@ class Topics_evaluation(BaseModel):
 #     puzzle_check: PuzzleCheck = Field(description="check the validity of the problem-solution pair")
 #     topics: Topics_evaluation = Field(description="list of topics that are used in the problem and solution")
 
-class Puzzle_Diversity(BaseModel):
-    """Evaluate the quality of a given pair of programming problem and solution."""
-    puzzle_check: PuzzleCheck = Field(description="check if the problem-solution pair respect the rules given")
-    topics: Topics_evaluation = Field(description="list of topics that are used in the problem and solution")
 
-class Puzzle_Interestingness(BaseModel):
-    """Evaluate the interestingness of a pair of programming problem and solution. The problem should be complexe and original, it should be relevant as a leetcode problem. And it should serve as good learning tools and have high educational value for **master's student**."""
-    puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
-    interestingness_score_f: int = Field(description="Assess the level of interest in the problem (function f) on a scale of 0 to 10, where the rating must be an integer.")
-    interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
-# maybe interestingne in term of pedagogy?
+# class Puzzle_Interestingness(BaseModel):
+#     """Evaluate the interestingness of a pair of programming problem and solution. The problem should be complexe and original, it should be relevant as a leetcode problem. And it should serve as good learning tools and have high educational value for **master's student**."""
+#     puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+#     interestingness_score_f: int = Field(description="Assess the level of interest in the problem (function f) on a scale of 0 to 10, where the rating must be an integer.")
+#     interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
+# # maybe interestingne in term of pedagogy?
 
 def create_prompt_label(puzzle : str, mode="give_skills"):
     """
     create prompt for label_puzzle goes with Topics_evaluation class with give_skills=True
     mode 
     """
-    level = "undergraduate student"#"master's student"
+
+    level = "undergraduate student in CS"#"master's student"
     # skills format
     format_skills=""
     for idx,skill in enumerate(skill_list):
@@ -72,23 +69,31 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
     skills = f"\n{format_skills}"
     
     base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
-    base_persona += f"The Professor have assign to {level} in CS to create a python programming puzzle.\n"
+    base_persona += f"The Professor want to give some puzzles to his {level} to teach them Python. "#f"The teacher have assign to {level} in CS to create a python programming puzzle.\n"
+    # base_persona += f"The Professor have assign to {level} in CS to create a python programming puzzle.\n"
     match mode:
-        case "is valid": # WIP should also use a persona to label the puzzle
+        case "is_valid": # WIP should also use a persona to label the puzzle
             prompt=base_persona
-            prompt += "The Professor want to evaluate if the puzzle pass the assignment criteria, can you label the following puzzle please?"
+            prompt += "Your role is to check if the following puzzle could be used or not."
 
         case "description": # WIP 
             prompt=base_persona
-            prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
+            # prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
+            prompt += "Your role is to write a **short** description of the following puzzle."
+            
+        case "description+is_valid": # WIP
+            prompt=base_persona
+            prompt += "Your role is to first write a **short** description of the following puzzle. "
+            prompt += f"Then you should check if the following puzzle could be used or not to teach Python to {level}."
 
         case "give_skills":
             #  /!\ should use persona smthing like:
             # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
             # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
             # The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?
-
-            prompt = "Given the following puzzle, and the list of topics, exctract the information requested."
+            prompt = base_persona
+            prompt+= "The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?"
+            # prompt = "Your role is: given the following puzzle, and the list of topics, exctract the information requested."
             prompt += "\nThe list of topics is:\n"+ skills + "\n"
 
         case "general":
