@@ -58,7 +58,7 @@ class QDConfig(BaseConfig):
     save_snapshot_interval: int = 5 #5
     loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
     log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
-    seed: Optional[int] = 44
+    seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
     crossover: bool = False
@@ -183,7 +183,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
-    limited_trainset= True # start with few example (3)
+    limited_trainset= True # start with few example ~ 130 examples
     timeout: float = 10.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3

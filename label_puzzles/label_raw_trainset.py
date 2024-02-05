@@ -84,7 +84,7 @@ for idx in range(len(out)):
 
     out[idx].update(list_phenotype_correct_puzzle[idx])
     out[idx].update(add_to_results[idx])
-    # out[idx]["description"] = results2[idx].puzzle_description
+    out[idx]["fitness"] = 1.
     # out[idx]["interestingness_f"] = results2[idx].interestingness_score_f
     # out[idx]["interestingness_g"] = results2[idx].interestingness_score_g
     # out[idx]["quality"] = (out[idx]["interestingness_f"]+out[idx]["interestingness_g"])/2
