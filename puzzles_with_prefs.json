@@ -1,0 +1,100 @@
+[
+    {
+        "name": "NoRelativePrimes:0",
+        "sat": "def sat(nums: List[int], b=7, m=6):\n    assert len(nums) == len(set(nums)) == m and min(nums) >= 0\n\n    def gcd(i, j):\n        r, s = max(i, j), min(i, j)\n        while s >= 1:\n            r, s = s, (r % s)\n        return r\n\n    for a in nums:\n        nums = [(a + i + 1) ** 2 + (a + i + 1) + 1 for i in range(b)]\n        assert all(any(i != j and gcd(i, j) > 1 for j in nums) for i in nums)\n\n    return True",
+        "ans_type": "List[int]",
+        "sol_header": "def sol(b=7, m=6):",
+        "sol_docstring": "    \"\"\"\n    Let P(n) = n^2 + n + 1.\n\n    Given b>=6 and m>=1, find m non-negative integers for which the set {P(a+1), P(a+2), ..., P(a+b)} has\n    the property that there is no element that is relatively prime to every other element.\n\n    Sample input:\n    b = 6\n    m = 2\n\n    Sample output:\n    [195, 196]\n    \"\"\"",
+        "sol_bodies": [
+            "    ans = []\n\n    seen = set()\n    deltas = set()\n\n    def go(a):\n        if a < 0 or a in seen or len(ans) == m:\n            return\n        seen.add(a)\n        nums = [(a + i + 1) ** 2 + (a + i + 1) + 1 for i in range(b)]\n        if all(any(i != j and gcd(i, j) > 1 for j in nums) for i in nums):\n            new_deltas = [abs(a - a2) for a2 in ans if a != a2 and abs(a - a2) not in deltas]\n            ans.append(a)\n            for delta in new_deltas:\n                for a2 in ans:\n                    go(a2 + delta)\n                    go(a2 - delta)\n            deltas.update(new_deltas)\n            for delta in sorted(deltas):\n                go(a + delta)\n\n    def gcd(i, j):\n        r, s = max(i, j), min(i, j)\n        while s >= 1:\n            r, s = s, (r % s)\n        return r\n\n    a = 0\n\n    while len(ans) < m:\n        go(a)\n        a += 1\n\n    return ans"
+        ],
+        "module": "difficult",
+        "notes": "Inspired by [IMO 2016 Problem 4](https://www.imo-official.org/problems.aspx)\n\nQuestion: Is there a more efficient solution than the brute-force one we give, perhaps using the Chinese remainder\ntheorem?",
+        "weight": 1.0
+    },
+    {
+        "name": "Nim:4",
+        "sat": "def sat(moves: List[List[int]], initial_state=[5, 8, 3, 0]):\n\n    def bot_move():  # bot takes objects from the largest heap to make it match the second largest heap\n        vals = sorted(state, reverse=True)\n        i_largest = state.index(vals[0])  # largest heap\n        state[i_largest] -= max(vals[0] - vals[1], 1)  # must take some, take 1 in case of tie\n\n    state = initial_state[:]  # copy\n    for i, n in moves:\n        assert 0 < n <= state[i], \"Illegal move\"\n        state[i] -= n\n        if set(state) == {0}:\n            return True  # you won!\n        assert any(state), \"You lost!\"\n        bot_move()",
+        "ans_type": "List[List[int]]",
+        "sol_header": "def sol(initial_state=[5, 8, 3, 0]):",
+        "sol_docstring": "    \"\"\"\n    Beat a bot at Nim, a two-player game involving a number of heaps of objects. Players alternate, in each turn\n    removing one or more objects from a single non-empty heap. The player who takes the last object wins.\n    - initial_state is list of numbers of objects in each heap\n    - moves is a list of your moves: [heap, number of objects to take]\n    - you play first\n    \"\"\"",
+        "sol_bodies": [
+            "\n    state = initial_state[:]\n    moves = []\n\n    def bot_move():  # bot takes objects from the largest heap to make it match the second largest heap\n        vals = sorted(state, reverse=True)\n        i_largest = state.index(vals[0])  # largest heap\n        state[i_largest] -= max(vals[0] - vals[1], 1)  # must take some, take 1 in case of tie\n\n    def losing(h):  # return True if h is a losing state\n        xor = 0\n        for i in h:\n            xor ^= i\n        return xor == 0\n\n    def optimal_move():\n        assert not losing(state)\n        for i in range(len(state)):\n            for n in range(1, state[i] + 1):\n                state[i] -= n\n                if losing(state):\n                    moves.append([i, n])\n                    return\n                state[i] += n\n        assert False, \"Shouldn't reach hear\"\n\n    while True:\n        optimal_move()\n        if max(state) == 0:\n            return moves\n        bot_move()"
+        ],
+        "module": "difficult",
+        "notes": "Compute optimal play for the classic two-player game [Nim](https://en.wikipedia.org/wiki/Nim)\n\nNim has an elegant theory for optimal play based on the xor of the bits in the heaps.\n\nInstead of writing a program that plays the game interactively (since interaction is not allowed), we require\nthem to determine winning states or beat a certain opponent.",
+        "weight": 1.0
+    },
+    {
+        "name": "BadPuzzle1",
+        "sat": "def f(is_sorted: bool, arr: List[int]) -> bool:\n    return is_sorted == all((arr[i] <= arr[i + 1] for i in range(len(arr) - 1)))",
+        "sol_header": "def g(arr: List[int]) -> bool:",
+        "sol_docstring": "",
+        "sol_bodies": [
+            "    return all((arr[i] <= arr[i + 1] for i in range(len(arr) - 1)))"
+        ],
+        "module": "bad"
+    },
+    {
+        "name": "BadPuzzle2",
+        "sat": "def f(is_anagram: bool, word1: str='listen', word2: str='silent') -> bool:\n    return is_anagram",
+        "sol_header": "def g(word1: str='listen', word2: str='silent') -> bool:",
+        "sol_docstring": "Returns True if word1 and word2 are anagrams, False otherwise",
+        "sol_bodies": [
+            "    return sorted(word1.lower()) == sorted(word2.lower())"
+        ],
+        "module": "bad"
+    },
+    {
+        "name": "StrAdd:0",
+        "sat": "def sat(st: str, a=\"world\", b=\"Hello world\"):\n    return st + a == b",
+        "ans_type": "str",
+        "sol_header": "def sol(a=\"world\", b=\"Hello world\"):",
+        "sol_docstring": "    \"\"\"Solve simple string addition problem.\"\"\"",
+        "sol_bodies": [
+            "    return b[:len(b) - len(a)]"
+        ],
+        "module": "trivial",
+        "notes": "",
+        "weight": 0.2
+    },
+    {
+        "name": "StrAdd:4",
+        "sat": "def sat(st: str, a=\"s\", b=\"tos\"):\n    return st + a == b",
+        "ans_type": "str",
+        "sol_header": "def sol(a=\"s\", b=\"tos\"):",
+        "sol_docstring": "    \"\"\"Solve simple string addition problem.\"\"\"",
+        "sol_bodies": [
+            "    return b[:len(b) - len(a)]"
+        ],
+        "module": "trivial",
+        "notes": "",
+        "weight": 0.2
+    },
+    {
+        "name": "Study_1:0",
+        "sat": "def sat(s: str):\n    return s.count('o') == 1000 and s.count('oo') == 0",
+        "ans_type": "str",
+        "sol_header": "def sol():",
+        "sol_docstring": "    \"\"\"Find a string with 1000 'o's but no two adjacent 'o's.\"\"\"",
+        "sol_bodies": [
+            "    return ('h' + 'o') * 1000"
+        ],
+        "module": "appropriate",
+        "notes": "",
+        "weight": 1.0
+    },
+    {
+        "name": "Study_5:0",
+        "sat": "def sat(li: List[int]):\n    return all([li.count(i) == i for i in range(10)])",
+        "ans_type": "List[int]",
+        "sol_header": "def sol():",
+        "sol_docstring": "    \"\"\"Find a list integers such that the integer i occurs i times, for i = 0, 1, 2, ..., 9.\"\"\"",
+        "sol_bodies": [
+            "    return [i for i in range(10) for j in range(i)]"
+        ],
+        "module": "appropriate",
+        "notes": "",
+        "weight": 1.0
+    }
+]
