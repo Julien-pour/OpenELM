@@ -49,6 +49,7 @@ def get_class_PuzzleCheck(mode):
 
 class Topics_evaluation(BaseModel):
     """List of topics that are used in the problem and solution."""
+    explanations_index_topics: str = Field(decription="Short explanation of the specific topics employed in the puzzle.")
     index_topics: List[int] = Field(description="list of at most 5 index correponding to topics that are actually used in the problem `f` or the solution `g`")
 
 
@@ -74,7 +75,7 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
     description use to give a description of the puzzle
     """
 
-    level = "undergraduate student in CS"#"master's student"
+    level = "master's student in CS"#"master's student"
     # skills format
     format_skills=""
     for idx,skill in enumerate(skill_list):
@@ -82,8 +83,10 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
     skills = f"\n{format_skills}"
     
     base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
-    base_persona += f"The Professor want to give some puzzles to his {level} to teach them Python. "#f"The teacher have assign to {level} in CS to create a python programming puzzle.\n"
+    base_persona += f"The Professor want to give Pyhton programming puzzles to his {level} to teach them Python. "#f"The teacher have assign to {level} in CS to create a python programming puzzle.\n"
     # base_persona += f"The Professor have assign to {level} in CS to create a python programming puzzle.\n"
+    base_persona += "A Python programming puzzle is defined by two functions, the puzzle f(…) and the solution g(…). f defines an algorithmic challenge, and g solves this challenge. g is a solution to f if and only if f(g()) == True."
+
     match mode:
         case "is_valid": # WIP should also use a persona to label the puzzle
             prompt=base_persona
@@ -92,11 +95,10 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
         case "description": # WIP 
             prompt=base_persona
             # prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
-            prompt += "Your role is to write a **short** description of the following puzzle."
-
+            prompt += "Your role is to write a **short** description of the following Python Programming Puzzles. " 
         case "description+is_valid": # WIP
             prompt=base_persona
-            prompt += "Your role is to first write a **short** description of the following puzzle. "
+            prompt += "Your role is to first write a **short** description of the following Python Programming Puzzle. "
             prompt += f"Then you should check if the following puzzle could be used or not to teach Python to {level}."
 
         case "give_skills":
@@ -104,15 +106,15 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
             # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
             # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
             # The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?
-            prompt = base_persona
+            prompt = base_persona+"\n"
             prompt+= "The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?"
             # prompt = "Your role is: given the following puzzle, and the list of topics, exctract the information requested."
-            prompt += "\nThe list of topics is:\n"+ skills + "\n"
+            prompt += "\nThe list of topics is:\n"+ skills 
 
         case "general":
             prompt= "Given the following puzzle, exctract the information requested."
     
-    prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n\n"
+    prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
             
     return prompt
 
@@ -153,8 +155,11 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
     # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
     # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
-    prompt = """
-    I have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
+    base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
+    base_persona += "The Professor want to give some puzzles to his master's student to teach them Python." # student -> Master student
+    prompt = base_persona 
+    prompt += """
+    I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
     
     Rules:
@@ -165,7 +170,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     5. Include any necessary imports for your code to run smoothly.
 
     Puzzle Format:
-    Problem description: ...
+    Puzzle description: A brief, one to two sentence summary of the puzzle's content.
     ```python
     def f(solution, args=...) -> bool:
         # Python code to test the solution returned by g.

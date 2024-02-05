@@ -23,7 +23,7 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "gpt-3.5-turbo-1106"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "gpt-3.5-turbo-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
     processes: int = 10
     logits_only: bool = False
@@ -36,7 +36,7 @@ class ModelConfig(BaseConfig):
 class PromptModelConfig(ModelConfig):
     request_timeout: int = 100 # timeout for API call
     model_name: str = "prompt"
-    model_path: str = "gpt-3.5-turbo-1106"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
+    model_path: str = "gpt-3.5-turbo-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -50,7 +50,7 @@ class QDConfig(BaseConfig):
     """
 
     """
-    model_path: str = "gpt-3.5-turbo-1106" # just for register the model
+    model_path: str = "gpt-3.5-turbo-0125" # just for register the model
     init_steps: int = 0  #250 # only mutation with base prompt, then sample from map and mutation after init_steps
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
