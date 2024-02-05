@@ -23,7 +23,7 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "gpt-3.5-turbo-1106"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "gpt-3.5-turbo-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     parrallel_call: bool = True # if True, use parallel call to API
     processes: int = 10
     logits_only: bool = False
@@ -36,7 +36,7 @@ class ModelConfig(BaseConfig):
 class PromptModelConfig(ModelConfig):
     request_timeout: int = 100 # timeout for API call
     model_name: str = "prompt"
-    model_path: str = "gpt-3.5-turbo-1106"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
+    model_path: str = "gpt-3.5-turbo-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -50,7 +50,7 @@ class QDConfig(BaseConfig):
     """
 
     """
-    model_path: str = "gpt-3.5-turbo-1106" # just for register the model
+    model_path: str = "gpt-3.5-turbo-0125" # just for register the model
     init_steps: int = 0  #250 # only mutation with base prompt, then sample from map and mutation after init_steps
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
@@ -58,7 +58,7 @@ class QDConfig(BaseConfig):
     save_snapshot_interval: int = 5 #5
     loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
     log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
-    seed: Optional[int] = 44
+    seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
     crossover: bool = False
@@ -183,7 +183,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
-    limited_trainset= True # start with few example (3)
+    limited_trainset= True # start with few example ~ 130 examples
     timeout: float = 10.0  # timeout for running a solution
     starting_seed: int = field(
         default_factory=lambda: 3
@@ -195,7 +195,9 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 3 # number of puzzle to generate for one query
-    remove_doc = True # remove doc in f 
+    remove_doc = True # can delete that?
+    activate_filtering_description = True # use LLM to describe puzzle after generation so it is not bias by skill labeling
+    puzzle_filtering = True # filter or not, only work if puzzle activate_filtering_description = True
 
 
 @dataclass

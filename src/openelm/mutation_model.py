@@ -295,7 +295,9 @@ class PromptModel(MutationModel):
                 results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes)
             else:
                 results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=1)
+
             completions = results
+            
         else:
             results = self.model.generate(prompts=prompts)
             completions = [

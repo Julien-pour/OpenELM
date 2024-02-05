@@ -1,9 +1,11 @@
+# should probably move that to smthing like prompt.py
 from typing import Optional, Union, List
 import json
 
 import numpy as np
 import textwrap
 from pydantic import BaseModel,Field
+
 
 
 skill_list = [
@@ -30,18 +32,25 @@ skill_list = [
 ]
 
 # class for instructor skill labelling prompt for P3
-class PuzzleCheck(BaseModel):
-    """Puzzle must be filtered if the problem does not respect those rules:
-    **Rules:**
-    1. Avoid using `f` inside `g`.
-    2. The function g must return the solution to the problem. And not just a function that gives arguments to f.
-    """
-    explanations: str = Field(decription="Short explanation of whether the puzzle adheres to the following rules: 1. Avoid using `f` within `g`. 2. The function `g` must return the solution to the problem, not merely a function that passes arguments to `f`.")
-    is_valid: bool = Field(description="Whether the puzzle is valid or not based on the previous explanations and rules")
+def get_class_PuzzleCheck(mode):
+    match mode:
+        case "description":
+            class PuzzleCheck(BaseModel):
+                """Puzzle description and if they should be given to the student or not."""
+                puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+
+        case "description+is_valid":
+            class PuzzleCheck(BaseModel):
+                """Puzzle description and if they should be given to the student or not."""
+                puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+                explanations: str = Field(decription="Short explanation of whether the puzzle should be given to the student or not.")
+                give_puzzle_to_student: bool = Field(description="Whether the puzzle should be given to student or not based on the previous explanations")
+    return PuzzleCheck
 
 class Topics_evaluation(BaseModel):
     """List of topics that are used in the problem and solution."""
-    index_topics: List[int] = Field(description="list of at most 5 index correponding to topics that are actually used in the problem or solution")
+    explanations_index_topics: str = Field(decription="Short explanation of the specific topics employed in the puzzle.")
+    index_topics: List[int] = Field(description="list of at most 5 index correponding to topics that are actually used in the problem `f` or the solution `g`")
 
 
 # class Puzzle_Quality_Diversity(BaseModel):
@@ -50,32 +59,63 @@ class Topics_evaluation(BaseModel):
 #     puzzle_check: PuzzleCheck = Field(description="check the validity of the problem-solution pair")
 #     topics: Topics_evaluation = Field(description="list of topics that are used in the problem and solution")
 
-class Puzzle_Diversity(BaseModel):
-    """Evaluate the quality of a given pair of programming problem and solution."""
-    puzzle_check: PuzzleCheck = Field(description="check if the problem-solution pair respect the rules given")
-    topics: Topics_evaluation = Field(description="list of topics that are used in the problem and solution")
 
-class Puzzle_Interestingness(BaseModel):
-    """Evaluate the interestingness of a pair of programming problem and solution. The problem should be complexe and original, it should be relevant as a leetcode problem. And it should serve as good learning tools and have high educational value for **master's student**."""
-    puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
-    interestingness_score_f: int = Field(description="Assess the level of interest in the problem (function f) on a scale of 0 to 10, where the rating must be an integer.")
-    interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
-# maybe interestingne in term of pedagogy?
+# class Puzzle_Interestingness(BaseModel):
+#     """Evaluate the interestingness of a pair of programming problem and solution. The problem should be complexe and original, it should be relevant as a leetcode problem. And it should serve as good learning tools and have high educational value for **master's student**."""
+#     puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
+#     interestingness_score_f: int = Field(description="Assess the level of interest in the problem (function f) on a scale of 0 to 10, where the rating must be an integer.")
+#     interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
+# # maybe interestingne in term of pedagogy?
 
-def create_prompt_label(puzzle : str, Puzzle_Interestingness=False):
-    """create prompt for label_puzzle goes with Quality_Diversity_Measure"""
+def create_prompt_label(puzzle : str, mode="give_skills"):
+    """
+    create prompt for label_puzzle goes with Topics_evaluation class with give_skills=True
+    mode = "give_skills", "is_valid", "description", "description+is_valid", "general"
+    is_valid -> filtering 
+    description use to give a description of the puzzle
+    """
+
+    level = "master's student in CS"#"master's student"
+    # skills format
     format_skills=""
-
     for idx,skill in enumerate(skill_list):
         format_skills+=f"{idx}. {skill}\n"
     skills = f"\n{format_skills}"
-    if Puzzle_Interestingness:
-        prompt= "Given the following puzzle, exctract the information requested."
-    else:
-        prompt= "Given the following puzzle, and the list of topics, exctract the information requested."
-    prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n\n"
-    if not Puzzle_Interestingness:
-        prompt += "The list of topics is:\n"+ skills + "\n"
+    
+    base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
+    base_persona += f"The Professor want to give Pyhton programming puzzles to his {level} to teach them Python. "#f"The teacher have assign to {level} in CS to create a python programming puzzle.\n"
+    # base_persona += f"The Professor have assign to {level} in CS to create a python programming puzzle.\n"
+    base_persona += "A Python programming puzzle is defined by two functions, the puzzle f(…) and the solution g(…). f defines an algorithmic challenge, and g solves this challenge. g is a solution to f if and only if f(g()) == True."
+
+    match mode:
+        case "is_valid": # WIP should also use a persona to label the puzzle
+            prompt=base_persona
+            prompt += "Your role is to check if the following puzzle could be used or not."
+
+        case "description": # WIP 
+            prompt=base_persona
+            # prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
+            prompt += "Your role is to write a **short** description of the following Python Programming Puzzles. " 
+        case "description+is_valid": # WIP
+            prompt=base_persona
+            prompt += "Your role is to first write a **short** description of the following Python Programming Puzzle. "
+            prompt += f"Then you should check if the following puzzle could be used or not to teach Python to {level}."
+
+        case "give_skills":
+            #  /!\ should use persona smthing like:
+            # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
+            # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
+            # The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?
+            prompt = base_persona+"\n"
+            prompt+= "The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?"
+            # prompt = "Your role is: given the following puzzle, and the list of topics, exctract the information requested."
+            prompt += "\nThe list of topics is:\n"+ skills 
+
+        case "general":
+            prompt= "Given the following puzzle, exctract the information requested."
+    
+    prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
+            
     return prompt
 
 
@@ -83,9 +123,11 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     """
     should change that to list_few_shot_example from list to Phenotype type
     skill_targeted list of binary vector
+    remove n_fewshot_ex
     """
     elm_mode=False
     prompt_elm=""
+    prompt2add=""
     aces_mode=False
     if not code_batch is None:
         elm_mode = True
@@ -101,18 +143,23 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     
     examples = ""
     for i, puzzle in enumerate(puzzles):   
-        puzzle_description ="" # /!\ need to implement that puzzle.description /!\
+        puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
 
-        if i == 0:
-            examples += f"Puzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
-        if i != 0:
-            examples += "\n"
+        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
     if elm_mode:
-        prompt_elm=f", each being a **mutation** derived from the Puzzle {i+1}." #the structure of Puzzle 2
-        examples += f"Puzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```"
+        prompt_elm=f", each being a **mutation** derived from Puzzle {i+1}" #the structure of Puzzle 2
+        examples += f"\nPuzzle to mutate {i+1}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
 
-    prompt = """
-    I have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
+
+    # /!\ should use persona (could be an improved version) smthing like:
+    # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
+    # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
+    # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
+    base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
+    base_persona += "The Professor want to give some puzzles to his master's student to teach them Python." # student -> Master student
+    prompt = base_persona 
+    prompt += """
+    I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
     
     Rules:
@@ -123,7 +170,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     5. Include any necessary imports for your code to run smoothly.
 
     Puzzle Format:
-    Problem description: ...
+    Puzzle description: A brief, one to two sentence summary of the puzzle's content.
     ```python
     def f(solution, args=...) -> bool:
         # Python code to test the solution returned by g.
@@ -136,27 +183,23 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
 
     assert f(g()) == True
     ```
-
     {examples}
-
     Your Task:
     Create three new Python Programming Puzzles (Puzzle 2 to Puzzle 4)."""
     prompt = textwrap.dedent(prompt)
     if elm_mode == True:
-        prompt2add = f"Ensure that each new puzzles dervied from a mutated Puzzle {i+1}."
+        prompt2add = f" Ensure that each new puzzle is derived from a mutated Puzzle {i+1}."
     if aces_mode == True:
         skill_target=" "
         idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
         for idx in idx_skill_targeted:
             skill_target += f"\n- {skill_list[idx]}"
 
-        prompt2add = "Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging"# and adhere to the specified format."
-        prompt2add += f"and they should incorporate the following skills:{skill_target}"
+        prompt2add = " Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging"# and adhere to the specified format."
+        prompt2add += f" and they should incorporate the following skills:{skill_target}"
     prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
     prompt += prompt2add
     return prompt
-
-
 
 ### mostly old stuff (need to check and remove it)
 
@@ -679,5 +722,5 @@ __all__ = [
     "skill_list",
     "create_prompt_label",
     "Puzzle_Interestingness",
-    "Puzzle_Diversity",skill_list
+    "Puzzle_Diversity","get_class_PuzzleCheck"
 ]

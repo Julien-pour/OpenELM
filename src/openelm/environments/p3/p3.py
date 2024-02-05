@@ -33,13 +33,13 @@ from openelm.environments.p3 import (
     P3_PROBLEM_MED_SEED,
     P3_PROBSOL_LONG_SEED,
     P3_PROBSOL_MED_SEED,
-    create_prompt_label,Puzzle_Diversity,Puzzle_Interestingness,Topics_evaluation,skill_list
+    create_prompt_label,get_class_PuzzleCheck,Topics_evaluation,skill_list
 )
 from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import load_examples_p3,preprocessing_P3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
+from openelm.utils.code_eval import load_examples_p3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
 import itertools
 # from joblib import parallel_config
 from concurrent.futures import ThreadPoolExecutor
@@ -328,11 +328,11 @@ class P3Problem(BaseEnvironment[P3Solution]):
         new_sols = self.generate_programs(program_list)
         return new_sols
 
-
+# the one to use with P3ProbSol_Chat
 class P3ProbSolResult(Genotype):
     def __init__(self, program_str: str, config: P3ProbSolEnvConfig, emb: list= None,
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
-                  description:str="[description of the puzzle]", interestingness_f:int=None, interestingness_g:float=None, is_valid:bool=None, is_valid_explanation:str=None,result_obj : Optional[dict]={}) -> None:
+                  description:str="[description of the puzzle]", interestingness_f:int=None, interestingness_g:float=None, is_valid:bool=None, is_valid_explanation:str=None,result_obj : Optional[dict]={}, explanation_emb=None) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -345,6 +345,7 @@ class P3ProbSolResult(Genotype):
         self.result_obj = result_obj
         self.config = config
         self.emb = emb
+        self.explanation_emb = explanation_emb
         self.idx_generation = idx_generation
         self.target_skills = target_skills
         if self.config.env_name == "p3_probsol_Chat" :
@@ -357,21 +358,16 @@ class P3ProbSolResult(Genotype):
             # no more problem if an assert is in def f
             i_assert = self.solution_func.find("assert") 
             self.solution_func = self.solution_func[:i_assert].strip() 
+        
+        self.quality = quality,
+        self.description=description,
+        self.is_valid = is_valid, 
+        self.is_valid_explanation = is_valid_explanation
 
         if self.config.GPT_feedback:
-            self.quality = quality,
-            self.description=description,
             self.interestingness_f = interestingness_f, 
             self.interestingness_g = interestingness_g,
-            self.is_valid = is_valid, 
-            self.is_valid_explanation = is_valid_explanation
 
-        else:
-            i_f6 = program_str.find("def f6_2(")
-            i_g6 = program_str.find("def g6_2(")
-            i_assert = program_str.find("assert")
-            self.problem_func = self.program_str[i_f6:i_g6].strip()
-            self.solution_func = self.program_str[i_g6:i_assert].strip()
 
 
 
@@ -383,7 +379,7 @@ class P3ProbSolResult(Genotype):
             self.emb = []
         if self.target_skills is None:
             self.target_skills = []
-        dic={"fitness":self.fitness,"program_str":self.program_str, "emb":list(self.emb)}
+        dic={"fitness":self.fitness,"program_str":self.program_str, "emb":list(self.emb),"explanation_emb":self.explanation_emb}
         dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills)})
         dic.update({"quality":self.quality,"description" : self.description, "interestingness_f": self.interestingness_f})
         dic.update({"interestingness_g":self.interestingness_g,"is_valid":self.is_valid,"is_valid_explanation":self.is_valid_explanation})
@@ -780,7 +776,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         first_example ="def f(x,a=1,b=1): return a*x==b \ndef g(x,a=1,b=1): return b/a\nassert f(g())==True"
         # self.n_skills = n_skills
-        out = self.to_phenotype(first_example)
+        out = self.to_phenotype(first_example)["emb"]
         if self.config.embedding_model_type == "openai" and not "embedding" in self.config.embedding_model_type: 
             #NLP space
 
@@ -807,7 +803,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         pass
 
 
-    def label_puzzle(self,program_str):
+    def label_puzzle(self,program_str) -> dict:
         """
         Label a puzzle with the skills it requires
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
@@ -817,13 +813,14 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         tool_skill_labeling = Topics_evaluation
         result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
         skill=result.index_topics
+        explanation_skill =result.explanations_index_topics
         if not len(skill)<=5: # we should have at most 5 topics
             skill=skill[:5]
         skill =[1 if i in skill else 0 for i in range(self.n_skills)]
         # tool_diversity = Puzzle_Diversity
         # tool_interstingness = Puzzle_Interestingness
-
-        return skill
+        dic_label={"emb":skill,"explanation_emb":explanation_skill}
+        return dic_label
 
     
     def to_phenotype(self,program_str: str):
@@ -846,13 +843,13 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 with torch.no_grad():
                     inputs = self.tokenizer.encode(program_str, return_tensors="pt",truncation=True,max_length=512)
                     emb = self.model(inputs)[0]
-                return emb.numpy()
+                return {"emb":emb.numpy()}
             
             elif self.config.embedding_model_type == "hf":
                 # weird preprocessing 
                 features = np.array(self.pl(program_str))
 
-                return features.mean(axis=0).flatten() # mean pooling
+                return {"emb":features.mean(axis=0).flatten()} # mean pooling
             
         else:
             raise NotImplementedError
@@ -886,6 +883,49 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 list_phenotype_correct_puzzle.append(self.to_phenotype(program_str))
         return list_phenotype_correct_puzzle
 
+    def description_filtering(self,program_str):
+        """give a description of the puzzle and a boolean if it is pass the filter or not"""
+        if self.config.activate_filtering_description and self.config.puzzle_filtering:
+            mode = "description+is_valid"
+        elif self.config.activate_filtering_description and not self.config.puzzle_filtering:
+            mode = "description"
+        else: NotImplementedError("should not go there")
+
+        prompt = create_prompt_label(program_str, mode = mode)
+        tool_skill_labeling = get_class_PuzzleCheck(mode)
+
+        result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
+        dic_features = {}
+        if "description" in mode: 
+            puzzle_description = result.puzzle_description
+            dic_features["description"] = puzzle_description
+        if "is_valid" in mode:
+            is_valid_explanation = result.explanations
+            is_valid = result.give_puzzle_to_student
+            dic_features.update({"is_valid_explanation": is_valid_explanation, "is_valid": is_valid})
+        return dic_features
+
+    def multiple_description_filtering(self,list_program_str: List[str]):
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i : i + n]
+        # for api based model
+        completions=[]
+        max_workers = self.mutation_model.config.processes
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for sub_batch in chunks(list_program_str, max_workers):
+                for idx,message_list in enumerate(sub_batch):
+                    kwargs={"program_str":message_list}
+                    # if "kwargs" in kwargs_modified:
+                    #     original_kwargs = kwargs_modified.pop("kwargs")
+                    future = executor.submit(
+                        self.description_filtering,**kwargs
+                    )
+                    completions.append(future)
+        # Retrieve the results from the futures
+        list_description_filter = [future.result() for future in completions]
+        return list_description_filter
 
     def preprocess_p3(self, split="train",load_embedding=True,debug=False):
         """
@@ -905,7 +945,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             puz["config"] = self.config
             
             if not load_embedding or self.config.embedding_model_type == "hf":
-                puz["emb"]=self.to_phenotype(puz["program_str"])
+                puz["emb"]=self.to_phenotype(puz["program_str"])["emb"]
                 
         #     puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring       
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
@@ -950,6 +990,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
     def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model parse them, compute fitness and evaluate them."""
+        
         print('generating programs')
         local_scope_exec = False
         start_t0 = time.time()
@@ -1007,11 +1048,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     results.append(return_dict)
             print('done')
 
-        else: results=[None]*len(generated_programs) # remove get output function
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
-            for (gen_prog, res_obj, target_skills) in zip(generated_programs, results, skill_targeted_list_duplicate)
+            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
+            for (gen_prog, target_skills) in zip(generated_programs, skill_targeted_list_duplicate)
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
         start_t4 = time.time()
@@ -1024,25 +1064,45 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
+        # add gen description puzzle here (or should we do it with skill labeling ?) 
+        # + add filtering step here ?
+        if self.config.activate_filtering_description:
+            add_to_results =self.multiple_description_filtering(list_correct_puzzle)
+        
+
         # compute phenotype of correct puzzle
         start_t6 = time.time()
+        
         print('begin phenotype computation')
-        list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle)
+
+        #TODO: use puzzle description in phenotype computation (add description to list_correct_puzzle)
+        # if self.config.activate_filtering_description:
+        #     for idx in range(len(list_correct_puzzle)):
+        #         list_correct_puzzle[idx] = add_to_results[idx]["description"] +"\n"+ list_correct_puzzle[idx]
+        
+        list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle) # should probably give description to label puzzle ?
         # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
         #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
         list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
 
-        # add phenotype of correct puzzle to the list of phenotype
-        for idx in range(len(list_phenotype_correct_puzzle)):
-            list_phenotype[idx_correct_puzzle[idx]] = list_phenotype_correct_puzzle[idx]
-            
+        # add phenotype of correct puzzle to the list of phenotype            
         generated_programs = [gen_prog for gen_prog in generated_programs]
         results = [
-            {"program_str": gen_prog, "result_obj": res_obj, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
-            for (gen_prog, res_obj, target_skills,pheno,fitness) in zip(generated_programs, results, skill_targeted_list_duplicate,list_phenotype,list_fitness)
+            {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness}
+            for (gen_prog, target_skills,pheno,fitness) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness)
         ]
+
+        # add embedding + description embedding to the results
+        for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+            results[idx_puzzle].update(list_phenotype_correct_puzzle[idx])
+
+
+        if self.config.activate_filtering_description: # add description and/or filtering to results
+            for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+                results[idx_puzzle].update(add_to_results[idx])
+            
         print('finished generation')
         return [P3ProbSolResult(**p) for p in results]
     
