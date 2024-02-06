@@ -126,7 +126,7 @@ def get_five_fold_results(client, cfg_generation, docstring_mode='in_puzzle', mo
                                                                 puzzle_set=puzzle_set)
     prompt = prompt_template.format(examples=example_str)
     completion = get_completion(client, prompt, cfg_generation)
-    return completion, permutation, str_ids, ids
+    return completion, prompt, permutation, str_ids, ids
 
 
 def get_default_config():
@@ -149,13 +149,14 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
     list_outputs = []
     justifications = []
     permutations = []
+    prompts = []
 
     if puzzle_set == 'preferences':  # to recover which puzzle we sampled
         puz_ids = []
 
     for i in range(N):
         print(f'Completion {i}:')
-        completion, permutation, str_ids, ids = get_five_fold_results(
+        completion, prompt, permutation, str_ids, ids = get_five_fold_results(
             client, cfg_generation, docstring_mode='before_puzzle', mode=mode, 
             puzzle_set=puzzle_set)
         m = re.match('(.*)(\[.*\]).*', completion, re.DOTALL)
@@ -195,6 +196,7 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
             if comment:
                 justifications.append((i, comment))
             permutations.append((i, permutation))
+            prompts.append(prompt)
 
             if puzzle_set == 'preferences':
                 puz_ids.append(ids)
@@ -208,7 +210,10 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
     pprint(list_outputs)
 
     data = dict(unique=unique, list_outputs=list_outputs, justifications=justifications, 
-                permutations=permutations)
+                permutations=permutations, prompts=prompts)
+    
+    if puzzle_set == 'preferences':
+        data['puz_ids'] = puz_ids
 
     save_name = 'save_results_completion_permutations_{len}'
     if mode == 'scrambled':
