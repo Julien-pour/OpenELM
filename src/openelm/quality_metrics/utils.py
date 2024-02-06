@@ -7,10 +7,156 @@ from tqdm import tqdm
 import torch.multiprocessing as mp
 import torch
 from transformers import CodeLlamaTokenizer, LlamaTokenizer, AutoTokenizer, AutoModelForCausalLM
+import os
+# dedup,info,silence_std_err
+from copy import copy, deepcopy
 
+
+def return_f(puzzle_json):
+    puzzle_json = deepcopy(puzzle_json)
+    f = puzzle_json["sat"]
+    #  add 'sol_docstring' (description of the problem) to the function f
+    f = f.replace("sat(", "f(")
+    idx_add_problem_description = f.find("\n")
+
+    if type(puzzle_json["sol_docstring"]) == str:
+        f=f[:idx_add_problem_description+1]+ puzzle_json["sol_docstring"]+"\n"+f[idx_add_problem_description+1:]
+    return f
+
+
+def add_return_bool_2_f(f):
+    tree = ast.parse(f)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            node.returns = ast.Name(id='bool', ctx=ast.Load())
+
+    return ast.unparse(tree)
+
+def extract_args_f(f):
+    """
+    extract arguments of f, for g
+    """
+    str_arg=""
+    parsed_ast = ast.parse(f)
+    func=parsed_ast.body[0]
+    name_args = [a.arg for a in func.args.args][1:] # remove the first arg as it isn't necessary for g (because it is the output return by g)
+    assert len(func.args.defaults) == len(name_args)
+    for i in range(len(name_args)):
+        def_values = ast.literal_eval(func.args.defaults[i])
+        if type(def_values) == str:
+            def_values = "'"+def_values+"'"
+        str_arg += name_args[i] + " = " + str(def_values)
+        if i < len(name_args)-1:
+            str_arg+=", "
+    return str_arg
+
+def return_header_g(f):
+    args_f = extract_args_f(f)
+    return "def g(" + args_f + "):"
+
+
+def return_g(puzzle_json, f):
+    if not puzzle_json["sol_bodies"]:
+        print("no solution in json")
+        return "def g(""):\n    pass"
+    args_f = extract_args_f(f)
+    g = "def g(" + args_f + "):\n" + puzzle_json["sol_bodies"][0]
+    return g
+
+def merge_Q_and_A(liste_fg):
+    parsed = deepcopy(liste_fg) # format [(f,g),(f,g),...]
+
+    judge_srcs = [f"{f}\n{g}\nassert f(g())" for (f, g) in parsed] # format the code to be judged
+    return judge_srcs
+
+def preprocessing_p3(puzzles, n_token_max: int = 512, path=None, tokenizer=None) -> list[dict]:
+    """
+    dl puzzles from P3 dataset and give train or test puzzles
+    split = "train" or "test"
+    """
+    puzzles_set = []
+    generated_programs = []
+    for i in puzzles:
+        puzzle_2_add = {}
+        puzzle_2_add["f"] = add_return_bool_2_f(return_f(i))
+        puzzle_2_add["g"] = return_g(i, puzzle_2_add["f"])
+        puzzle_2_add['attempts'] = 0
+        puzzle_2_add["program_str"] = merge_Q_and_A([(puzzle_2_add["f"],puzzle_2_add["g"])])[0]
+        puzzle_2_add["g_firstline"] = return_header_g(puzzle_2_add["f"])
+        generated_programs.append(puzzle_2_add["program_str"])
+        puzzles_set.append(puzzle_2_add)
+
+    list_len_embedding = []
+    for puzz in puzzles_set:
+        len_puzz = len(tokenizer(puzz["program_str"], return_tensors="pt")["input_ids"][0])
+        # print(len_puzz)
+        list_len_embedding.append(len_puzz)
+    index = np.array(list_len_embedding)<=n_token_max
+    # remove item where index is False
+    puzzles_set = [item for i, item in enumerate(puzzles_set) if index[i]]
+    print("puzzle found =", len(puzzles_set))
+    return puzzles_set
+
+
+
+
+
+def info(*args, **kwargs):
+    _get_or_create_logger().info(print_to_string(*args, **kwargs))
+
+def dedup(stuff):
+    seen = set()
+    return [a for a in stuff if a not in seen and not seen.add(a)]
+
+def type_check(obj, typ):
+    """
+    check if obj is of type `typ` where `typ` is a `typing` module type annotation, eg List[int]
+    The way we do this to be compatible across versions is we first convert the type to a string.
+    """
+
+    type_str = str(typ).replace("typing.", "")
+    if type_str.startswith("<class '"):
+        type_str = type_str[8:-2]
+
+    def helper(obj, type_st: str):
+        """test if obj is of type type_st"""
+        t = {"str": str, "int": int, "float": float, "bool": bool}.get(type_st)
+        if t is not None:
+            return type(obj) == t
+        assert type_st.endswith("]"), f"Strange type `{type_st}`"
+        inside = type_st[type_st.index("[")+1:-1].split(", ")
+        if type_st.startswith("List["):
+            [i] = inside
+            return isinstance(obj, list) and all(type_check(elem, i) for elem in obj)
+        if type_st.startswith("Set"):
+            [i] = inside
+            return isinstance(obj, set) and all(type_check(elem, i) for elem in obj)
+        print(f"type not handled: {typ}")
+        return True
+
+    return helper(obj, type_str)
+
+def test_puzzle(f, x):
+    """Checks if x is of the correct type and makes f return True (literally True, not an integer or whatever)
+
+    :param f: Puzzle
+    :param x: candidate answer
+    :return:
+    """
+    answer_type = list(f.__annotations__.values())[0]
+    if not type_check(x, answer_type):
+        raise TypeError
+    return f(x) is True
 
 ### general utils
-
+def load_prompt_PP(one_shot_prompt_id):
+    utils_directory = os.path.dirname(os.path.realpath(__file__))
+    # path_prompt = os.path.abspath("src/examplefile.txt") which one is "better"?
+    path_prompt = os.path.join(utils_directory,'dataset_progress', one_shot_prompt_id)
+    with open(path_prompt, 'r') as f:
+        prompt_text = f.read()
+    return prompt_text
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
@@ -356,3 +502,96 @@ def pairwise_distance(a, b):
     distance = (a - b).pow(2).sum(-1).pow(0.5)
     return distance
 
+
+
+
+### utils for logging
+import logging
+import io
+import sys
+
+_configured = False
+my_path = os.path.dirname(__file__)
+
+
+def configure_logging(stdio_level=logging.INFO,
+                      file_level=logging.DEBUG,
+                      path=os.path.join(my_path, "../logs/"),
+                      filename=os.path.basename(sys.argv[0]).replace(".py", "") + ".log"):
+    global _configured
+    if _configured:
+        warning("Re-configuring logging")
+    # create path if necessary
+    os.makedirs(path, exist_ok=True)
+    stdio_handler = logging.StreamHandler()
+    stdio_handler.setLevel(stdio_level)
+    file_hanlder = logging.FileHandler(os.path.join(path, filename))
+    file_hanlder.setLevel(file_level)
+
+    logging.basicConfig(
+        format="%(asctime)s:%(levelname)s:%(name)s:%(message).512s",
+        datefmt="%Y/%m/%d %H:%M:%S",
+        level=min(stdio_level, file_level),
+        handlers=[stdio_handler, file_hanlder]
+    )
+
+    _configured = True
+    _get_or_create_logger().debug("Configured logging")
+
+
+_loggers = {}
+
+
+def _get_or_create_logger():
+    global _configured, _loggers
+    if not _configured:
+        configure_logging()
+    name = "_"
+    for frame in inspect.stack():
+        name = inspect.getmodule(frame[0]).__name__
+        if name != __name__:
+            break
+    if name not in _loggers:
+        _loggers[name] = logging.getLogger(name)
+    return _loggers[name]
+
+
+_std_errs = None
+
+
+def silence_std_err(quiet=True):
+    global _std_errs
+    if _std_errs is None:
+        _std_errs = {"orig": os.dup(2), "devnull": os.open(os.devnull, os.O_RDWR)}
+    if quiet:
+        os.dup2(_std_errs["devnull"], 2)  # to avoid printing the s_push parser when parsing stuff with "((((()))))"
+    else:
+        os.dup2(_std_errs["orig"], 2)
+
+
+def print_to_string(*args, end="", **kwargs):
+    with io.StringIO() as buf:
+        print(*args, file=buf, end=end, **kwargs)
+        return buf.getvalue()
+
+
+def debug(*args, **kwargs):
+    _get_or_create_logger().debug(print_to_string(*args, **kwargs))
+
+
+def info(*args, **kwargs):
+    _get_or_create_logger().info(print_to_string(*args, **kwargs))
+
+
+log = info
+
+
+def warning(*args, **kwargs):
+    _get_or_create_logger().warning(print_to_string(*args, **kwargs))
+
+
+warn = warning
+
+
+def error(*args, **kwargs):
+    _get_or_create_logger().error(print_to_string(*args, **kwargs))

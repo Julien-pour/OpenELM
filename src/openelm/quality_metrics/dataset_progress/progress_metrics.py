@@ -19,7 +19,7 @@ from typing import List, Dict, Optional
 from argparse import ArgumentParser
 
 from torch.optim import SGD
-from quality_metrics import utils
+from openelm.quality_metrics import utils
 
 from peft import get_peft_model, LoraConfig, TaskType
 

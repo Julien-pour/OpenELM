@@ -6,8 +6,8 @@ import copy
 import ast
 import numpy as np
 import json
-from quality_metrics.difficulty.judge import judge_parallel
-from utils import pass_at_k, preprocessing_p3
+from openelm.quality_metrics.difficulty.judge import judge_parallel
+from openelm.quality_metrics.utils import pass_at_k, preprocessing_p3
 
 from tqdm import tqdm
 

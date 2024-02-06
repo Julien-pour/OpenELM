@@ -12,8 +12,8 @@ from openai import OpenAI
 
 from openelm.mutation_model import get_completion, get_multiple_completions
 
-from quality_metrics.utils import make_puzzle, make_solution
-from quality_metrics.gpt_judgements.prompts import (
+from openelm.quality_metrics.utils import make_puzzle, make_solution
+from openelm.quality_metrics.gpt_judgements.prompts import (
     five_fold_ranking_prompt,
     random_permutation_prompt,
     five_fold_ranking_prompt_scrambled_cot

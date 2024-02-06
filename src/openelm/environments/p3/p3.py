@@ -10,7 +10,6 @@ import numpy as np
 import requests
 # from openai.embeddings_utils import cosine_similarity, get_embedding
 from openai import OpenAI
-
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
@@ -48,8 +47,10 @@ from typing import List, Optional, Union
 import transformers
 
 # non-local imports, move quality in openelm?
-from quality_metrics import utils
-from quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
+
+from openelm.quality_metrics import utils
+from openelm.quality_metrics.utils import load_prompt_PP
+from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
 
 from tqdm import tqdm
@@ -1348,10 +1349,11 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
         self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
 
-        # load few_shot_prompt os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
-        with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-        # with open(os.path.join('quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-            self.prompt_text = f.read()
+        self.prompt_text = load_prompt_PP(one_shot_prompt_id)
+        # with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+        # with open(os.path.join(os.path.dirname(__file__),'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+        #     self.prompt_text = f.read()
+            
 
         self._filter_puzzles()
         self.original_losses = self._get_original_losses()
@@ -1449,4 +1451,5 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 differences = final_losses - self.original_losses
                 fitness = differences.mean().item()
                 list_solving_fitness[idx] = - fitness
+                list_probsol[idx].fitness = - fitness
         return list_solving_fitness
