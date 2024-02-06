@@ -1332,8 +1332,9 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
         self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
 
-        # load few_shot_prompt
+        # load few_shot_prompt os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
         with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+        # with open(os.path.join('quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
             self.prompt_text = f.read()
 
         self._filter_puzzles()
@@ -1363,6 +1364,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in indices_to_keep]
         self.archive_sol_strs = [self.archive_sol_strs[i] for i in indices_to_keep]
         self.solutions_tokenized = self.tokenizer(self.archive_sol_strs)
+        print("end filtering")
 
     def _get_original_losses(self):
         # try to load values based on the archive dataset
@@ -1414,12 +1416,12 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         fitness = differences.mean().item()
         return - fitness
 
-    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True, disable_tqdm=True):
         
         list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
         assert len(list_solving_fitness) == len(list_probsol)
 
-        for idx,solving_fitness in enumerate(list_solving_fitness):
+        for idx,solving_fitness in enumerate(tqdm(list_solving_fitness,disable=disable_tqdm)):
             if solving_fitness <= 0:
                 continue
             else:
@@ -1431,3 +1433,4 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 differences = final_losses - self.original_losses
                 fitness = differences.mean().item()
                 list_solving_fitness[idx] = - fitness
+        return list_solving_fitness

@@ -6,23 +6,15 @@ from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.environments.p3.p3 import P3ProbSolResult
 from hydra import initialize, initialize_config_module, initialize_config_dir, compose
 from omegaconf import OmegaConf
-import pickle
 import json
-from joblib import Parallel, delayed
 from openelm.environments.p3.p3 import P3ProbSol_Chat
 from openelm.mutation_model import PromptModel
 from tqdm import tqdm
 import os
 
 from tenacity import *
-import instructor
 
 script_dir = os.path.dirname(__file__) 
-
-# @retry(stop=stop_after_attempt(10),wait=wait_random_exponential(min=1, max=40))
-def gen_response(prompt):
-    return None
-
 
 
 
