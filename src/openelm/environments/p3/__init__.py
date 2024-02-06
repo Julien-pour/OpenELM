@@ -36,12 +36,12 @@ def get_class_PuzzleCheck(mode):
     match mode:
         case "description":
             class PuzzleCheck(BaseModel):
-                """Puzzle description and if they should be given to the student or not."""
+                """Puzzle description and if it should be given to the student or not."""
                 puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
 
         case "description+is_valid":
             class PuzzleCheck(BaseModel):
-                """Puzzle description and if they should be given to the student or not."""
+                """Puzzle description and if it should be given to the student or not."""
                 puzzle_description: str = Field(description="Provide a brief, one to two sentence summary of the puzzle's content.")
                 explanations: str = Field(decription="Short explanation of whether the puzzle should be given to the student or not.")
                 give_puzzle_to_student: bool = Field(description="Whether the puzzle should be given to student or not based on the previous explanations")

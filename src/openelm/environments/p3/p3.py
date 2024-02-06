@@ -1026,8 +1026,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_lib = ["math", "random", "itertools"]
         
         for idx in range(len(generated_programs)):
-            if not(P3_IMPORTS in generated_programs[idx] and "List" in generated_programs[idx] ):
-                generated_programs[idx] = P3_IMPORTS + generated_programs[idx]
+            if "List" in generated_programs[idx] and not("from typing import List" in generated_programs[idx]):
+                generated_programs[idx] = "from typing import List\n" + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
             for lib in list_lib:
@@ -1137,8 +1137,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         for idx in range(len(generated_programs)):
             new_pb_str = new_probsol.program_str.split("def g(")[0] + generated_programs[idx]
             
-            if not P3_IMPORTS in new_pb_str:
-                new_pb_str = P3_IMPORTS + new_pb_str
+            if "List" in generated_programs[idx] and not("from typing import List" in generated_programs[idx]):
+                new_pb_str = "from typing import List\n"  + new_pb_str
                 probsol_2_add=copy.deepcopy(new_probsol)
                 probsol_2_add.program_str = new_pb_str
                 list_new_puzzles.append(probsol_2_add)
