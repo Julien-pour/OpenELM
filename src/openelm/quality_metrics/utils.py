@@ -11,6 +11,7 @@ import os
 # dedup,info,silence_std_err
 from copy import copy, deepcopy
 import json
+import inspect
 
 def return_f(puzzle_json):
     puzzle_json = deepcopy(puzzle_json)
@@ -547,7 +548,6 @@ def configure_logging(stdio_level=logging.INFO,
 
 
 _loggers = {}
-
 
 def _get_or_create_logger():
     global _configured, _loggers

@@ -39,7 +39,6 @@ from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import load_examples_p3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
-import itertools
 # from joblib import parallel_config
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
@@ -1031,10 +1030,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 generated_programs[idx] = "from typing import List\n" + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
-            for lib in list_lib:
-                if lib in generated_programs[idx]:
-                    if not f"import {lib}" in  generated_programs[idx].split("def f")[0]:
-                        generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
+            # for lib in list_lib:
+            #     if lib in generated_programs[idx]:
+            #         import_pb = generated_programs[idx].split("def f")[0]
+            #         if not(f"import {lib}" in import_pb or f"from {lib}" in  import_pb):
+            #             generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
     
         if self.config.sandbox:
             results = []
