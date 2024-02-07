@@ -1334,8 +1334,9 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         # load and process archive puzzles into strings
         self.archive_name = self.archive_dataset_name
-        with open(self.archive_dataset_name, 'r') as f:
-            puzzle_archive = json.load(f)
+        # with open(self.archive_dataset_name, 'r') as f:
+        #     puzzle_archive = json.load(f)
+        puzzle_archive = utils.load_dataset_progress(self.archive_name)
         self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
                                     for p in puzzle_archive if p['sol_bodies']]
         self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]

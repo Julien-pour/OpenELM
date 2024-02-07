@@ -10,7 +10,7 @@ from transformers import CodeLlamaTokenizer, LlamaTokenizer, AutoTokenizer, Auto
 import os
 # dedup,info,silence_std_err
 from copy import copy, deepcopy
-
+import json
 
 def return_f(puzzle_json):
     puzzle_json = deepcopy(puzzle_json)
@@ -150,6 +150,13 @@ def test_puzzle(f, x):
     return f(x) is True
 
 ### general utils
+def load_dataset_progress(name_dataset:str):
+    utils_directory = os.path.dirname(os.path.realpath(__file__))
+    path_prompt = os.path.join(utils_directory,'dataset_progress', name_dataset)
+    with open(path_prompt, 'r') as f:
+        dataset_progress = json.load(f)
+    return dataset_progress
+
 def load_prompt_PP(one_shot_prompt_id):
     utils_directory = os.path.dirname(os.path.realpath(__file__))
     # path_prompt = os.path.abspath("src/examplefile.txt") which one is "better"?
