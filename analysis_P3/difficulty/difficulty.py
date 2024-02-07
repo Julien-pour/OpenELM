@@ -14,26 +14,27 @@ import os
 os.environ['TOKENIZERS_PARALLELISM'] = "True"
 
 parser = argparse.ArgumentParser(description="argument parsing")
-parser.add_argument("-p", "--path_maps", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130/maps.pkl")
-parser.add_argument("-p", "--path_hf_model_repo", type=str, help="path to where hf model are stored",default="")
-
-
-parser.add_argument("-k", "--arg_k", type=int, help="k in pass@k",default=10)
-parser.add_argument("-b", "--arg_bs_test", type=int, help=" bs test",default=32)
-parser.add_argument("-m", "--arg_model_idx", type=int, help="model idx",default=11)
+parser.add_argument("-p", "--path_maps", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130")
+parser.add_argument("-l", "--path_hf_model_repo", type=str, help="path to where hf model are stored",default="")
+parser.add_argument("-k", "--arg_k", type=int, help="k in pass@k",default=5)
+parser.add_argument("-b", "--arg_bs_test", type=int, help=" bs test",default=16)
+parser.add_argument("-m", "--arg_model_idx", type=int, help="model idx",default=0)
 parser.add_argument("-f", "--arg_flash", type=str, help="activate flash",default="flash2")
 parser.add_argument("-c", "--arg_compile", type=str, help="use torch compile ",default=True)
+parser.add_argument("-i", "--arg_backend_inference", type=str, help="inference backend [hf,openai,mistral, exllama, vllm]  ",default="hf")
+parser.add_argument("-g", "--arg_gpus", type=int, help="number of  gpu  ",default=1)
+
 
 args = parser.parse_args()
-path_model_base=args.path_hf_model_repo
-num_return_sequences=args.arg_k #n_try
-snapshot_path=args.base_path
+path_model_base = args.path_hf_model_repo
+num_return_sequences = args.arg_k #n_try
+snapshot_path = args.path_maps
 bs = args.arg_bs_test
 
-mode="hf" #["hf","openai","mistral", "exllama", "vllm"] hf -> hf model
+mode = args.arg_backend_inference #["hf","openai","mistral", "exllama", "vllm"] hf -> hf model
 
 list_model=[
-"deepseek-coder-1.3b-instruct",
+"deepseek-ai/deepseek-coder-1.3b-instruct",
 # "WizardCoder-33B-V1.1-6.0bpw-h6-exl2",
 # "CodeLlama-70b-Instruct-hf-6.0bpw-h6-exl2"
 ]
@@ -60,14 +61,13 @@ match mode:
         
         if mode == "vllm":
             from vllm import LLM,SamplingParams
-            llm = LLM(path_model,max_model_len=512)
+            llm = LLM(path_model,max_model_len=1024)
 
             sampling_params = SamplingParams(
                         temperature=0.7,
                         top_p=1,
                         max_tokens=512,
                         presence_penalty=1.15,
-                        tensor_parallel_size=args.arg_gpus
                     )
         else:
             if args.arg_flash=="flash2":
@@ -132,10 +132,12 @@ match mode:
         max_new_tokens = 512     
         # generator.warmup()  # Only needed to fully initialize CUDA, for correct benchmarking
     case "openai":
+        from key import key
+
         model_id="gpt-3.5-turbo-0125"#"gpt-3.5-turbo-1106"
         from openai import OpenAI
         from utils_test import get_multiple_completions
-        client = OpenAI(max_retries=100,timeout=100,api_key="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")
+        client = OpenAI(max_retries=100,timeout=100,api_key=key)
         cfg_generation: dict = {
                 "temperature": 0.7,
                 "model": model_id,
@@ -166,17 +168,16 @@ list_puzzle=[]
 list_all_puzzle=[]
 
 # load archive
-with open(snapshot_path, "rb") as f:
-    maps = pickle.load(f)
+with open(snapshot_path+"/puzzles.json", "r") as f:
+    puzzles = json.load(f)
 
+# /!\ need to remove comment after testing  /!\ 
+# for idx in range(len(puzzles)):
+#     if f"pass_{num_return_sequences}" in puzzles[idx]:
+#         list_passk.append(puzzles[idx][f"pass_{num_return_sequences}"])
+#         curr_idx = idx
 
-fitnesses = maps["fitnesses"]
-genomes = maps["genomes"]
-non_zeros = maps["nonzero"]
-
-
-list_testset= [x["program_str"] for x in genomes.archive]
-
+curr_idx=0
 
 
 # function to generate response
@@ -199,8 +200,7 @@ def generate_response(list_prompt,model_id=model_id):
                 for i_seq in range(num_return_sequences):
                     match mode:
                         case "vllm":
-                            result = llm.generate(list_prompt, sampling_params)
-                            
+                            result = llm.generate(list_prompt, sampling_params,use_tqdm=False)
                             generated_texts = []
                             for output in result:
                                 num_tokens += len(output.outputs[0].token_ids)
@@ -213,13 +213,13 @@ def generate_response(list_prompt,model_id=model_id):
                         case "hf":
                             outputs = model.generate(**inputs,max_new_tokens=512,do_sample=True, temperature=0.7,**args_generate)
                             generated_texts = tokenizer.batch_decode(outputs[:,len_prompt:], skip_special_tokens=True)
-                    for idx_out_gen in range(len(outputs)): #len output -> bs
+                    for idx_out_gen in range(len(generated_texts)): #len output -> bs
                         list_puzzle_gen[idx_out_gen].append(generated_texts[idx_out_gen])
                 end_time = time.time()  
                 total_time = end_time - start_time
                 if mode =="vllm":
                     total_tokens = num_tokens
-                if mode=="exllama":
+                elif mode=="exllama":
                     total_tokens = max_new_tokens * len(outputs)
                 else:
                     total_tokens = outputs.shape[1] * len(outputs)
@@ -257,15 +257,16 @@ def generate_response(list_prompt,model_id=model_id):
 
 
 
-for idx in tqdm(range(curr_idx,len(list_testset),bs)): #  #len(dataset["test"])
+for idx in tqdm(range(curr_idx,len(puzzles),bs)): #  #len(dataset["test"])
     # curr_idx=idx
     # idx=0
-    print(f"\n\n============ idx {idx}/{len(list_testset)} ==================\n")
+    print(f"\n\n============ idx {idx}/{len(puzzles)} ==================\n")
     attempt=0
     list_puzzle_idx=[]
     list_prompt=[]
     list_prompt_f=[]
-    subset_test = list_testset[idx:idx+bs]
+    subset_test = puzzles[idx:idx+bs]
+    subset_test = [sub_puz["program_str"] for sub_puz in subset_test]
     # subset_emb_test= list_emb_test[idx:idx+bs]
     for idx_puz in range(len(subset_test)):
         
@@ -341,15 +342,19 @@ for idx in tqdm(range(curr_idx,len(list_testset),bs)): #  #len(dataset["test"])
         for idx_passk in range(num_return_sequences):
             pass2add=pass_at_k(n_sample, n_correct, k=idx_passk+1)
             list_all_passk[idx_passk].append(pass2add)
-            testset[idx + i][f'pass_{idx_passk+1}'] = pass2add
 
+        puzzles[idx + i][f'pass_{num_return_sequences}'] = pass2add
+        puzzles[idx + i]['n_sample'] = int(n_sample)
+        puzzles[idx + i]['n_correct'] = int(n_correct)
 
         proba_solved = n_correct / n_sample
-        testset[idx + i]['proba_solved'] = float(proba_solved)
-        testset[idx + i]['n_sample'] = int(n_sample)
-        testset[idx + i]['n_correct'] = int(n_correct)
-        testset[idx + i]['generated_text'] = list_generated_text[i]
-        testset[idx + i]['parsed_puzzles'] = list_puzzle_gen[i]
-        testset[idx + i]['prompt'] = list_prompt[i]
+        # testset[idx + i]['proba_solved'] = float(proba_solved)
+        # testset[idx + i]['n_sample'] = int(n_sample)
+        # testset[idx + i]['n_correct'] = int(n_correct)
+        # testset[idx + i]['generated_text'] = list_generated_text[i]
+        # testset[idx + i]['parsed_puzzles'] = list_puzzle_gen[i]
+        # testset[idx + i]['prompt'] = list_prompt[i]
         
     print(f"correct puzzles: {int(np.sum(list_passk))}/{len(list_passk)}")
+    with open(snapshot_path+"/puzzles.json", "w") as f:
+        json.dump(puzzles, f, indent=4)

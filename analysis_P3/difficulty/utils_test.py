@@ -122,7 +122,7 @@ You are an intelligent programming assistant.
 {instruction}
 
 ### Assistant"""
-    if model_id in ["deepseek-coder-1.3b-instruct","deepseek-coder-6.7b-instruct","deepseek-coder-33B-instruct-GPTQ","deepseek-coder-33b-instruct-6.0bpw-h6-exl2"]:
+    if model_id in ["deepseek-ai/deepseek-coder-1.3b-instruct","deepseek-coder-1.3b-instruct","deepseek-coder-6.7b-instruct","deepseek-coder-33B-instruct-GPTQ","deepseek-coder-33b-instruct-6.0bpw-h6-exl2"]:
         prompt="""You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer.
 ### Instruction:
 {instruction}
@@ -167,7 +167,7 @@ You are Hermes 2, an advanced large language model designed to answer any questi
     return prompt
 
 Prompt_Intstruction ='''You will be given a function and its docstring. Respond only in code with a correct, efficient implementation of the function.
-You need to generate the correct solutions (g), for the Problem 1 that satisfies the condition f(g()) == True.
+You n
 
  Problem 0:
 ```
@@ -183,7 +183,7 @@ def f(ans: List[List[int]], target=2) -> bool:
             target -= 1
     return target == 0
 ```
- Solution 0:
+eed to generate the correct solutions (g), for the Problem 1 that satisfies the condition f(g()) == True. Solution 0:
 ```
 def g(target = 2):
     return [[0, 2]] * target 
