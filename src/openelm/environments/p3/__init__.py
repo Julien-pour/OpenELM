@@ -163,11 +163,13 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
     
     Rules:
-    1. Each puzzle includes two functions: `def f(...)` and `def g(...)`.
-    2. The first argument of `f` is always the output from `g()`.
-    3. Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
-    4. Avoid using `f` inside `g`.
-    5. Include any necessary imports for your code to run smoothly.
+    - Each puzzle includes two functions: `def f(...)` and `def g(...)`.
+    - The first argument of `f` is always the output from `g()`.
+    - Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
+    - Avoid using `f` inside `g`, and `g` inside `f`.
+    - Include any necessary imports for your code to run smoothly.
+    - Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
+    - 
 
     Puzzle Format:
     Puzzle description: A brief, one to two sentence summary of the puzzle's content.
@@ -195,8 +197,13 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
         for idx in idx_skill_targeted:
             skill_target += f"\n- {skill_list[idx]}"
 
-        prompt2add = " Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging"# and adhere to the specified format."
-        prompt2add += f" and they should incorporate the following skills:{skill_target}"
+        # previous version
+        prompt2add = " Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging."# and adhere to the specified format."
+        # new version Make sure the new problems are no easier than the given problem
+        prompt2add = " Ensure that the newly created puzzles are of comparable or greater difficulty."
+
+        prompt2add += f" Make sure that newly puzzles are based on ** all ** the following skills:{skill_target}"
+
     prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
     prompt += prompt2add
     return prompt
