@@ -19,17 +19,23 @@ import numpy as np
 from openelm.quality_metrics import utils
 import pickle
 
+import argparse
+parser = argparse.ArgumentParser(description="argument parsing")
+parser.add_argument("-p", "--base_path", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130/maps.pkl")
+parser.add_argument("-s", "--save_step", type=str, help="save maps each save_step steps",default=10)
+
+args = parser.parse_args()
+
+
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 os.environ["TOKENIZERS_PARALLELISM"] = "True"
 
-max_workers=50
 
 # load maps
-save_step=10 # save each 10 steps
+save_step=args.save_step # save each 10 steps
 
-snapshot_path="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130/maps.pkl"
+snapshot_path=args.base_path
 
-save_maps= snapshot_path.replace("maps.pkl","maps_PP.pkl")
 
 with open(snapshot_path, "rb") as f:
     maps = pickle.load(f)
