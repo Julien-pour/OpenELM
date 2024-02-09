@@ -1220,16 +1220,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     eval_codes.append(eval_code_)
                     indices.append(index)
 
-            # for probsol in list_probsol:
-            #     prog = probsol.program_str.split("\nassert f")
-            #     probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
-            #     eval_code_ = str(
-            #         f"{probsol.program_str}\n"
-            #         f"def run_eval():\n"
-            #         f"    return f(g())"
-            #     )
-            #     eval_codes.append(eval_code_)
-            # Run code to see if g6_2 solves f6_2
             try:
                 partial_results = pool_exec_processes(
                     eval_codes,

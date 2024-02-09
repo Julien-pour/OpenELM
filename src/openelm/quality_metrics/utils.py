@@ -12,6 +12,7 @@ import os
 from copy import copy, deepcopy
 import json
 import inspect
+from openelm.utils.code_eval import extract_args_f
 
 def return_f(puzzle_json):
     puzzle_json = deepcopy(puzzle_json)
@@ -193,14 +194,28 @@ def make_puzzle(puzzle, include_docstring=False):
     return puz_str.replace('def sat(', 'def f(')
 
 
-def parse_puzzle_from_str(s):
+def parse_puzzle_from_str(s,debug=False):
+    error=False
     try:
         functions = [el for el in ast.parse(s).body if isinstance(el, ast.FunctionDef)]
         f = ast.unparse(functions[0])
         g = ast.unparse(functions[1])
-        return f, g
+        if not 'f(' in f:
+            print("/!\Error in parsing f")
+            error=True
+        if not 'g(' in g:
+            print("/!\Error in parsing g")
+            error=True
+        if debug:
+            return f, g,error
+        else:
+            return f, g
     except:
-        return '', ''
+        print("/!\Error in parsing")
+        if debug:
+            return '', '', True
+        else:
+            return '', ''
 
 ### transformer utils
 
@@ -385,7 +400,7 @@ def get_solution_mask_from_str(full_prompt: str, solution: str, tokenizer, num_s
 def get_solution_mask_from_str_loop(full_prompts, solutions, tokenizer, num_solution_tokenss,
                                     archive_attention_mask, offsets):
     # offset is due to padding (there might be a way to bypass using it)
-    matches = [full_prompt.split(solution)[0] for solution, full_prompt in zip(solutions, full_prompts)]
+    matches = [full_prompt.split(extract_args_f(solution))[0] for solution, full_prompt in zip(solutions, full_prompts)]
     num_tokens_before = [len(t) for t in tokenizer(matches).input_ids]
     masks = torch.zeros_like(archive_attention_mask)
     for i, (t, num_solution_tokens, o) in enumerate(zip(num_tokens_before, num_solution_tokenss, offsets)):
