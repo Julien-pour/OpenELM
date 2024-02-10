@@ -12,7 +12,7 @@ import os
 from copy import copy, deepcopy
 import json
 import inspect
-from openelm.utils.code_eval import extract_args_f
+from openelm.utils.code_eval import extract_header
 
 def return_f(puzzle_json):
     puzzle_json = deepcopy(puzzle_json)
@@ -198,8 +198,16 @@ def parse_puzzle_from_str(s,debug=False):
     error=False
     try:
         functions = [el for el in ast.parse(s).body if isinstance(el, ast.FunctionDef)]
-        f = ast.unparse(functions[0])
-        g = ast.unparse(functions[1])
+        if len(function)==2:
+            f = ast.unparse(functions[0])
+            g = ast.unparse(functions[1])
+        else:
+            for i in range(len(functions)):
+                if 'f(' in ast.unparse(functions[i]):
+                    f = ast.unparse(functions[i])
+                if 'g(' in ast.unparse(functions[i]):
+                    g = ast.unparse(functions[i])
+                    
         if not 'f(' in f:
             print("/!\Error in parsing f")
             error=True
@@ -397,10 +405,23 @@ def get_solution_mask_from_str(full_prompt: str, solution: str, tokenizer, num_s
     return mask
 
 
-def get_solution_mask_from_str_loop(full_prompts, solutions, tokenizer, num_solution_tokenss,
+def get_solution_mask_from_str_loop(full_prompts, solutions, tokenizer,
                                     archive_attention_mask, offsets):
     # offset is due to padding (there might be a way to bypass using it)
-    matches = [full_prompt.split(extract_args_f(solution))[0] for solution, full_prompt in zip(solutions, full_prompts)]
+    matches = []
+    solutions_to_predict=[]
+    num_solution_tokenss=[]
+    for solution, full_prompt in zip(solutions, full_prompts):
+        if not "def g" in solution:
+            print("no g in solution when compute mask for PP")
+        header = extract_header(solution)
+        matche = full_prompt.split(header)[0] + header
+        solutions_to_predict.append(solution.split(header)[1])
+        matches.append(matche)
+             
+
+    num_solution_tokenss = [len(t) for t in tokenizer(solutions_to_predict).input_ids]
+    # [full_prompt.split(extract_header(solution))[0] for solution, full_prompt in zip(solutions, full_prompts) ]
     num_tokens_before = [len(t) for t in tokenizer(matches).input_ids]
     masks = torch.zeros_like(archive_attention_mask)
     for i, (t, num_solution_tokens, o) in enumerate(zip(num_tokens_before, num_solution_tokenss, offsets)):

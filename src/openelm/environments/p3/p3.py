@@ -1403,7 +1403,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
             full_prompts=archive_puzzle_sols,
             solutions=self.archive_sol_strs,
             tokenizer=self.tokenizer,
-            num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
+            # num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
             archive_attention_mask=archive_tokenized_puzzles.attention_mask,
             offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
         )
