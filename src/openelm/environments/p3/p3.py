@@ -1327,9 +1327,19 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         # with open(self.archive_dataset_name, 'r') as f:
         #     puzzle_archive = json.load(f)
         puzzle_archive = utils.load_dataset_progress(self.archive_name)
+            
         self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
                                     for p in puzzle_archive if p['sol_bodies']]
         self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
+        # sort puzzles by length
+        n_tokens_full_puzzles = [len(self.tokenizer(apuz + asol).input_ids) for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+        # Sort the indices based on the lengths
+        sorted_indices = sorted(range(len(n_tokens_full_puzzles)), key=lambda i: n_tokens_full_puzzles[i])
+        
+        # Reorder the puzzles and solutions lists based on the sorted indices
+        self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in sorted_indices]
+        self.archive_sol_strs = [self.archive_sol_strs[i] for i in sorted_indices]
+
         self.solutions_tokenized = None  # will be populated after filtering
 
         # load reference probsol
@@ -1377,12 +1387,12 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
     def _get_original_losses(self):
         # try to load values based on the archive dataset
-        path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
-        if os.path.exists(path):
-            return torch.load(path)
-        else:
+        # path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
+        # if os.path.exists(path):
+        #     return torch.load(path)
+        # else:
             # compute the values and cache them (for future runs)
-            return self._get_losses(self.ref_puzzle, self.ref_solution)
+        return self._get_losses(self.ref_puzzle, self.ref_solution)
 
     def _get_losses(self, puzzle: str, solution: str):
         # format prompts with archive and ref puzzles
