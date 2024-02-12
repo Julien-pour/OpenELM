@@ -1,0 +1,259 @@
+PP -> delta perplexity
+============== lowest loss puzzles ====================
+
+
+PP = -0.21684596048326502
+The puzzle requires the student to implement a function that generates a sequence of numbers and checks if it matches a specific sequence.
+from typing import List 
+
+def f(seq: list) -> bool:
+    return seq == [1, 2, 4, 8, 16, 32, 64, 128]
+    
+def g():
+    seq = [1]
+    while seq[-1] < 128:
+        seq.append(seq[-1] * 2)
+    return seq
+
+assert f(g()) == True
+
+
+PP = -0.2111587176412522
+The puzzle involves checking if there exists a subset of Fibonacci numbers whose sum is a perfect cube.
+from typing import List 
+
+from typing import List
+
+import itertools
+
+def is_perfect_cube(n: int) -> bool:
+    return round(n ** (1/3)) ** 3 == n
+
+def f(fibonacci_nums: List[int]) -> bool:
+    subsets = []
+    for i in range(len(fibonacci_nums)+1):
+        for subset in itertools.combinations(fibonacci_nums, i):
+            subsets.append(subset)
+    for subset in subsets:
+        if is_perfect_cube(sum(subset)):
+            return True
+    return False
+
+def g():
+    fibonacci_nums = [0, 1]
+    while fibonacci_nums[-1] < 100:
+        fibonacci_nums.append(fibonacci_nums[-1] + fibonacci_nums[-2])
+    return fibonacci_nums
+
+assert f(g()) == True
+
+
+PP = -0.17161066368313507
+The puzzle requires finding the largest palindrome that is a product of two 3-digit numbers.
+from typing import List 
+
+def f(largest_palindrome: int) -> bool:
+    return largest_palindrome == g()
+
+def g():
+    largest_palindrome = 0
+
+    for i in range(100, 1000):
+        for j in range(100, 1000):
+            product = i * j
+            if str(product) == str(product)[::-1] and product > largest_palindrome:
+                largest_palindrome = product
+
+    return largest_palindrome
+
+assert f(g()) == True
+
+
+PP = -0.1505581319859123
+The puzzle involves shuffling a deck of cards and checking if the deck is properly shuffled.
+from typing import List 
+
+from typing import List
+import random
+
+def f(shuffled_deck: List[str]) -> bool:
+    return set(shuffled_deck) == set(['S' + str(i) for i in range(1, 14)] + ['H' + str(i) for i in range(1, 14)] + ['D' + str(i) for i in range(1, 14)] + ['C' + str(i) for i in range(1, 14)])
+
+def g():
+    suits = ['S', 'H', 'D', 'C']
+    ranks = [str(i) for i in range(1, 14)]
+    deck = [suit + rank for suit in suits for rank in ranks]
+    random.shuffle(deck)
+    return deck
+
+assert f(g()) == True
+
+
+PP = -0.15055545436856488
+The puzzle requires students to write a function that checks if a given string matches a specific phone number format (###-###-####). The solution function returns a hardcoded phone number string and the puzzle checks if the function correctly identifies it as a valid phone number.
+from typing import List 
+
+import re
+
+def f(s: str) -> bool:
+    pattern = re.compile(r'^\d{3}-\d{3}-\d{4}$')
+    return bool(pattern.match(s))
+
+def g():
+    return "123-456-7890"
+
+assert f(g()) == True
+
+
+==================== 
+
+==============  highest loss puzzles ====================
+
+PP = 0.8942605468974151
+The puzzle requires checking if there are any anagrams in a list of words.
+from typing import List 
+
+from typing import List
+
+def f(words: List[str]) -> bool:
+    seen = set()
+    for word in words:
+        sorted_word = ''.join(sorted(word))
+        if sorted_word in seen:
+            return True
+        seen.add(sorted_word)
+    return False
+
+def g():
+    return ["listen", "silent", "hello", "world", "race", "care"]
+
+assert f(g()) == True
+
+
+PP = 0.9292833295538786
+The puzzle involves checking if a given list of numbers can be partitioned into two subsets with equal sum.
+from typing import List 
+
+from typing import List
+
+def f(can_partition: bool, nums=[1, 5, 11, 5]) -> bool:
+    return can_partition == True
+
+def g(nums=[1, 5, 11, 5]):
+    def can_partition_equal_subset(nums):
+        total_sum = sum(nums)
+
+        if total_sum % 2 != 0:
+            return False
+
+        target_sum = total_sum // 2
+
+        dp = [False] * (target_sum + 1)
+        dp[0] = True
+
+        for num in nums:
+            for i in range(target_sum, num - 1, -1):
+                dp[i] = dp[i] or dp[i - num]
+
+        return dp[target_sum]
+
+    return can_partition_equal_subset(nums)
+
+assert f(g()) == True
+
+
+PP = 0.9827455246712449
+The puzzle requires students to implement a function that checks if a given number is a prime number. The solution uses the sympy library to find the next prime number after 20 and verifies if it satisfies the prime number check function.
+from typing import List 
+
+def f(number: int) -> bool:
+    if number < 2:
+        return False
+    for i in range(2, int(number**0.5)+1):
+        if number % i == 0:
+            return False
+    return True
+
+import sympy
+def g():
+    return sympy.nextprime(20)
+
+assert f(g()) == True
+
+
+PP = 1.2393763117859096
+The puzzle involves a function f that takes a boolean parameter and a string parameter, and a function g that takes a string parameter. Function f returns the boolean parameter it receives. Function g generates a list of valid IP addresses from a given string and checks if the list matches a predefined list of IP addresses.
+from typing import List 
+
+from typing import List
+
+def f(valid_ips: bool, s="25525511135") -> bool:
+    return valid_ips
+
+def g(s="25525511135") -> List[str]:
+    def restore_ip_addresses(s):
+        def backtrack(start, parts):
+            if start == len(s) and len(parts) == 4:
+                valid_ips.append(".".join(parts))
+                return
+            if len(parts) >= 4:
+                return
+            for size in range(1, 4):
+                if start + size <= len(s):
+                    part = s[start:start + size]
+                    if 0 <= int(part) <= 255 and (size == 1 or part[0] != '0'):
+                        backtrack(start + size, parts + [part])
+
+        valid_ips = []
+        backtrack(0, [])
+        return valid_ips
+
+    return restore_ip_addresses(s) == ['255.255.11.135', '255.255.111.35']
+
+assert f(g()) == True
+
+
+
+PP = 1.599495425424484
+The puzzle involves creating a graph data structure, adding edges to the graph, and finding a path from a start node to an end node within the graph. The solution function constructs a graph, finds a path from 'A' to 'F', and returns the length of the path if it exists.
+from typing import List 
+
+class Graph:
+    def __init__(self):
+        self.graph = {}
+
+    def add_edge(self, u, v):
+        if u not in self.graph:
+            self.graph[u] = []
+        self.graph[u].append(v)
+
+def f(path_length: int, max_length=5) -> bool:
+    return path_length <= max_length
+
+def g():
+    g = Graph()
+    g.add_edge('A', 'B')
+    g.add_edge('A', 'C')
+    g.add_edge('B', 'D')
+    g.add_edge('C', 'E')
+    g.add_edge('D', 'F')
+    g.add_edge('E', 'F')
+
+    def find_path(graph, start, end, path=[]):
+        path = path + [start]
+        if start == end:
+            return path
+        if start not in graph.graph:
+            return None
+        for node in graph.graph[start]:
+            if node not in path:
+                new_path = find_path(graph, node, end, path)
+                if new_path:
+                    return new_path
+        return None
+
+    path = find_path(g, 'A', 'F')
+    return len(path) if path else 0
+
+assert f(g()) == True
+

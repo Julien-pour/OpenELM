@@ -169,7 +169,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     - Avoid using `f` inside `g`, and `g` inside `f`.
     - Include any necessary imports for your code to run smoothly.
     - Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
-    - 
+    - Make sure the puzzle is self-contained within these two functions.
 
     Puzzle Format:
     Puzzle description: A brief, one to two sentence summary of the puzzle's content.

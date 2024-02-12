@@ -20,7 +20,7 @@ parser.add_argument("-k", "--arg_k", type=int, help="k in pass@k",default=5)
 parser.add_argument("-b", "--arg_bs_test", type=int, help=" bs test",default=16)
 parser.add_argument("-m", "--arg_model_idx", type=int, help="model idx",default=0)
 parser.add_argument("-f", "--arg_flash", type=str, help="activate flash",default="flash2")
-parser.add_argument("-c", "--arg_compile", type=str, help="use torch compile ",default=True)
+parser.add_argument("-c", "--arg_compile", help="use torch compile ",default=True,type=lambda x: (str(x).lower() == 'true'))
 parser.add_argument("-i", "--arg_backend_inference", type=str, help="inference backend [hf,openai,mistral, exllama, vllm]  ",default="hf")
 parser.add_argument("-g", "--arg_gpus", type=int, help="number of  gpu  ",default=1)
 
@@ -70,7 +70,8 @@ match mode:
                         presence_penalty=1.15,
                     )
         else:
-            if args.arg_flash=="flash2":
+            if args.arg_flash == "flash2":
+                print("use flash attention 2")
                 args_model["attn_implementation"]="flash_attention_2"
             
             model = AutoModelForCausalLM.from_pretrained(
@@ -83,7 +84,11 @@ match mode:
 
             model.eval()
             model.config.use_cache = True
-            if args.arg_compile:
+            compile=args.arg_compile
+            print(f"compile {compile}")
+            assert isinstance(compile, bool)
+            if compile:
+                print("compiling model")
                 model = torch.compile(model)
 
     case "exllama":
@@ -160,7 +165,7 @@ match mode:
 print(f" ==================  model_id {model_id} ==================")
 
 curr_idx=0
-num_return_sequences=args.arg_k #n_try
+num_return_sequences = args.arg_k #n_try
 list_all_passk=[[] for i in range(num_return_sequences)]
 list_passk=[]
 
@@ -171,13 +176,12 @@ list_all_puzzle=[]
 with open(snapshot_path+"/puzzles.json", "r") as f:
     puzzles = json.load(f)
 
-# /!\ need to remove comment after testing  /!\ 
-# for idx in range(len(puzzles)):
-#     if f"pass_{num_return_sequences}" in puzzles[idx]:
-#         list_passk.append(puzzles[idx][f"pass_{num_return_sequences}"])
-#         curr_idx = idx
+for idx in range(len(puzzles)):
+    if f"pass_{num_return_sequences}" in puzzles[idx]:
+        list_passk.append(puzzles[idx][f"pass_{num_return_sequences}"])
+        curr_idx = idx
 
-curr_idx=0
+# curr_idx=0
 
 
 # function to generate response
@@ -211,6 +215,7 @@ def generate_response(list_prompt,model_id=model_id):
                             trimmed_outputs = [o[len(p):] for p, o in zip(list_prompt, outputs)]
                             generated_texts = trimmed_outputs
                         case "hf":
+                            args_generate["pad_token_id"] = tokenizer.eos_token_id
                             outputs = model.generate(**inputs,max_new_tokens=512,do_sample=True, temperature=0.7,**args_generate)
                             generated_texts = tokenizer.batch_decode(outputs[:,len_prompt:], skip_special_tokens=True)
                     for idx_out_gen in range(len(generated_texts)): #len output -> bs

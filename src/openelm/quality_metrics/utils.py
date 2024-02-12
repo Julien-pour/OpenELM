@@ -198,7 +198,7 @@ def parse_puzzle_from_str(s,debug=False):
     error=False
     try:
         functions = [el for el in ast.parse(s).body if isinstance(el, ast.FunctionDef)]
-        if len(function)==2:
+        if len(functions)==2:
             f = ast.unparse(functions[0])
             g = ast.unparse(functions[1])
         else:

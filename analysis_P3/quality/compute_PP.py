@@ -19,8 +19,8 @@ import pickle
 
 import argparse
 parser = argparse.ArgumentParser(description="argument parsing")
-parser.add_argument("-p", "--base_path", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130/maps.pkl")
-parser.add_argument("-s", "--save_step", type=str, help="save maps each save_step steps",default=10)
+parser.add_argument("-p", "--base_path", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130")
+parser.add_argument("-s", "--save_step", type=str, help="save maps each save_step steps",default=2)
 
 args = parser.parse_args()
 
@@ -34,14 +34,10 @@ save_step=args.save_step # save each 10 steps
 
 snapshot_path=args.base_path
 
-
-with open(snapshot_path, "rb") as f:
-    maps = pickle.load(f)
-
-
-fitnesses = maps["fitnesses"]
-genomes = maps["genomes"]
-non_zeros = maps["nonzero"]
+with open(snapshot_path+"/puzzles.json", "r") as f:
+    puzzles = json.load(f)
+# with open(snapshot_path+"/puzzles_test.json", "r") as f:
+#     puzzles = json.load(f)
 
 # load config from hydra
 
@@ -68,25 +64,21 @@ env = P3ProbSol_Chat_PP(config= config.env,
 
 
 disable_tqdm=False
-
-for idx in tqdm(range(len(genomes.archive)),disable=disable_tqdm):
-    if hasattr(genomes.archive[idx], "fitnessPP"):
+puzzles[0]["original_losses"]= env.original_losses.cpu().tolist()
+for idx in tqdm(range(len(puzzles)),disable=disable_tqdm):
+    if "fitnessPP" in  puzzles[idx] and "final_losses" in puzzles[idx]:
         continue
-    puzzle, solution = utils.parse_puzzle_from_str(genomes.archive[idx].program_str)
+    puzzle, solution = utils.parse_puzzle_from_str(puzzles[idx]["program_str"])
 
     final_losses = env._get_losses(puzzle, solution)
 
     differences = final_losses - env.original_losses
     fitness = differences.mean().item()
     # list_solving_fitness[idx] = - fitness
-    genomes.archive[idx].fitnessPP = - fitness
-    if idx % save_step ==0:
-        maps = {
-            "fitnesses": fitnesses,
-            "genomes": genomes,
-            "nonzero": non_zeros,
-        }
-
-        with open(snapshot_path, "wb") as f:
-            pickle.dump(genomes, f)
-
+    puzzles[idx]["fitnessPP"] = - fitness
+    puzzles[idx]["final_losses"] = final_losses.cpu().tolist()
+    if (idx+1) % save_step ==0:
+        # with open(snapshot_path+"/puzzles.json", "w") as f:
+        #     json.dump(puzzles, f, indent=4)
+        with open(snapshot_path+"/puzzles_test.json", "w") as f:
+            json.dump(puzzles, f, indent=4)
