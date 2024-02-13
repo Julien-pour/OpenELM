@@ -15,6 +15,32 @@ import time
 import re
 
 
+def calls_func(node, func_name):
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+            if child.func.id == func_name:
+                return True
+    return False
+
+# Analyze the AST to find rules that go against P3 guidelines
+def find_violations_ast(puzzle):
+    try:
+        violations = False
+        tree = ast.parse(puzzle)
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                if node.name == "f" and calls_func(node, "g"):
+                    violations = True
+                    return violations
+                elif node.name == "g" and calls_func(node, "f"):
+                    violations = True
+                    return violations
+    except:
+        return True
+    return False
+
+
 def just_remove_example_in_docstring(source_code: str) -> str:
     puzzle_formated= source_code
 

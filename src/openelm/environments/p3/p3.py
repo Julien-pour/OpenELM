@@ -8,18 +8,9 @@ import os
 os.environ['TRANSFORMERS_CACHE'] = "models"
 import numpy as np
 import requests
-# from openai.embeddings_utils import cosine_similarity, get_embedding
-from openai import OpenAI
-def cosine_similarity(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-# def get_embedding(client, text, model="text-embedding-ada-002"): #self.config.embedding_model_path
-#     return client.embeddings.create(input = [text], model=model).data[0].embedding
-
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from scipy.spatial.distance import cdist
 from transformers import pipeline
 from transformers import AutoModel, AutoTokenizer # maybe this is the pb (bitsandbytes launch message when doing multiprocess)?
 import torch
@@ -34,16 +25,14 @@ from openelm.environments.p3 import (
     P3_PROBSOL_MED_SEED,
     create_prompt_label,get_class_PuzzleCheck,Topics_evaluation,skill_list
 )
-from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_puzzle_given_f,skills_evaluation,P3_probsol_chat_med_seed_goal_targeted
+from openelm.environments.p3 import get_programming_puzzles_prompt,prompt_solve_puzzle_given_f
 from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
-from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
-from openelm.utils.code_eval import load_examples_p3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
+from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check, load_examples_p3,get_limited_trainset,find_violations_ast
 # from joblib import parallel_config
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
-import transformers
 
 # non-local imports, move quality in openelm?
 
@@ -1158,7 +1147,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # TODO pass@k eval
         if not probsol.fitness == None:
             return probsol.fitness
-
+        if find_violations_ast(probsol.program_str):
+            return -np.inf 
         prog = probsol.program_str.split("\nassert f")
         probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
         eval_code_ = str(
@@ -1210,8 +1200,14 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             list_fitness = []
             eval_codes = []
             indices = []  # To keep track of the indices of the probsols being processed
+            indices_incorrect = [] # indices of puzzles that don't follow P3 guidelines 
             for index, probsol in enumerate(list_probsol):
-                if probsol.fitness == -np.inf:
+                incorrect = find_violations_ast(probsol.program_str)
+                if incorrect:
+                    probsol.fitness = -np.inf
+
+                elif probsol.fitness == -np.inf :
+
                     prog = probsol.program_str.split("\nassert f")
                     probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
                     eval_code_ = str(
