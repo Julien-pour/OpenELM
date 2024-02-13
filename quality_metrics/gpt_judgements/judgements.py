@@ -16,8 +16,9 @@ from quality_metrics.utils import make_puzzle, make_solution
 from quality_metrics.gpt_judgements.prompts import (
     five_fold_ranking_prompt,
     random_permutation_prompt,
-    five_fold_ranking_prompt_scrambled_cot
-) 
+    five_fold_ranking_prompt_scrambled_cot,
+    two_fold_ranking_prompt_scrambled_cot
+)
 
 
 TRAIN_PUZZLES = json.load(open('puzzles_train.json', 'r'))
@@ -53,20 +54,21 @@ def build_prompt(puzzle_strs: List[str]):
     return five_fold_ranking_prompt.format(examples=puzzle_text)
 
 
-def get_example_string(doctstring_mode='in_puzzle', mode='normal', puzzle_set='first_five'):
+def get_example_string(doctstring_mode='in_puzzle', mode='normal', puzzle_set='first',
+                       num_puzzles=5):
     # docstring in {'in_puzzle', 'before_puzzle', 'none'} 
     ex_string = ''
     examples = []
     sampled_puzzles = []
     match puzzle_set:
-        case 'first_five':
-            for i in range(5):
+        case 'first':
+            for i in range(num_puzzles):
                 sampled_puzzles.append(TRAIN_PUZZLES[i])
-            ids = list(range(5))
+            ids = list(range(num_puzzles))
         case 'preferences':
             ids = np.random.choice(
                 list(range(len(PREFERENCE_PUZZLES))),
-                5,
+                num_puzzles,
                 replace=False
             ).tolist()
             sampled_puzzles = [PREFERENCE_PUZZLES[i] for i in ids]
@@ -77,7 +79,7 @@ def get_example_string(doctstring_mode='in_puzzle', mode='normal', puzzle_set='f
     permutation = [i for i, _ in sampled_puzzles]
     sampled_puzzles = [p for _, p in sampled_puzzles]
 
-    if mode == 'scrambled':
+    if 'scrambled' in mode:
         str_ids = []
         for _ in range(5):
             # generate a random seq of letters: 
@@ -113,17 +115,28 @@ def get_example_string(doctstring_mode='in_puzzle', mode='normal', puzzle_set='f
 
 
 def get_five_fold_results(client, cfg_generation, docstring_mode='in_puzzle', mode='normal',
-                          puzzle_set='first_five'):
+                          puzzle_set='first'):
 
     match mode:
         case 'normal':
             prompt_template = five_fold_ranking_prompt
         case 'scrambled':
             prompt_template = five_fold_ranking_prompt_scrambled_cot
+        case 'scrambled_two':
+            prompt_template = two_fold_ranking_prompt_scrambled_cot
+
+    if 'two' in mode:
+        num_puzzles = 2
+    else:
+        num_puzzles = 5
 
     # sample puzzles
-    example_str, permutation, str_ids, ids = get_example_string(docstring_mode, mode=mode, 
-                                                                puzzle_set=puzzle_set)
+    example_str, permutation, str_ids, ids = get_example_string(
+        docstring_mode,
+        mode=mode, 
+        puzzle_set=puzzle_set,
+        num_puzzles=num_puzzles,
+    )
     prompt = prompt_template.format(examples=example_str)
     completion = get_completion(client, prompt, cfg_generation)
     return completion, prompt, permutation, str_ids, ids
@@ -143,7 +156,7 @@ def get_default_config():
     return client, cfg_generation
 
 
-def test_validity(N=5, mode='normal', puzzle_set='first_five'):
+def get_preferences(N=5, mode='normal', puzzle_set='first'):
     # Tests to see whether the model produces parsable lists, and consistent outputs
     client, cfg_generation = get_default_config()
     list_outputs = []
@@ -151,7 +164,7 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
     permutations = []
     prompts = []
 
-    if puzzle_set == 'preferences':  # to recover which puzzle we sampled
+    if 'preferences' in puzzle_set:  # to recover which puzzle we sampled
         puz_ids = []
 
     for i in range(N):
@@ -179,7 +192,7 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
             print(f"The result doesn't have the required type (it's a {type(result)})")
         else:
 
-            if mode == 'scrambled':
+            if 'scrambled' in mode:
                 # try to parse the results back into a list of indices.
                 res = []
                 try:
@@ -198,7 +211,7 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
             permutations.append((i, permutation))
             prompts.append(prompt)
 
-            if puzzle_set == 'preferences':
+            if 'preferences' in puzzle_set:
                 puz_ids.append(ids)
                 
 
@@ -212,11 +225,11 @@ def test_validity(N=5, mode='normal', puzzle_set='first_five'):
     data = dict(unique=unique, list_outputs=list_outputs, justifications=justifications, 
                 permutations=permutations, prompts=prompts)
     
-    if puzzle_set == 'preferences':
+    if 'preferences' in puzzle_set:
         data['puz_ids'] = puz_ids
 
-    save_name = 'save_results_completion_permutations_{len}'
-    if mode == 'scrambled':
+    save_name = f'save_results_completion_permutations_{mode}'
+    if 'scrambled' in mode:
         save_name += '_scrambled'    
 
     with open(f'quality_metrics/gpt_judgements/{save_name}.json', 'w') as f:
@@ -263,5 +276,6 @@ def test_permutations(N=100):
 if __name__ == "__main__":
     client, cfg_generation = get_default_config()
     # print(get_five_fold_results(client, cfg_generation))
-    test_validity(1000, mode='scrambled', puzzle_set='preferences')
+    get_preferences(1000, mode='scrambled_two', puzzle_set='preferences')
+    # get_preferences(1000, mode='scrambled', puzzle_set='preferences')
     # test_permutations(1000)

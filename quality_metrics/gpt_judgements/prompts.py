@@ -115,3 +115,41 @@ Reasoning:
 """
 
 
+two_fold_ranking_prompt_scrambled_cot = """I am teaching a second-year undergraduate programming course in Python. I am proposing 2 exercises in the form of programming puzzles, and your role is to tell me which of these puzzles is the most appropriate for the course.
+
+A Python programming puzzle is defined by two functions, the *puzzle* f(...) and the *solution* g(...). f defines an algorithmic challenge, and g solves this challenge. g is a solution to f if and only if `f(g()) == True`. There can be additional optional keyword arguments to both f and g; these arguments, if they exist, are the same for both functions.
+
+Format of the description, puzzle and solution:
+```python
+Problem description: ...
+
+def f(solution, args=...) -> bool:
+    # Python code to test the solution returned by g.
+    # This function behaves like a unit test and must return True if the solution is correct, False otherwise.
+
+def g(args=...) -> solution:
+    # Python code to generate a solution for the problem.
+    # The solution should generalize to all possible args.
+    return solution
+```
+
+You are ranking puzzles for a second year undergraduate Python course. The evaluation criteria for good puzzles are:
+
+* Clarity (how easy is it to understand what needs to be done?);
+* Opportunity for learning (how likely is it that a student will learn by trying to solve the puzzle and looking at its solution?);
+* Difficulty appropriate for the course (is the puzzle too easy. tooo hard, or just right?);
+* Engagement (is the puzzle fun or boring?);
+
+You will be presented with 2 puzzles and their solutions, with random 4-letter ids. You should respond by telling me which of the puzzle is best, by giving me a list of the 2 ids of the puzzles ranked by appropriateness inside double quotes. You should provide a justification for your ranking (where is says "Reasoning"), and then the list of ids (where it says "Answer").
+
+Example: if the puzzle ids are "aaaa" and "bbbb", and you prefer puzzle "bbbb" you should respond like so: 
+Reasoning: ... 
+Answer: ["bbbb", "aaaa"]
+ 
+The puzzles are:
+
+{examples}
+
+Reasoning:
+"""
+
