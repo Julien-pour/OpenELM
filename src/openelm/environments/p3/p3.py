@@ -1164,6 +1164,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         eval_code_ = str(
             f"{probsol.program_str}\n"
             f"def run_eval():\n"
+            f"    if f(True) == True:\n"
+            f"        return False\n"
             f"    return f(g())"
         )
         eval_codes =[eval_code_]#1, eval_code_2]
@@ -1215,6 +1217,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     eval_code_ = str(
                         f"{probsol.program_str}\n"
                         f"def run_eval():\n"
+                        f"    if f(True) == True:\n"
+                        f"        return False\n"
                         f"    return f(g())"
                     )
                     eval_codes.append(eval_code_)
