@@ -60,6 +60,30 @@ def just_remove_example_in_docstring(source_code: str) -> str:
 
 #     return puzzle_formated
 
+
+def extract_header(code):
+    # Parse the code into an AST
+    parsed_ast = ast.parse(code)
+    
+    # Initialize the header variable
+    header = ""
+    
+    # Loop through the nodes in the AST
+    for node in ast.walk(parsed_ast):
+        # Check if the node is a FunctionDef node
+        if isinstance(node, ast.FunctionDef):# and node.name == 'g':
+            # Extract the line numbers for the function signature
+            start_line = node.lineno
+            end_line = node.body[0].lineno
+            
+            # Split the original code by lines and extract the header
+            code_lines = code.split('\n')
+            header_lines = code_lines[start_line-1:end_line-1]
+            header = '\n'.join(header_lines)
+            break  # Assuming you only need the first function's header
+
+    return header
+
 def remove_docstring(source_code: str) -> str:
     puzzle_formated= source_code
 

@@ -2,7 +2,7 @@ import torch
 import ast
 import json
 import jsonlines
-from quality_metrics.difficulty.judge import judge_parallel
+from openelm.quality_metrics.difficulty.judge import judge_parallel
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, CodeLlamaTokenizer
 

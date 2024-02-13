@@ -187,4 +187,5 @@ puzzles_dev_*
 puzzles_ACES_random_dev.json
 
 .idea
+key.py
 assets

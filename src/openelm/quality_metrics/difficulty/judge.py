@@ -5,8 +5,8 @@ from pebble import ProcessPool
 
 from copy import deepcopy
 
-import utils
-
+from openelm.quality_metrics import utils # TODO integration
+#  type_check,test_puzzle,dedup,info,silence_std_err
 
 def no_print(*_args, **_kwargs):
     pass

@@ -10,7 +10,6 @@ import numpy as np
 import requests
 # from openai.embeddings_utils import cosine_similarity, get_embedding
 from openai import OpenAI
-
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
@@ -40,7 +39,6 @@ from openelm.mutation_model import MutationModel
 from openelm.sandbox.server.sandbox_codex_execute import ExecResult
 from openelm.utils.code_eval import pass_at_k, pool_exec_processes, type_check
 from openelm.utils.code_eval import load_examples_p3,get_limited_trainset,just_remove_example_in_docstring,sample_target_skill_smart,sample_fewshot_example
-import itertools
 # from joblib import parallel_config
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
@@ -48,8 +46,10 @@ from typing import List, Optional, Union
 import transformers
 
 # non-local imports, move quality in openelm?
-from quality_metrics import utils
-from quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
+
+from openelm.quality_metrics import utils
+from openelm.quality_metrics.utils import load_prompt_PP
+from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
 
 from tqdm import tqdm
@@ -1030,10 +1030,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 generated_programs[idx] = "from typing import List\n" + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
-            for lib in list_lib:
-                if lib in generated_programs[idx]:
-                    if not f"import {lib}" in  generated_programs[idx].split("def f")[0]:
-                        generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
+            # for lib in list_lib:
+            #     if lib in generated_programs[idx]:
+            #         import_pb = generated_programs[idx].split("def f")[0]
+            #         if not(f"import {lib}" in import_pb or f"from {lib}" in  import_pb):
+            #             generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
     
         if self.config.sandbox:
             results = []
@@ -1050,7 +1051,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
-            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills}
+            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":-np.inf}
             for (gen_prog, target_skills) in zip(generated_programs, skill_targeted_list_duplicate)
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
@@ -1060,7 +1061,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
-        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit >= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit is -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
@@ -1206,18 +1207,21 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if parrallel_fitness:
             list_fitness = []
             eval_codes = []
-            for probsol in list_probsol:
-                prog = probsol.program_str.split("\nassert f")
-                probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
-                eval_code_ = str(
-                    f"{probsol.program_str}\n"
-                    f"def run_eval():\n"
-                    f"    return f(g())"
-                )
-                eval_codes.append(eval_code_)
-            # Run code to see if g6_2 solves f6_2
+            indices = []  # To keep track of the indices of the probsols being processed
+            for index, probsol in enumerate(list_probsol):
+                if probsol.fitness == -np.inf:
+                    prog = probsol.program_str.split("\nassert f")
+                    probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
+                    eval_code_ = str(
+                        f"{probsol.program_str}\n"
+                        f"def run_eval():\n"
+                        f"    return f(g())"
+                    )
+                    eval_codes.append(eval_code_)
+                    indices.append(index)
+
             try:
-                results = pool_exec_processes(
+                partial_results = pool_exec_processes(
                     eval_codes,
                     func_name="run_eval",
                     timeout=self.config.timeout,
@@ -1225,22 +1229,25 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     debug=self.config.debug,
                 )
             except:
-                results = [False]*len(list_probsol) 
+                partial_results = [False]*len(eval_codes) 
                 print("pb when computing fitness")
 
+
+            # Map the partial results back to the full list
+            results = [puz.fitness for puz in list_probsol] # Initialize all fitness values with -np.inf
+            for index, result in zip(indices, partial_results):
+                if result:
+                    results[index] = 1.0  # Update only those indices which were processed
+            for idx in range(len(list_probsol)):
+                list_probsol[idx].fitness = results[idx]
             assert len(list_probsol) == len(results), "pb when computing fitness"
+            list_fitness = results
             # if self.config.eval_k<=1 : # one try doesn't compute pass@k
-            for result in results:
-                if result == True:
-                    list_fitness.append(1.0)
-                else:
-                    list_fitness.append(-np.inf)
-                
-            # if not probsol.fitness == None:
-            #     return probsol.fitness
 
         else:
             list_fitness = [self.fitness(puzz) for puzz in list_probsol]
+            for idx in range(len(list_probsol)):
+                list_probsol[idx].fitness = list_fitness[idx]
             
         return list_fitness
 
@@ -1317,11 +1324,22 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
 
         # load and process archive puzzles into strings
         self.archive_name = self.archive_dataset_name
-        with open(self.archive_dataset_name, 'r') as f:
-            puzzle_archive = json.load(f)
+        # with open(self.archive_dataset_name, 'r') as f:
+        #     puzzle_archive = json.load(f)
+        puzzle_archive = utils.load_dataset_progress(self.archive_name)
+            
         self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
                                     for p in puzzle_archive if p['sol_bodies']]
         self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
+        # sort puzzles by length
+        n_tokens_full_puzzles = [len(self.tokenizer(apuz + asol).input_ids) for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+        # Sort the indices based on the lengths
+        sorted_indices = sorted(range(len(n_tokens_full_puzzles)), key=lambda i: n_tokens_full_puzzles[i])
+        
+        # Reorder the puzzles and solutions lists based on the sorted indices
+        self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in sorted_indices]
+        self.archive_sol_strs = [self.archive_sol_strs[i] for i in sorted_indices]
+
         self.solutions_tokenized = None  # will be populated after filtering
 
         # load reference probsol
@@ -1332,9 +1350,11 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
         self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
 
-        # load few_shot_prompt
-        with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-            self.prompt_text = f.read()
+        self.prompt_text = load_prompt_PP(one_shot_prompt_id)
+        # with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+        # with open(os.path.join(os.path.dirname(__file__),'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+        #     self.prompt_text = f.read()
+            
 
         self._filter_puzzles()
         self.original_losses = self._get_original_losses()
@@ -1363,15 +1383,16 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in indices_to_keep]
         self.archive_sol_strs = [self.archive_sol_strs[i] for i in indices_to_keep]
         self.solutions_tokenized = self.tokenizer(self.archive_sol_strs)
+        print("end filtering")
 
     def _get_original_losses(self):
         # try to load values based on the archive dataset
-        path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
-        if os.path.exists(path):
-            return torch.load(path)
-        else:
+        # path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
+        # if os.path.exists(path):
+        #     return torch.load(path)
+        # else:
             # compute the values and cache them (for future runs)
-            return self._get_losses(self.ref_puzzle, self.ref_solution)
+        return self._get_losses(self.ref_puzzle, self.ref_solution)
 
     def _get_losses(self, puzzle: str, solution: str):
         # format prompts with archive and ref puzzles
@@ -1392,7 +1413,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
             full_prompts=archive_puzzle_sols,
             solutions=self.archive_sol_strs,
             tokenizer=self.tokenizer,
-            num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
+            # num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
             archive_attention_mask=archive_tokenized_puzzles.attention_mask,
             offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
         )
@@ -1414,12 +1435,12 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         fitness = differences.mean().item()
         return - fitness
 
-    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True, disable_tqdm=True):
         
         list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
         assert len(list_solving_fitness) == len(list_probsol)
 
-        for idx,solving_fitness in enumerate(list_solving_fitness):
+        for idx,solving_fitness in enumerate(tqdm(list_solving_fitness,disable=disable_tqdm)):
             if solving_fitness <= 0:
                 continue
             else:
@@ -1431,3 +1452,5 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 differences = final_losses - self.original_losses
                 fitness = differences.mean().item()
                 list_solving_fitness[idx] = - fitness
+                list_probsol[idx].fitness = - fitness
+        return list_solving_fitness
