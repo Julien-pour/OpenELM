@@ -349,8 +349,8 @@ class MAPElitesBase:
         list_niche_idx =  [list(self.nonzero.keys())[idx_sampled] for idx_sampled in list_idx_sampled]
         return list_niche_idx
     
-    def sample_examples_from_niche(self,niche_idx):
-        """Sample on example given a niche"""
+    def sample_examples_from_niche(self,niche_idx) -> int:
+        """Sample one example given a niche"""
         size_niche = len(self.nonzero[niche_idx])
         match self.config.sampling_strategy:
             case 'uniform':
@@ -359,7 +359,7 @@ class MAPElitesBase:
                 
                 if size_niche == 0:
                     raise ValueError('Empty niche')
-                list_archive_index = self.rng.choice(self.nonzero[niche_idx]) # sample a random individual
+                archive_index = self.rng.choice(self.nonzero[niche_idx]) # sample a random individual
 
             case 'prob_best_5':
                 # sample a random niche and a random individual in a niche
@@ -383,11 +383,12 @@ class MAPElitesBase:
                 else:
                     normalized_fitnesses = normalized_fitnesses / normalized_fitnesses.sum()
                 print(f'probabilities {normalized_fitnesses}')
-                list_archive_index = self.rng.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
+                archive_index = self.rng.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
                 
             case _:
                 raise NotImplementedError(f'Unrecognized sampling strategy "{self.config.sampling_strategy}"')
-        return list_archive_index
+        archive_index = int(archive_index)
+        return archive_index
     
     def random_selection(self,trainset_only=False) -> MapIndex:
         """select a individual from a random niche (cell) in the map that has been explored.
@@ -464,7 +465,7 @@ class MAPElitesBase:
             
             for niche_idx in liste_niche_idx:
                 archive_indexs = self.sample_examples_from_niche(niche_idx)
-                list_archive_index.extend(list(archive_indexs))
+                list_archive_index.append(archive_indexs)
 
         else: # imgep mode
             #all niches explored

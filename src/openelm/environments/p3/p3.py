@@ -1009,7 +1009,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
                     list_pb.append(split_pb[idx])
                     skill_targeted_list_duplicate.append(skill_targeted_list[idx_gen_prog])
-                    list_few_shot_ex.append(code_batch["few_shot_ex"])
+                    list_few_shot_ex.append(code_batch[idx_gen_prog]["few_shot_ex"])
 
         for idx_assert in range(len(list_pb)):
         #     list_pb[idx] = list_pb[idx].split("assert")[0]+"assert f(g()) == True"

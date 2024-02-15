@@ -159,7 +159,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     base_persona += "The Professor want to give some puzzles to his master's student to teach them Python." # student -> Master student
     prompt = base_persona 
     prompt += """
-    I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
+    I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
     
     Rules:
