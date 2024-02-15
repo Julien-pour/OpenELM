@@ -1058,15 +1058,16 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
-        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit is -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if not fit is -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
         # add gen description puzzle here (or should we do it with skill labeling ?) 
         # + add filtering step here ?
+        time_filtering = time.time()
         if self.config.activate_filtering_description:
             add_to_results =self.multiple_description_filtering(list_correct_puzzle)
-        
+        print(f"time to compute filtering = {time_filtering-start_t5}")
 
         # compute phenotype of correct puzzle
         start_t6 = time.time()

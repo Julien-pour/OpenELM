@@ -98,7 +98,7 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
             prompt += "Your role is to write a **short** description of the following Python Programming Puzzles. " 
         case "description+is_valid": # WIP
             prompt=base_persona
-            prompt += "Your role is to first write a **short** description of the following Python Programming Puzzle. "
+            prompt += "Your role is to first write a **short** description of the following Python Programming Puzzle. Please DO NOT mention student in your description. "
             prompt += f"Then you should check if the following puzzle could be used or not to teach Python to {level}."
 
         case "give_skills":
