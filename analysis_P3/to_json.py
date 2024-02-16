@@ -6,7 +6,9 @@ import pickle
 import argparse
 from tqdm import tqdm
 parser = argparse.ArgumentParser(description="argument parsing")
-parser.add_argument("-p", "--base_path", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130/maps.pkl")
+parser.add_argument("-p", "--base_path", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM_NLP/24-02-15_22:57/step_50/maps.pkl")
+# /home/flowers/work/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM_NLP/24-02-15_22:57/step_50/maps.pkl
+# /home/flowers/work/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/24-02-15_22:58/step_50/maps.pkl
 args = parser.parse_args()
 
 snapshot_path=args.base_path
@@ -14,10 +16,10 @@ snapshot_path=args.base_path
 with open(snapshot_path, "rb") as f:
     maps = pickle.load(f)
 
-genomes = maps
-# fitnesses = maps["fitnesses"]
-# genomes = maps["genomes"]
-# non_zeros = maps["nonzero"]
+# genomes = maps
+fitnesses = maps["fitnesses"]
+genomes = maps["genomes"]
+non_zeros = maps["nonzero"]
 to_remove =["config","interestingness_f","interestingness_g","result_obj"]
 list_puzzles = []
 for puz in tqdm(genomes):#genomes.archive):

@@ -137,21 +137,11 @@ for i, puzzle_list in enumerate(puzzles):
 base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
 base_persona += "The Professor want to give some puzzles to his master's student to teach them Python." # student -> Master student
 prompt_instruction = base_persona 
-prompt_instruction += """I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing `g` such that `f(g())` evaluates to `True`.
-
+prompt_instruction += """I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
 
 Rules:
-- Each puzzle includes two functions: `def f(...)` and `def g(...)`.
-- The first argument of `f` is always the output from `g()`.
-- Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
-- Avoid using `f` inside `g`, and `g` inside `f`.
-- Include any necessary imports for your code to run smoothly.
-- Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
-- Make sure the puzzle is self-contained within these two functions.
 - f and g should be distinct (not copy-paste of each other)
 
-Puzzle Format:
-Puzzle description: A brief, one to two sentence summary of the puzzle's content.
 ```python
 def f(solution, args=...) -> bool:
     # Python code to test the solution returned by g.

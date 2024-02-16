@@ -8,15 +8,24 @@ import time
 
 # Rank class
 class Rank_puzzle(ABC):
-    def __init__(self,puzzle_dict,mode_rank="pairwise",prompt_instruction=None):
+    def __init__(self,puzzle_dict,mode_rank="pairwise",prompt_instruction=None, n_generation=4):
+        """ 
+        Args:
+        - puzzle_dict: a dictionary of puzzles to rank
+        - mode_rank: the mode to rank the puzzles, either "pairwise" or "absolute"
+        - prompt_instruction: the prompt to use for the ranking
+        - n_generation: the number of time to do pairwise ranking on a pair of puzzles or absolute ranking of a puzzle
+        """
+        
         self.prompt_instruction = prompt_instruction
         self.mode_rank = mode_rank
         self.puzzle_dict = puzzle_dict
         self.save_results = []
         self.save_results_inverse = []
         self.speed_inference = None
-        
         self.list_speed_inference = []
+        self.n_generation = n_generation
+        self.save_all_results = []
         self.init_model()
         
     @abstractmethod
@@ -42,18 +51,19 @@ class Rank_puzzle(ABC):
         """
         # Get a list of keys to iterate over
         keys = list(self.puzzle_dict.keys())
-        grades = {key: 0 for key in self.puzzle_dict}
-        with tqdm(total=len(keys)) as pbar:
+        grades = {key: [] for key in self.puzzle_dict}
+        with tqdm(total=int(len(keys)*self.n_generation)) as pbar:
             for i in range(len(keys)):
+                for _ in range(self.n_generation):
+                    key = keys[i]
+                    puzzle = self.puzzle_dict[key]
+                    grades[key].append(self.absolute_grade(puzzle))
 
-                key = keys[i]
-                puzzle = self.puzzle_dict[key]
-                grades[key] = self.absolute_grade(puzzle)
-
-                pbar.update(1)
-                if self.speed_inference!=None:
-                    pbar.set_description(f"Speed Inference: {self.speed_inference} tok/s")
-                    pbar.refresh()
+                    pbar.update(1)
+                    if self.speed_inference!=None:
+                        pbar.set_description(f"Speed Inference: {self.speed_inference} tok/s")
+                        pbar.refresh()
+                
 
         # Rank puzzles based on their win records, sorting by wins descending
         ranked_keys = sorted(keys, key=lambda x: grades[x], reverse=True)
@@ -68,7 +78,7 @@ class Rank_puzzle(ABC):
         keys = list(self.puzzle_dict.keys())
         
         # Iterate over each unique pair of puzzle keys
-        total_iter = int(len(keys)*(len(keys)-1)/2)
+        total_iter = int(len(keys)*(len(keys)-1)/2*self.n_generation)
         with tqdm(total=total_iter) as pbar:
             for i in range(len(keys)):
                 for j in range(i + 1, len(keys)):
@@ -76,29 +86,31 @@ class Rank_puzzle(ABC):
                     puzzle1, puzzle2 = self.puzzle_dict[key1], self.puzzle_dict[key2]
                     
                     # Determine the winner using the pairwise ranking function
-                    
-                    res_pairwise = self.pairwise_ranking(puzzle1, puzzle2)
-                    res_pairwise_inverse = self.pairwise_ranking(puzzle2, puzzle1)
-                    
+                    for _ in range(self.n_generation):
+                        res_pairwise = self.pairwise_ranking(puzzle1, puzzle2)
+                        res_pairwise_inverse = self.pairwise_ranking(puzzle2, puzzle1)
+                        
 
-                    # Update the win record for the winner
-                    if  res_pairwise == 0:
-                        win_record[key1] += 1
-                    elif res_pairwise == 1:
-                        win_record[key2] += 1
-                    elif res_pairwise == 2:
-                        win_record[key1] += 0.5
-                        win_record[key2] += 0.5
-                    else: 
-                        raise ValueError(f"Invalid result: {res_pairwise}")
-                    
-                    self.save_results.append((key1,key2,res_pairwise))
-                    self.save_results_inverse.append((key2,key1,res_pairwise_inverse))
-                    pbar.update(1)
-                    if self.speed_inference!=None:
-                        pbar.set_description(f"Speed Inference: {self.speed_inference} tok/s")
-                        pbar.refresh()
-                
+                        # Update the win record for the winner
+                        if  res_pairwise == 0:
+                            win_record[key1] += 1
+                        elif res_pairwise == 1:
+                            win_record[key2] += 1
+                        elif res_pairwise == 2:
+                            win_record[key1] += 0.5
+                            win_record[key2] += 0.5
+                        else: 
+                            raise ValueError(f"Invalid result: {res_pairwise}")
+                        
+                        self.save_results.append((key1,key2,res_pairwise))
+                        self.save_results_inverse.append((key2,key1,res_pairwise_inverse))
+                        self.save_all_results.append((key1,key2,res_pairwise))
+                        self.save_all_results.append((key2,key1,res_pairwise_inverse))
+                        pbar.update(1)
+                        if self.speed_inference!=None:
+                            pbar.set_description(f"Speed Inference: {self.speed_inference} tok/s")
+                            pbar.refresh()
+        
         # Rank puzzles based on their win records, sorting by wins descending
         ranked_keys = sorted(keys, key=lambda x: win_record[x], reverse=True)
         
@@ -117,11 +129,25 @@ class Rank_puzzle(ABC):
 # HF model
 
 class HF_Rank(Rank_puzzle):
-    def __init__(self, puzzle_dict,mode_rank="pairwise",prompt_instruction=None,exllama2=True,model_id=None,revision="main") -> None:
+    def __init__(self, puzzle_dict,prompt_instruction,mode_rank="pairwise",exllama2=True,model_id=None,revision="main",n_generation=4) -> None:
+        """
+        Args:
+        - puzzle_dict: a dictionary of puzzles to rank
+        - prompt_instruction: the prompt to use for the ranking
+        - exllama2: whether to use exllama2
+        - model_id: the model_id to use
+        - revision: the revision to use
+        - n_generation: the number of time to do pairwise ranking on a pair of puzzles or absolute ranking of a puzzle
+
+        kwargs:
+        - mode_rank: the mode to rank the puzzles, either "pairwise" or "absolute"
+
+        """
         self.exllama2 = exllama2
         self.model_id = model_id
         self.revision = revision
-        super().__init__(puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction)
+        n_generation
+        super().__init__(puzzle_dict=puzzle_dict,prompt_instruction=prompt_instruction,mode_rank=mode_rank,n_generation=n_generation)
 
     def init_model(self):
         from transformers import AutoModelForCausalLM, AutoTokenizer, GPTQConfig
@@ -138,7 +164,7 @@ class HF_Rank(Rank_puzzle):
         with torch.no_grad():
             time_s = time.time()
             inputs = self.tokenizer(text, return_tensors="pt").to("cuda")
-            out_tok = self.model.generate(**inputs, max_length=2048, do_sample=False, top_p=1.0)
+            out_tok = self.model.generate(**inputs, max_length=2048, do_sample=True, temperature = 1., top_p=0.9)
             out = self.tokenizer.decode(out_tok[0], skip_special_tokens=True)
             time_e = time.time()
             speed = len(out_tok[0])/((time_e-time_s)) # result in tokens per second
@@ -157,7 +183,7 @@ class HF_Rank(Rank_puzzle):
 class Auto_j_Rank(HF_Rank):
     def __init__(self, puzzle_dict,mode_rank="pairwise",prompt_instruction=None,exllama2=True,model_id="GAIR/autoj-13b-GPTQ-4bits") -> None:
         self.exllama2 = exllama2
-        super().__init__(model_id,puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id)
+        super().__init__(puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id)
         
         
     def pairwise_ranking(self,puzzle1: str,puzzle2: str) -> str:
@@ -217,9 +243,9 @@ instruction_openchat_wo_reference = instruction_openchat.replace(to_rem,"")
 # TODO: define description
 
 class Open_chat(HF_Rank):
-    def __init__(self, puzzle_dict,mode_rank="absolute",prompt_instruction=None,exllama2=True,model_id="TheBloke/openchat-3.5-1210-GPTQ",revision="gptq-4bit-32g-actorder_True") -> None:
+    def __init__(self, puzzle_dict,mode_rank="absolute",prompt_instruction=None,exllama2=True,model_id="TheBloke/openchat-3.5-1210-GPTQ",revision="gptq-4bit-32g-actorder_True", n_generation=4) -> None:
         self.exllama2 = exllama2
-        super().__init__(model_id,puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id,revision=revision)
+        super().__init__(model_id,puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id,revision=revision, n_generation = n_generation)
     
     def absolute_grade(self,puzzle):
         """return the absolute_grade float between 0 and 5"""

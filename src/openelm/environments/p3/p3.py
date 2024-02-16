@@ -1048,7 +1048,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
-            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":-np.inf}
+            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness": None}
             for (gen_prog, target_skills) in zip(generated_programs, skill_targeted_list_duplicate)
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
@@ -1058,7 +1058,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
         start_t5 = time.time()
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
-        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if not fit is -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if not fit == -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
         list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
 
@@ -1154,7 +1154,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         #     return -np.inf
 
         # TODO pass@k eval
-        if not probsol.fitness == None:
+        if probsol.fitness != None:
             return probsol.fitness
         if find_violations_ast(probsol.program_str):
             return -np.inf 
@@ -1165,7 +1165,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             f"def run_eval():\n"
             f"    if f(True) == True:\n"
             f"        return False\n"
-            f"    return f(g())"
+            f"    else:\n"
+            f"        return f(g())"
         )
         eval_codes =[eval_code_]#1, eval_code_2]
         # Run code to see if g6_2 solves f6_2
@@ -1215,7 +1216,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 if incorrect:
                     probsol.fitness = -np.inf
 
-                elif probsol.fitness == -np.inf :
+                elif probsol.fitness == None :
 
                     prog = probsol.program_str.split("\nassert f")
                     probsol.program_str = prog[0] + "\nassert f(g()) == True\n"
@@ -1243,7 +1244,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
 
             # Map the partial results back to the full list
-            results = [puz.fitness for puz in list_probsol] # Initialize all fitness values with -np.inf
+            results = [-np.inf if puz.fitness == None else puz.fitness for puz in list_probsol ] # Initialize all fitness values with -np.inf
             for index, result in zip(indices, partial_results):
                 if result:
                     results[index] = 1.0  # Update only those indices which were processed
