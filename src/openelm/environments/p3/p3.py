@@ -5,7 +5,7 @@ import warnings
 from typing import Optional, Union
 import copy
 import os
-os.environ['TRANSFORMERS_CACHE'] = "models"
+# os.environ['TRANSFORMERS_CACHE'] = "models"
 import numpy as np
 import requests
 
@@ -1007,24 +1007,25 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("``` python","```").split("```"))# replace("```\n","```").
             for idx in range(len(split_pb)):
                 if "def f" in split_pb[idx] and "def g" in split_pb[idx]:
+                    # TODO:
+                    split_pb[idx] = split_pb[idx].split("\nassert f(")[0]
+                    split_pb[idx] = split_pb[idx] + "\nassert f(g()) == True\n"
+
                     list_pb.append(split_pb[idx])
                     skill_targeted_list_duplicate.append(skill_targeted_list[idx_gen_prog])
                     list_few_shot_ex.append(code_batch[idx_gen_prog]["few_shot_ex"])
 
-        for idx_assert in range(len(list_pb)):
-        #     list_pb[idx] = list_pb[idx].split("assert")[0]+"assert f(g()) == True"
-            if not "assert f(" in list_pb[idx_assert]:
-                list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
+
         generated_programs = list_pb
         print('parsing finished')
         print(f"time to generate {len(generated_programs)} program = {start_t1-start_t0} sec")
         
         print('evaluating pbs')
-        list_lib = ["math", "random", "itertools"]
+        # list_lib = ["math", "random", "itertools"]
         
-        for idx in range(len(generated_programs)):
-            if "List" in generated_programs[idx] and not("from typing import List" in generated_programs[idx]):
-                generated_programs[idx] = "from typing import List\n" + generated_programs[idx]
+        # for idx in range(len(generated_programs)):
+        #     if "List" in generated_programs[idx] and not("from typing import List" in generated_programs[idx]):
+        #         generated_programs[idx] = "from typing import List\n" + generated_programs[idx]
                 
             # check if lib are correctly imported (if not import them)
             # for lib in list_lib:
@@ -1064,9 +1065,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         # add gen description puzzle here (or should we do it with skill labeling ?) 
         # + add filtering step here ?
-        time_filtering = time.time()
         if self.config.activate_filtering_description:
             add_to_results =self.multiple_description_filtering(list_correct_puzzle)
+        time_filtering = time.time()
         print(f"time to compute filtering = {time_filtering-start_t5}")
 
         # compute phenotype of correct puzzle
@@ -1074,11 +1075,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         print('begin phenotype computation')
 
-        #TODO: use puzzle description in phenotype computation (add description to list_correct_puzzle)
-        # if self.config.activate_filtering_description:
-        #     for idx in range(len(list_correct_puzzle)):
-        #         list_correct_puzzle[idx] = add_to_results[idx]["description"] +"\n"+ list_correct_puzzle[idx]
-        
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle) # should probably give description to label puzzle ?
         # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
         #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
@@ -1154,6 +1150,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         #     return -np.inf
 
         # TODO pass@k eval
+        
         if probsol.fitness != None:
             return probsol.fitness
         if find_violations_ast(probsol.program_str):
@@ -1223,8 +1220,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     eval_code_ = str(
                         f"{probsol.program_str}\n"
                         f"def run_eval():\n"
-                        f"    if f(True) == True:\n"
-                        f"        return False\n"
+                        f"    try:\n"
+                        f"        if f(True) == True:\n"
+                        f"            return False\n"
+                        f"    except:\n"
+                        f"        pass\n"
                         f"    return f(g())"
                     )
                     eval_codes.append(eval_code_)
@@ -1244,9 +1244,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
 
             # Map the partial results back to the full list
-            results = [-np.inf if puz.fitness == None else puz.fitness for puz in list_probsol ] # Initialize all fitness values with -np.inf
+            results = [-np.inf if puz.fitness == None else puz.fitness for puz in list_probsol] # Initialize all fitness values with -np.inf
             for index, result in zip(indices, partial_results):
-                if result:
+                if result == True:
                     results[index] = 1.0  # Update only those indices which were processed
             for idx in range(len(list_probsol)):
                 list_probsol[idx].fitness = results[idx]
