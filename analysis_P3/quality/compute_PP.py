@@ -19,7 +19,7 @@ import pickle
 import argparse
 parser = argparse.ArgumentParser(description="argument parsing")
 parser.add_argument("-p", "--puzzle_path", type=str, help="path to puzzles", 
-                    default="puzzles_train.json")
+                    default=None)
 parser.add_argument("-s", "--save_step", type=str, 
                     help="save maps each save_step steps", default=10)
 parser.add_argument('-b', '--batch-size', help='override the batch size of the env',
@@ -38,8 +38,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "True"
 # load maps
 save_step = args.save_step
 
-save_path = args.puzzle_path.replace('.json', '_compute_pp.json')
-
 # snapshot_path = args.puzzle_path
 
 # with open(snapshot_path, "r") as f:
@@ -48,24 +46,32 @@ save_path = args.puzzle_path.replace('.json', '_compute_pp.json')
 # open puzzles
 all_puzzles = []
 
-if os.path.exists(save_path):
-    with open(save_path, 'r') as f:
-        all_puzzles = json.load(f)
-else:
-    paths = [
-        'puzzles_train.json',
-        'puzzles_test.json',
-        'logs/latest/puzzles_ELM_NLP_0.json',
-        'logs/latest/puzzles_ACES_smart_0.json',
-        'logs/latest/puzzles_rd_gen_0.json',
-    ]
+save_path = 'compute_pp.json'
 
-    for path in paths:
-        with open(path, 'r') as f:
-            d = json.load(f)
-            for p in d:
-                p['origin'] = path
-        all_puzzles += d
+if args.puzzle_path is not None:
+    with open(args.puzzle_path, 'r') as f:
+        all_puzzles = json.load(f)
+
+else:
+    if os.path.exists(save_path):
+        with open(save_path, 'r') as f:
+            all_puzzles = json.load(f)
+
+    else:
+        paths = [
+            'puzzles_train.json',
+            'puzzles_test.json',
+            'logs/latest/puzzles_ELM_NLP_0.json',
+            'logs/latest/puzzles_ACES_smart_0.json',
+            'logs/latest/puzzles_rd_gen_0.json',
+        ]
+
+        for path in paths:
+            with open(path, 'r') as f:
+                d = json.load(f)
+                for p in d:
+                    p['origin'] = path
+            all_puzzles += d
     
 
 with initialize(version_base="1.2"):
