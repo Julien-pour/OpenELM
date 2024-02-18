@@ -51,6 +51,7 @@ save_path = 'compute_pp.json'
 if args.puzzle_path is not None:
     with open(args.puzzle_path, 'r') as f:
         all_puzzles = json.load(f)
+    save_path = args.puzzle_path.replace('.json', '_compute_pp.json')
 
 else:
     if os.path.exists(save_path):
