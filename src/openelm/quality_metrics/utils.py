@@ -194,7 +194,7 @@ def make_puzzle(puzzle, include_docstring=False):
     return puz_str.replace('def sat(', 'def f(')
 
 
-def parse_puzzle_from_str(s,debug=False):
+def parse_puzzle_from_str(s, debug=False):
     error=False
     try:
         functions = [el for el in ast.parse(s).body if isinstance(el, ast.FunctionDef)]
@@ -224,6 +224,14 @@ def parse_puzzle_from_str(s,debug=False):
             return '', '', True
         else:
             return '', ''
+
+
+def get_puzzle_sol(puzzle):
+    if 'program_str' in puzzle:
+        return parse_puzzle_from_str(puzzle['program_str'])
+    else:  # train set
+        return make_puzzle(puzzle), make_solution(puzzle)
+
 
 ### transformer utils
 
@@ -419,7 +427,6 @@ def get_solution_mask_from_str_loop(full_prompts, solutions, tokenizer,
         solutions_to_predict.append(solution.split(header)[1])
         matches.append(matche)
              
-
     num_solution_tokenss = [len(t) for t in tokenizer(solutions_to_predict).input_ids]
     # [full_prompt.split(extract_header(solution))[0] for solution, full_prompt in zip(solutions, full_prompts) ]
     num_tokens_before = [len(t) for t in tokenizer(matches).input_ids]

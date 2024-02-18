@@ -1355,11 +1355,9 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         # with open(os.path.join(os.path.dirname(__file__),'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
         #     self.prompt_text = f.read()
             
-
         self._filter_puzzles()
         self.original_losses = self._get_original_losses()
         print(f'original losses {self.original_losses}')
-        pass
 
     def _filter_puzzles(self, tolerance=800, num_max_tokens=2048):
         print('Filtering long puzzles in the archive')
@@ -1435,12 +1433,13 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         fitness = differences.mean().item()
         return - fitness
 
-    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True, disable_tqdm=True):
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, 
+                         parrallel_fitness=True, disable_tqdm=True):
         
         list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
         assert len(list_solving_fitness) == len(list_probsol)
 
-        for idx,solving_fitness in enumerate(tqdm(list_solving_fitness,disable=disable_tqdm)):
+        for idx, solving_fitness in enumerate(tqdm(list_solving_fitness, disable=disable_tqdm)):
             if solving_fitness <= 0:
                 continue
             else:

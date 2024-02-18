@@ -17,8 +17,14 @@ from openelm.quality_metrics.gpt_judgements.prompts import (
     five_fold_ranking_prompt,
     random_permutation_prompt,
     five_fold_ranking_prompt_scrambled_cot,
-    two_fold_ranking_prompt_scrambled_cot
+    two_fold_ranking_prompt_scrambled_cot,
+    two_fold_ranking_prompt_scrambled_cot_2,
+    two_fold_ranking_prompt_scrambled_cot_2_easiest,
 )
+
+
+random.seed(3407)
+np.random.seed(3407)
 
 
 TRAIN_PUZZLES = json.load(open('puzzles_train.json', 'r'))
@@ -123,7 +129,7 @@ def get_five_fold_results(client, cfg_generation, docstring_mode='in_puzzle', mo
         case 'scrambled':
             prompt_template = five_fold_ranking_prompt_scrambled_cot
         case 'scrambled_two':
-            prompt_template = two_fold_ranking_prompt_scrambled_cot
+            prompt_template = two_fold_ranking_prompt_scrambled_cot_2_easiest
 
     if 'two' in mode:
         num_puzzles = 2
@@ -228,11 +234,11 @@ def get_preferences(N=5, mode='normal', puzzle_set='first'):
     if 'preferences' in puzzle_set:
         data['puz_ids'] = puz_ids
 
-    save_name = f'save_results_completion_permutations_{mode}'
+    save_name = f'save_results_completion_permutations_{mode}_easiest'
     if 'scrambled' in mode:
         save_name += '_scrambled'    
 
-    with open(f'quality_metrics/gpt_judgements/{save_name}.json', 'w') as f:
+    with open(f'src/openelm/quality_metrics/gpt_judgements/{save_name}.json', 'w') as f:
         json.dump(data, f)
 
 
@@ -276,6 +282,6 @@ def test_permutations(N=100):
 if __name__ == "__main__":
     client, cfg_generation = get_default_config()
     # print(get_five_fold_results(client, cfg_generation))
-    get_preferences(1000, mode='scrambled_two', puzzle_set='preferences')
+    get_preferences(1000, mode='scrambled', puzzle_set='preferences')
     # get_preferences(1000, mode='scrambled', puzzle_set='preferences')
     # test_permutations(1000)
