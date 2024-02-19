@@ -27,3 +27,5 @@ pynvml
 packaging
 flash_attn
 instructor
+trl
+
