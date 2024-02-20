@@ -22,8 +22,9 @@ parser.add_argument("-p", "--puzzle_path", type=str, help="path to puzzles",
                     default=None)
 parser.add_argument("-s", "--save_step", type=str, 
                     help="save maps each save_step steps", default=10)
-parser.add_argument('-b', '--batch-size', help='override the batch size of the env',
+parser.add_argument('-b', '--batch_size', help='override the batch size of the env',
                     default=2, type=int)
+parser.add_argument('-a', '--archive_path', type=str, default=None)
 
 args = parser.parse_args()
 
@@ -102,6 +103,9 @@ env = P3ProbSol_Chat_PP(config=config.env,
 
 env.batch_size = args.batch_size
 
+if args.archive_path is not None:  # hack fix to reinit archive
+    env.archive_dataset_name = args.archive_path
+    env.init_archive()
 
 disable_tqdm = False
 all_puzzles[0]["original_losses"] = env.original_losses.cpu().tolist()

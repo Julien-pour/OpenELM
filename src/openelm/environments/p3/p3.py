@@ -1298,7 +1298,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         """
         self.archive_dataset_name = config.archive_dataset_name
         self.reference_probsol = config.reference_probsol
-        one_shot_prompt_id = config.one_shot_prompt_id
+        self.one_shot_prompt_id = config.one_shot_prompt_id
         self.use_docstring = config.use_docstring
         # for computing the solution attention mask in parallel
         self.num_workers = config.num_workers
@@ -1321,11 +1321,11 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         print(self.model)
         print(self.model.config.max_position_embeddings)
         print('BWAAA')
+        self.init_archive()
 
+    def init_archive(self):
         # load and process archive puzzles into strings
         self.archive_name = self.archive_dataset_name
-        # with open(self.archive_dataset_name, 'r') as f:
-        #     puzzle_archive = json.load(f)
         puzzle_archive = utils.load_dataset_progress(self.archive_name)
             
         self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
@@ -1350,10 +1350,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
         self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
 
-        self.prompt_text = load_prompt_PP(one_shot_prompt_id)
-        # with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-        # with open(os.path.join(os.path.dirname(__file__),'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-        #     self.prompt_text = f.read()
+        self.prompt_text = load_prompt_PP(self.one_shot_prompt_id)
             
         self._filter_puzzles()
         self.original_losses = self._get_original_losses()
