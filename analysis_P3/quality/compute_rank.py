@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Tuple 
-from pairrm import extract_single_rating_autoj, extract_pairwise_result_autoj, build_autoj_input
+from pairrm import extract_single_rating_autoj, extract_pairwise_result_autoj, build_autoj_input,build_Yes_input
 from tqdm import tqdm
 import torch
 
@@ -11,7 +11,7 @@ class Rank_puzzle(ABC):
     def __init__(self,puzzle_dict,mode_rank="pairwise",prompt_instruction=None, n_generation=4):
         """ 
         Args:
-        - puzzle_dict: a dictionary of puzzles to rank
+        - puzzle_dict: a dictionary of puzzles to rank {puzzl_id: puzzle_text, ...}
         - mode_rank: the mode to rank the puzzles, either "pairwise" or "absolute"
         - prompt_instruction: the prompt to use for the ranking
         - n_generation: the number of time to do pairwise ranking on a pair of puzzles or absolute ranking of a puzzle
@@ -158,10 +158,10 @@ class HF_Rank(Rank_puzzle):
             self.model = AutoModelForCausalLM.from_pretrained(path_model,device_map="auto",quantization_config=gptq_config,revision = self.revision)
         else:
             self.model = AutoModelForCausalLM.from_pretrained(path_model,device_map="auto",revision = self.revision)
-        self.model=torch.compile(self.model)
+        # self.model=torch.compile(self.model)
 
     def generate(self,text):
-        with torch.no_grad():
+        with torch.inference_mode():
             time_s = time.time()
             inputs = self.tokenizer(text, return_tensors="pt").to("cuda")
             out_tok = self.model.generate(**inputs, max_length=2048, do_sample=True, temperature = 1., top_p=0.9)
@@ -206,7 +206,85 @@ class Auto_j_Rank(HF_Rank):
                     protocol = "single") # for single response evaluation 
         out = self.generate(input_single)
         return extract_single_rating_autoj(out)
+
+
+
+
+
+class Yes_model(HF_Rank):
+    def __init__(self, puzzle_dict,mode_rank="absolute",prompt_instruction=None,exllama2=False,model_id="/home/flowers/work/hf/deepseek-coder-1.3b-instruct",yes_mode="finetuning",n_generation=1) -> None:
+        """
+        yes_mode = ["finetuning","education"] #prompt to use for the ranking
+        """
+        self.exllama2 = exllama2
+        self.yes_mode = yes_mode # "finetuning" or "education"
+        self.soft = torch.nn.Softmax(dim=1)
+        super().__init__(puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id,exllama2=exllama2,n_generation=n_generation)
+        
+        
+    def generate(self,text):
+        with torch.inference_mode():
+            time_s = time.time()
+            inputs = self.tokenizer(text, return_tensors="pt").to("cuda")
+            out_yes = self.model(**inputs)
+            # out = self.tokenizer.decode(out_tok[0])
+            k=10
+            yes_logits=self.soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
+            values,indices=torch.topk(yes_logits, k)
+            list_token=self.tokenizer.batch_decode(indices.T)
+            # values,list_token
+            flag_no = False
+            if "Yes" in list_token:
+                idx = list_token.index("Yes")
+                proba_Yes = values[[0],idx].item()
+                if "yes" in list_token:
+                    idx_yes = list_token.index("yes")
+                    proba_yes = values[[0],idx_yes].item()
+                    if proba_yes>proba_Yes:
+                        idx = idx_yes
+            elif "yes" in list_token:
+                idx = list_token.index("yes")
+            elif "No" in list_token:
+                idx = list_token.index("No")
+                flag_no = True
+                proba_No = values[[0],idx].item()
+                if "no" in list_token:
+                    idx_no = list_token.index("no")
+                    proba_no = values[[0],idx_no].item()
+                    if proba_no>proba_No:
+                        idx = idx_no
+            elif "no" in list_token:
+                idx = list_token.index("no")
+                flag_no = True
+            else:
+                print("No yes or no token found")
+                return -1
+            proba_yes=values[[0],idx].item()
+            if flag_no: # if the token "no" is selected, we need to invert the probability
+                proba_yes = 1-proba_yes
+
+            proba_yes=values[[0],idx].item()
+            time_e = time.time()
+            speed = inputs.input_ids.shape[-1]/((time_e-time_s)) # result in tokens per second
+            self.list_speed_inference.append(speed)
+            if self.speed_inference==None:
+                self.speed_inference =  speed
+                # compute ema speed inference
+            else:
+                alpha = 0.2
+                self.speed_inference = self.speed_inference
+                self.speed_inference = (speed * alpha) + (self.speed_inference * (1-alpha))
+        return proba_yes
     
+    def absolute_grade(self,puzzle):
+        """return the absolute_grade float between 0 and 10"""
+        # query = self.prompt_instruction
+
+        input_single = build_Yes_input(datapoint=puzzle, 
+                                model_id =self.model_id,yes_mode=self.yes_mode) # for single response evaluation 
+        out = self.generate(input_single)
+        return out
+
 # TheBloke/openchat-3.5-1210-GPTQ
 prompt_openchat = """GPT4 Correct User: {instruct}<|end_of_turn|>GPT4 Correct Assistant: Hi<|end_of_turn|>GPT4 Correct User: How are you today?<|end_of_turn|>GPT4 Correct Assistant:"""
 instruction_openchat="""###Task Description:
@@ -238,6 +316,25 @@ Score 5: {orig_score5_description}
 to_rem="""
 ###Reference Answer (Score 5):
 {orig_reference_answer}
+"""
+
+instruction_prometheus="""###Task Description:
+An instruction, a response to evaluate and a score rubric representing a evaluation criteria are given.
+1. Write a detailed feedback that assess the quality of the response strictly based on the given score rubric, not evaluating in general.
+2. After writing a feedback, write a score that is an integer between 1 and 5. You should refer to the score rubric.
+3. The output format should look as follows: "Feedback: (write a feedback for criteria) [RESULT] (an integer number between 1 and 5)"
+4. Please do not generate any other opening, closing, and explanations.
+
+###The instruction to evaluate:
+{orig_instruction}
+
+###Response to evaluate:
+{orig_response}
+
+###Score Rubrics:
+{Criteria}
+
+###Feedback:
 """
 instruction_openchat_wo_reference = instruction_openchat.replace(to_rem,"")
 # TODO: define description

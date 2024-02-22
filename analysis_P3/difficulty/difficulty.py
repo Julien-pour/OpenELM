@@ -14,14 +14,14 @@ import os
 os.environ['TOKENIZERS_PARALLELISM'] = "True"
 
 parser = argparse.ArgumentParser(description="argument parsing")
-parser.add_argument("-p", "--path_maps", type=str, help="path to maps",default="/home/flowers/work/OpenELM/logs/elm/24-02-05_15:39/step_130")
+parser.add_argument("-p", "--path_maps", type=str, help="path to maps",default="/home/flowers/work/OpenELM/analysis_P3/quality/to_analyse/maps_1_rd_gen.json")
 parser.add_argument("-l", "--path_hf_model_repo", type=str, help="path to where hf model are stored",default="")
 parser.add_argument("-k", "--arg_k", type=int, help="k in pass@k",default=5)
 parser.add_argument("-b", "--arg_bs_test", type=int, help=" bs test",default=16)
 parser.add_argument("-m", "--arg_model_idx", type=int, help="model idx",default=0)
 parser.add_argument("-f", "--arg_flash", type=str, help="activate flash",default="flash2")
 parser.add_argument("-c", "--arg_compile", help="use torch compile ",default=True,type=lambda x: (str(x).lower() == 'true'))
-parser.add_argument("-i", "--arg_backend_inference", type=str, help="inference backend [hf,openai,mistral, exllama, vllm]  ",default="hf")
+parser.add_argument("-i", "--arg_backend_inference", type=str, help="inference backend [hf,openai,mistral, exllama, vllm]  ",default="vllm")
 parser.add_argument("-g", "--arg_gpus", type=int, help="number of  gpu  ",default=1)
 
 
@@ -173,7 +173,7 @@ list_puzzle=[]
 list_all_puzzle=[]
 
 # load archive
-with open(snapshot_path+"/puzzles.json", "r") as f:
+with open(snapshot_path, "r") as f:
     puzzles = json.load(f)
 
 for idx in range(len(puzzles)):
@@ -361,5 +361,5 @@ for idx in tqdm(range(curr_idx,len(puzzles),bs)): #  #len(dataset["test"])
         # testset[idx + i]['prompt'] = list_prompt[i]
         
     print(f"correct puzzles: {int(np.sum(list_passk))}/{len(list_passk)}")
-    with open(snapshot_path+"/puzzles.json", "w") as f:
+    with open(snapshot_path, "w") as f:
         json.dump(puzzles, f, indent=4)
