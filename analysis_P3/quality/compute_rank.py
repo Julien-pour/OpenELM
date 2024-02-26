@@ -1,3 +1,8 @@
+# class model to compute the ranking of a list of puzzles
+import sys 
+from openai import OpenAI
+from utils_test_puzzle import get_completion
+
 from abc import ABC, abstractmethod
 from typing import Tuple 
 from pairrm import extract_single_rating_autoj, extract_pairwise_result_autoj, build_autoj_input,build_Yes_input
@@ -126,6 +131,131 @@ class Rank_puzzle(ABC):
         else:
             raise ValueError(f"Invalid ranking mode: {self.mode_rank}")
     
+
+class OpenAI_Rank(Rank_puzzle):
+    def __init__(self, openai_key,puzzle_dict,prompt_instruction,mode_rank="absolute",model_id="gpt-3.5-turbo-0125",n_generation=1,temperature=0) -> None:
+        """
+        Args:
+        - puzzle_dict: a dictionary of puzzles to rank
+        - prompt_instruction: the prompt to use for the ranking
+        - exllama2: whether to use exllama2
+        - model_id: the model_id to use
+        - revision: the revision to use
+        - n_generation: the number of time to do pairwise ranking on a pair of puzzles or absolute ranking of a puzzle
+
+        kwargs:
+        - mode_rank: the mode to rank the puzzles, either "pairwise" or "absolute"
+
+        """
+        self.temperature = temperature
+        self.model_id = model_id
+        self.openai_key = openai_key
+        super().__init__(puzzle_dict=puzzle_dict,prompt_instruction=prompt_instruction,mode_rank=mode_rank,n_generation=n_generation)
+
+    def init_model(self):
+        self.cfg: dict = {
+        "temperature": self.temperature,
+        # "top_p": 1.,
+        # TODO: rename config option?
+        "model": self.model_id,
+        "logprobs": False,
+        # "top_logprobs": 5,
+        "max_tokens": 200,
+        }
+        max_retries=10
+        timeout=10
+        self.client = OpenAI(api_key=self.openai_key,max_retries=max_retries, timeout=timeout)
+
+    def generate(self,text):
+        out = get_completion(self.client, text, self.cfg)
+        return out
+    
+
+class OpenCodeInterpreter_1(OpenAI_Rank):
+    def __init__(self, openai_key,puzzle_dict,mode_rank="absolute",prompt_instruction=None,model_id="gpt-3.5-turbo-0125",n_generation=1,temperature=0) -> None:
+        self.prompt_1="""Rate the following code queries on a scale of 1 to 5 based on their complexity, where 1 is the easiest and 5 is the most
+difficult. Consider the complexity of the query
+Query: [{query}]
+You are obliged to choose only from the following list.
+Scoring Criteria:
+1 Point - Very Basic: The query involves simple operations or common issues
+2 Points - Basic: The query involves fundamental programming concepts or commonly used functions
+3 Points - Intermediate: The query requires some programming experience, possibly involving multiple steps
+4 Points - Difficult: The query involves advanced programming skills, including complex logic, algorithms, or data
+structures
+5 Points - Very Difficult: The query requires extensive expertise, potentially involving innovative problem-solving
+approaches or unique algorithm design
+Please give the score first with the format: "Score: [SCORE]" (write the score between bracket) then explain why"""
+        super().__init__(openai_key=openai_key,puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id,n_generation=n_generation,temperature=temperature)
+        
+    def absolute_grade(self,puzzle):
+        """return the absolute_grade float between 0 and 10"""
+
+        input_single = self.prompt_1.format(query=puzzle)
+        n_try=3
+        grade=-1
+        while n_try>0:
+            try:
+                out = self.generate(input_single)
+                grade=eval(out.split("[")[1].split("]")[0])
+                assert grade in [1,2,3,4,5]
+                return grade
+            except:
+                try:
+                    grade = eval(out.split("\n")[0].split(":")[1].strip())
+                    assert grade in [1,2,3,4,5]
+                    return grade
+                except:
+                    pass
+                print(f"Error in the generation of the grade")
+                print( out)
+                n_try-=1
+        return grade
+    
+class OpenCodeInterpreter_2(OpenAI_Rank):
+    def __init__(self, openai_key,puzzle_dict,mode_rank="absolute",prompt_instruction=None,model_id="gpt-3.5-turbo-0125",n_generation=1,temperature=0) -> None:
+        self.prompt_2="""Rate the following code queries on a scale of 1 to 5 based on their complexity, where 1 is the easiest and 5 is the most
+difficult. Consider the complexity of the query 
+Query: [{query}]
+You are obliged to choose only from the following list.
+Scoring Criteria:
+1 Point - Moderately Difficult: Involves understanding specific programming concepts or libraries, and may include
+medium complexity algorithms or data structures like basic sorting algorithms or tree structures.
+2 Points - Challenging: Requires handling more complex logic or algorithms such as advanced sorting algorithms,
+recursive logic, or intermediate data structures like hash tables and heaps.
+3 Points - Highly Challenging: Demands deeper knowledge in algorithms and data structures, potentially including
+graph algorithms, dynamic programming, or complex string manipulation techniques.
+4 Points - Advanced: Focuses on proficiency in programming and algorithm design, dealing with complex system
+architecture issues, performance optimization, or solving advanced algorithmic challenges like NP-hard problems.
+5 Points - Expert Level: The highest difficulty level, requiring innovative problem-solving approaches or unique
+algorithm design, possibly involving interdisciplinary knowledge or the application of cutting-edge technologies.
+Please give the score first with the format: "Score: [SCORE]" (write the score between bracket) then explain why"""
+        super().__init__(openai_key=openai_key,puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id,n_generation=n_generation,temperature=temperature)
+        
+    def absolute_grade(self,puzzle):
+        """return the absolute_grade float between 0 and 10"""
+
+        input_single = self.prompt_2.format(query=puzzle)
+        n_try=3
+        grade=-1
+        while n_try>0:
+            try:
+                out = self.generate(input_single)
+                grade=eval(out.split("[")[1].split("]")[0])
+                assert grade in [1,2,3,4,5]
+                return grade
+            except:
+                try:
+                    grade = eval(out.split("\n")[0].split(":")[1].strip())
+                    assert grade in [1,2,3,4,5]
+                    return grade
+                except:
+                    pass
+                print(f"Error in the generation of the grade")
+                n_try-=1
+                print( out)
+        return grade
+
 # HF model
 
 class HF_Rank(Rank_puzzle):
@@ -181,9 +311,9 @@ class HF_Rank(Rank_puzzle):
 # evaluate with GAIR/autoj-13b-GPTQ-4bits 
 
 class Auto_j_Rank(HF_Rank):
-    def __init__(self, puzzle_dict,mode_rank="pairwise",prompt_instruction=None,exllama2=True,model_id="GAIR/autoj-13b-GPTQ-4bits") -> None:
+    def __init__(self, puzzle_dict,mode_rank="pairwise",prompt_instruction=None,exllama2=True,model_id="GAIR/autoj-13b-GPTQ-4bits",n_generation=4) -> None:
         self.exllama2 = exllama2
-        super().__init__(puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id)
+        super().__init__(puzzle_dict=puzzle_dict,mode_rank=mode_rank,prompt_instruction=prompt_instruction,model_id=model_id,n_generation=n_generation)
         
         
     def pairwise_ranking(self,puzzle1: str,puzzle2: str) -> str:
@@ -206,8 +336,6 @@ class Auto_j_Rank(HF_Rank):
                     protocol = "single") # for single response evaluation 
         out = self.generate(input_single)
         return extract_single_rating_autoj(out)
-
-
 
 
 
@@ -284,6 +412,8 @@ class Yes_model(HF_Rank):
                                 model_id =self.model_id,yes_mode=self.yes_mode) # for single response evaluation 
         out = self.generate(input_single)
         return out
+
+
 
 # TheBloke/openchat-3.5-1210-GPTQ
 prompt_openchat = """GPT4 Correct User: {instruct}<|end_of_turn|>GPT4 Correct Assistant: Hi<|end_of_turn|>GPT4 Correct User: How are you today?<|end_of_turn|>GPT4 Correct Assistant:"""

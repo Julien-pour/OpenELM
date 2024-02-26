@@ -33,7 +33,7 @@ OPTIONS:
 - No
 """
 def prompt_model_id(model_id):
-    if "deepseek-coder-1.3b-instruct" in model_id:
+    if "deepseek-coder-" in model_id:
         prompt_deepseek_model= """You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, and you only answer questions related to computer science.
 ### Instruction:
 {instruction}
