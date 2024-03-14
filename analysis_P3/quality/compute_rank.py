@@ -76,6 +76,7 @@ class Rank_puzzle(ABC):
         return ranked_keys, grades
     
     def round_robin_tournament(self,):
+        """rank the puzzles using a round robin tournament when mode_rank="pairwise"""
         # Initialize win records for each puzzle key
         win_record = {key: 0 for key in self.puzzle_dict}
         

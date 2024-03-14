@@ -28,6 +28,10 @@ from openelm.codegen import model_setup, set_seed, truncate
 from openelm.configs import ModelConfig
 from openelm.utils.diff_eval import apply_diff, split_diff
 from openai import OpenAI
+from openai import AzureOpenAI
+
+
+
 
 
 
@@ -46,9 +50,17 @@ def get_model(config: ModelConfig):
 
         # if config.gen_max_len!=-1:
         #     cfg["max_tokens"]=config.gen_max_len
-        client = OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)
-        return client#ChatOpenAI(**cfg)
+        if config.azure:
 
+            client = AzureOpenAI(
+                azure_endpoint = config.azure_endpoint, 
+                # api_key="YOUR_API_KEY",  
+                api_version=config.api_version,
+                )
+            return client
+        else:
+            client = OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)
+            return client
     else:
         raise NotImplementedError
 
@@ -233,6 +245,9 @@ class PromptModel(MutationModel):
         self.model = get_model(self.config)
         if self.config.model_type == "openai":
             self.instructor_model = instructor.patch(self.model)
+        else:
+            self.instructor_model = self.model
+            
         # else: raise NotImplementedError #need to implement instructor for huggingface
         self.cfg_generation: dict = {
             "temperature": self.config.temp,

@@ -17,19 +17,23 @@ skill_list = [
     "Dynamic Programming",
     "Greedy Algorithms",
     "Backtracking",
-    "Exception Handling",
     "Set Operations",
     "Permutations and Combinations",
     "Probability and Statistics",
-    "Importing Modules (Itertools, etc.)",
     "Pattern Recognition", 
     "Sorting and Ordering",
     "Binary Operations (bitwise shifting, AND, OR)",
     "Geometry and Coordinate Manipulation",
     "Algorithm Optimization",
     "Number Theory (factors, primes, etc.)",
-    "Graph Theory (paths, edges, vertices)"
+    "Graph Theory (paths, edges, vertices)",
+    "Cryptography",
+    "Hashing"
 ]
+# add Set Operations and Hashing
+
+
+
 
 # class for instructor skill labelling prompt for P3
 def get_class_PuzzleCheck(mode):
@@ -67,6 +71,11 @@ class Topics_evaluation(BaseModel):
 #     interestingness_score_g: int = Field(description="Assess the level of interest in the solution (function g) on a scale of 0 to 10, where the rating must be an integer.")
 # # maybe interestingne in term of pedagogy?
 
+
+
+
+from openelm.utils.code_eval import find_first_argument_of_first_function
+from prompt import base_persona_code, prompt_gen_description
 def create_prompt_label(puzzle : str, mode="give_skills"):
     """
     create prompt for label_puzzle goes with Topics_evaluation class with give_skills=True
@@ -82,30 +91,24 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
         format_skills+=f"{idx}. {skill}\n"
     skills = f"\n{format_skills}"
     
-    base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
-    base_persona += f"The Professor want to give Pyhton programming puzzles to his {level} to teach them Python. "#f"The teacher have assign to {level} in CS to create a python programming puzzle.\n"
-    # base_persona += f"The Professor have assign to {level} in CS to create a python programming puzzle.\n"
-    base_persona += "A Python programming puzzle is defined by two functions, the puzzle f(…) and the solution g(…). f defines an algorithmic challenge, and g solves this challenge. g is a solution to f if and only if f(g()) == True."
-
+    base_persona = base_persona_code.format(level=level)
     match mode:
         case "is_valid": # WIP should also use a persona to label the puzzle
             prompt=base_persona
             prompt += "Your role is to check if the following puzzle could be used or not."
 
         case "description": # WIP 
-            prompt=base_persona
-            # prompt += "The Professor lost the puzzle description, can you write a **short** description of the following puzzle please?"
-            prompt += "Your role is to write a **short** description of the following Python Programming Puzzles. " 
+            arg=find_first_argument_of_first_function(puzzle)
+            puzzle=puzzle.split('def g')[0].strip() + "\n\ndef g(...):\n\nassert f(g()) == True"
+            prompt=prompt_gen_description.format(arg_sol=arg,arg_solb=arg,puzzle=puzzle)
+
         case "description+is_valid": # WIP
-            prompt=base_persona
-            prompt += "Your role is to first write a **short** description of the following Python Programming Puzzle. Please DO NOT mention student in your description. "
-            prompt += f"Then you should check if the following puzzle could be used or not to teach Python to {level}."
+            arg=find_first_argument_of_first_function(puzzle)
+            puzzle=puzzle.split('def g')[0].strip() + "\n\ndef g(...):\n\nassert f(g()) == True"
+            prompt=prompt_gen_description.format(arg_sol=arg,arg_solb=arg,puzzle=puzzle)
+            prompt += f"\nThen you should check if the following puzzle could be used or not to teach Python to {level}."
 
         case "give_skills":
-            #  /!\ should use persona smthing like:
-            # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
-            # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
-            # The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?
             prompt = base_persona+"\n"
             prompt+= "The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?"
             # prompt = "Your role is: given the following puzzle, and the list of topics, exctract the information requested."
@@ -119,7 +122,7 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
     return prompt
 
 
-def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_batch: Optional[List[str]] = None, skill_targeted: Optional[List[int]]=None,n_fewshot_ex=2):
+def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch: Optional[List[str]] = None, skill_targeted: Optional[List[int]]=None,n_fewshot_ex=2):
     """
     should change that to list_few_shot_example from list to Phenotype type
     skill_targeted list of binary vector
@@ -207,6 +210,17 @@ def get_programming_puzzles_prompt(list_few_shot_example : [List[str]], code_bat
     prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
     prompt += prompt2add
     return prompt
+
+
+
+
+
+
+
+
+
+
+
 
 ### mostly old stuff (need to check and remove it)
 

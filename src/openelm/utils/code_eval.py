@@ -40,7 +40,14 @@ def find_violations_ast(puzzle):
         return True
     return False
 
-
+def find_first_argument_of_first_function(code):
+    parsed_code=ast.parse(code)
+    for node in ast.walk(parsed_code):
+        if isinstance(node, ast.FunctionDef) and node.name == 'f':
+            first_arg = node.args.args[0].arg  # Get the first argument
+            # print(f"The first argument of the function '{node.name}' is: {first_arg}")
+            return first_arg
+        
 def just_remove_example_in_docstring(source_code: str) -> str:
     puzzle_formated= source_code
 
