@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import time
 import json
-import pickle
+# import pickle
 from utils_test import pass_at_k,judge_parallel,return_full_prompt,Prompt_Intstruction
 import copy
 import numpy as np
@@ -16,25 +16,26 @@ os.environ['TOKENIZERS_PARALLELISM'] = "True"
 parser = argparse.ArgumentParser(description="argument parsing")
 parser.add_argument("-p", "--path_maps", type=str, help="path to maps",default="/home/flowers/work/OpenELM/analysis_P3/quality/to_analyse/maps_1_rd_gen.json")
 parser.add_argument("-l", "--path_hf_model_repo", type=str, help="path to where hf model are stored",default="")
-parser.add_argument("-k", "--arg_k", type=int, help="k in pass@k",default=5)
-parser.add_argument("-b", "--arg_bs_test", type=int, help=" bs test",default=16)
+parser.add_argument("-k", "--arg_k", type=int, help="k in pass@k",default=10)
+parser.add_argument("-b", "--arg_bs_test", type=int, help=" bs test",default=64)
 parser.add_argument("-m", "--arg_model_idx", type=int, help="model idx",default=0)
 parser.add_argument("-f", "--arg_flash", type=str, help="activate flash",default="flash2")
 parser.add_argument("-c", "--arg_compile", help="use torch compile ",default=True,type=lambda x: (str(x).lower() == 'true'))
 parser.add_argument("-i", "--arg_backend_inference", type=str, help="inference backend [hf,openai,mistral, exllama, vllm]  ",default="vllm")
 parser.add_argument("-g", "--arg_gpus", type=int, help="number of  gpu  ",default=1)
+parser.add_argument( "--arg_key", type=str, help="key where to find puzzle in json (program_str, instruction ",default="program_str")
 
-
+# python difficulty.py -p "/projets/flowers/julien/difficulty/p3_pb_dataset.json" --arg_key "instruction"
 args = parser.parse_args()
 path_model_base = args.path_hf_model_repo
 num_return_sequences = args.arg_k #n_try
 snapshot_path = args.path_maps
 bs = args.arg_bs_test
-
+key_puzzle = args.arg_key
 mode = args.arg_backend_inference #["hf","openai","mistral", "exllama", "vllm"] hf -> hf model
 
-list_model=[
-"deepseek-ai/deepseek-coder-1.3b-instruct",
+list_model=["/home/flowers/work/hf/deepseek-coder-1.3b-instruct"
+#"deepseek-ai/deepseek-coder-1.3b-instruct",
 # "WizardCoder-33B-V1.1-6.0bpw-h6-exl2",
 # "CodeLlama-70b-Instruct-hf-6.0bpw-h6-exl2"
 ]
@@ -61,13 +62,13 @@ match mode:
         
         if mode == "vllm":
             from vllm import LLM,SamplingParams
-            llm = LLM(path_model,max_model_len=1024)
+            llm = LLM(path_model,max_model_len=1500)
 
             sampling_params = SamplingParams(
                         temperature=0.7,
                         top_p=1,
-                        max_tokens=512,
-                        presence_penalty=1.15,
+                        max_tokens=600,
+                        # presence_penalty=1.15,
                     )
         else:
             if args.arg_flash == "flash2":
@@ -261,7 +262,6 @@ def generate_response(list_prompt,model_id=model_id):
             raise ValueError("mode not supported")
 
 
-
 for idx in tqdm(range(curr_idx,len(puzzles),bs)): #  #len(dataset["test"])
     # curr_idx=idx
     # idx=0
@@ -271,7 +271,7 @@ for idx in tqdm(range(curr_idx,len(puzzles),bs)): #  #len(dataset["test"])
     list_prompt=[]
     list_prompt_f=[]
     subset_test = puzzles[idx:idx+bs]
-    subset_test = [sub_puz["program_str"] for sub_puz in subset_test]
+    subset_test = [sub_puz[key_puzzle] for sub_puz in subset_test]
     # subset_emb_test= list_emb_test[idx:idx+bs]
     for idx_puz in range(len(subset_test)):
         

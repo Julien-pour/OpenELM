@@ -122,12 +122,13 @@ You are an intelligent programming assistant.
 {instruction}
 
 ### Assistant"""
-    if model_id in ["deepseek-ai/deepseek-coder-1.3b-instruct","deepseek-coder-1.3b-instruct","deepseek-coder-6.7b-instruct","deepseek-coder-33B-instruct-GPTQ","deepseek-coder-33b-instruct-6.0bpw-h6-exl2"]:
-        prompt="""You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer.
-### Instruction:
-{instruction}
-### Response:
-"""
+    for i in ["deepseek-ai/deepseek-coder-1.3b-instruct","deepseek-coder-1.3b-instruct","deepseek-coder-6.7b-instruct","deepseek-coder-33B-instruct-GPTQ","deepseek-coder-33b-instruct-6.0bpw-h6-exl2"]:
+        if i in model_id :
+            prompt="""You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer.
+    ### Instruction:
+    {instruction}
+    ### Response:
+    """
 
     if "CodeLlama-70b-Instruct-hf" in model_id:
         # https://huggingface.co/codellama/CodeLlama-70b-Instruct-hf
