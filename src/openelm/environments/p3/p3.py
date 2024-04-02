@@ -1490,13 +1490,14 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
         self.batch_size = config.batch_size
         self.compile = config.compile
         self.flash_attn = config.flash_attn
-        self.num_max_tokens = config.num_max_tokens
 
         super().__init__(config, mutation_model)
 
         # from vllm import LLM, SamplingParams
         # llm = LLM('microsoft/phi-1')
-
+        self.debug=False
+        self.model_id = config.model_or_model_path
+        self.soft = torch.nn.Softmax(dim=1)
         # load model and tokenizer
         self.model, self.tokenizer = utils.create_model_and_tokenizer(
             config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn

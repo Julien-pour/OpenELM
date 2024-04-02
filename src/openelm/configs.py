@@ -252,7 +252,7 @@ class P3ProbSolChatEnv_IMGEP_smart_quality_Config(P3ProbSolChatEnv_IMGEP_smart_C
     env_name: str = "p3_probsol_Chat_yes"
     batch_size: Optional[int] = 8
     model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
-    compile: bool = True
+    compile: bool = False
     flash_attn: bool = False
 
 
@@ -310,8 +310,8 @@ class P3ProbSolChatEnv_ELM_NLP_quality_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     """ use it with regular mapelites """
     env_name: str = "p3_probsol_Chat_yes"
     batch_size: Optional[int] = 8
-    model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
-    compile: bool = True
+    model_or_model_path: str = "/home/flowers/work/hf/deepseek-coder-1.3b-instruct"#'deepseek-ai/deepseek-coder-1.3b-instruct'
+    compile: bool = False
     flash_attn: bool = False
 
 @dataclass
@@ -329,7 +329,7 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     use_docstring: bool = True
     num_workers: int = 12
     compile: bool = True
-    flash_attn: bool = True
+    flash_attn: bool = False
     num_max_tokens: Optional[int] = 2048
 
 
