@@ -993,10 +993,20 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print('generating programs')
         local_scope_exec = False
         start_t0 = time.time()
+        
         _generated_programs = self.mutation_model.generate_programs(
             code_batch, local_scope_exec,do_trunc=False
         )
+
         assert len(_generated_programs) == len(code_batch)
+        # debug
+        prompts = [prompt_dict["prompt"] for prompt_dict in code_batch]
+        debug_response=[prompt+gen for prompt,gen in zip(prompts,_generated_programs)]
+        txt=""
+        for i in range(len(debug_response)):
+            txt+=f"\n ======================\n\nprompt {i} :\n {debug_response[i]}"
+        # path_debug = "/home/flowers/work/OpenELM/logs/debug/debug.txt"
+
         print('done')
         start_t1 = time.time()
         list_few_shot_ex=[]
@@ -1019,8 +1029,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     skill_targeted_list_duplicate.append(skill_targeted_list[idx_gen_prog])
                     list_few_shot_ex.append(code_batch[idx_gen_prog]["few_shot_ex"])
 
+        # with open(path_debug, "a") as f:
+        #     f.write(txt+f"\n\n  n puzzle gen = {_generated_programs}\n\n  n real puzzle gen = {list_pb}")
 
-        generated_programs = list_pb
+        generated_programs = list_pb[:50] # 5 puzzles per query * 10 queries = 50 puzzles max
         print('parsing finished')
         print(f"time to generate {len(generated_programs)} program = {start_t1-start_t0} sec")
         
@@ -1315,7 +1327,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         self.use_docstring = config.use_docstring
         # for computing the solution attention mask in parallel
         self.num_workers = config.num_workers
-        self.batch_size = config.batch_size
+        self.batch_size_quality = config.batch_size
         self.compile = config.compile
         self.flash_attn = config.flash_attn
         self.num_max_tokens = config.num_max_tokens
@@ -1330,7 +1342,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
             config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn
         )
 
-        print(f'bsize {self.batch_size}')
+        print(f'bsize {self.batch_size_quality}')
         print(self.model)
         print(self.model.config.max_position_embeddings)
         print('BWAAA')
@@ -1432,7 +1444,7 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
         )
         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
-        return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size)
+        return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size_quality)
 
     def fitness(self, probsol: P3ProbSolResult, use_pass_k=False) -> float:
         solving_fitness = super().fitness(probsol, use_pass_k)
@@ -1487,7 +1499,7 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
         """
 
         # for computing the solution attention mask in parallel
-        self.batch_size = config.batch_size
+        self.batch_size_quality = config.batch_size
         self.compile = config.compile
         self.flash_attn = config.flash_attn
 
@@ -1503,7 +1515,7 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
             config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn
         )
 
-        print(f'bsize {self.batch_size}')
+        print(f'bsize {self.batch_size_quality}')
         print(self.model)
         print(self.model.config.max_position_embeddings)
         print('BWAAA')
@@ -1545,8 +1557,8 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
 
         with torch.inference_mode():
             list_proba_yes=[]
-            for i in range(0, len(list_text), self.batch_size):
-                batch_texts = list_text[i:i+self.batch_size]
+            for i in range(0, len(list_text), self.batch_size_quality):
+                batch_texts = list_text[i:i+self.batch_size_quality]
 
 
                 inputs = self.tokenizer(batch_texts, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
