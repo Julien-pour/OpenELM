@@ -29,6 +29,9 @@ def load_env(env_name: str) -> Any:
         case "p3_probsol_Chat_PP":
             from openelm.environments.p3.p3 import P3ProbSol_Chat_PP
             return P3ProbSol_Chat_PP
+        case "p3_probsol_Chat_yes":
+            from openelm.environments.p3.p3 import P3ProbSol_Chat_Yes_quality
+            return P3ProbSol_Chat_Yes_quality
         case "prompt_evolution":
             from openelm.environments.prompt.prompt import PromptEvolution
             return PromptEvolution

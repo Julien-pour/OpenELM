@@ -248,6 +248,15 @@ class P3ProbSolChatEnv_IMGEP_smart_Config(P3ProbSolChatEnvConfig_Base):
     IMGEP_mode: str = "smart" # guided exploration mode, option: "random" "smart" "none"
 
 @dataclass
+class P3ProbSolChatEnv_IMGEP_smart_quality_Config(P3ProbSolChatEnv_IMGEP_smart_Config):
+    env_name: str = "p3_probsol_Chat_yes"
+    batch_size: Optional[int] = 8
+    model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
+    compile: bool = True
+    flash_attn: bool = False
+
+
+@dataclass
 class P3ProbSolChatEnv_IMGEP_random_Config(P3ProbSolChatEnvConfig_Base):
 
     env_name: str = "p3_probsol_Chat"
@@ -258,6 +267,15 @@ class P3ProbSolChatEnv_IMGEP_random_Config(P3ProbSolChatEnvConfig_Base):
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "uniform" # guided exploration mode, option: "uniform" "smart" "none"
+
+
+@dataclass
+class P3ProbSolChatEnv_IMGEP_random_quality_Config(P3ProbSolChatEnv_IMGEP_random_Config):
+    env_name: str = "p3_probsol_Chat_yes"
+    batch_size: Optional[int] = 8
+    model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
+    compile: bool = True
+    flash_attn: bool = False
 
 @dataclass
 class P3ProbSolChatEnv_ELM_Config(P3ProbSolChatEnvConfig_Base):
@@ -288,6 +306,15 @@ class P3ProbSolChatEnv_ELM_NLP_Config(P3ProbSolChatEnvConfig_Base):
 
 
 @dataclass
+class P3ProbSolChatEnv_ELM_NLP_quality_Config(P3ProbSolChatEnv_ELM_NLP_Config):
+    """ use it with regular mapelites """
+    env_name: str = "p3_probsol_Chat_yes"
+    batch_size: Optional[int] = 8
+    model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
+    compile: bool = True
+    flash_attn: bool = False
+
+@dataclass
 class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     """
     Prediction Progress version.
@@ -304,6 +331,7 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     compile: bool = True
     flash_attn: bool = True
     num_max_tokens: Optional[int] = 2048
+
 
 
 @dataclass
@@ -373,6 +401,8 @@ elm_nlp = [
     "_self_",
 ]
 
+
+
 aces = [
     {"model": "prompt"},
     {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
@@ -387,6 +417,26 @@ aces_smart = [
     "_self_",
 ]
 
+#quality
+elm_nlp_yes_quality = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "P3ProbSolChatEnv_ELM_NLP_Yes_quality"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+aces_yes_quality = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_random_Yes_quality"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+aces_smart_yes_quality = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_smart_Yes_quality"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
 @dataclass
 class ELMConfig(BaseConfig):
     hydra: Any = field(
@@ -422,6 +472,18 @@ class ACESConfig(ELMConfig):
 class ACES_smartConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_smart)
 
+# quality
+@dataclass
+class ELM_nlp_yesConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: elm_nlp_yes_quality)
+
+@dataclass
+class ACES_yesConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_yes_quality)
+
+@dataclass
+class ACES_smart_yesConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_smart_yes_quality)
 
 
 defaults_p3 = [
@@ -476,6 +538,12 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolChatEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
     cs.store(group="env", name="P3ProbSolChatEnv_PP_ELM_NLP", node=P3ProbSolChatEnv_PP_ELM_NLP_Config)
+    # quality
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_Yes_quality", node=P3ProbSolChatEnv_IMGEP_smart_quality_Config)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_Yes_quality", node=P3ProbSolChatEnv_IMGEP_random_quality_Config)
+    cs.store(group="env", name="P3ProbSolChatEnv_ELM_NLP_Yes_quality", node=P3ProbSolChatEnv_ELM_NLP_quality_Config)
+
+
 
     cs.store(group="env", name="prompt_evolution", node=PromptEnvConfig)
     cs.store(group="env", name="qdaif", node=QDEnvConfig)
@@ -491,6 +559,10 @@ def register_configstore() -> ConfigStore:
     cs.store(name="elm_nlp", node=ELM_nlpConfig)
     cs.store(name="aces", node=ACESConfig)
     cs.store(name="aces_smart", node=ACES_smartConfig)
+    cs.store(name="elm_nlp_quality", node=ELM_nlp_yesConfig)
+    cs.store(name="aces_quality", node=ACES_yesConfig)
+    cs.store(name="aces_smart_quality", node=ACES_smart_yesConfig)
+
 
     return cs
 
