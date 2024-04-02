@@ -24,19 +24,21 @@ class ModelConfig(BaseConfig):
     batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "gpt-3.5-turbo-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    azure: bool = True
+    api_version = "2024-02-15-preview", 
     parrallel_call: bool = True # if True, use parallel call to API
     processes: int = 10
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
-    request_timeout: int = 85 # timeout for API call
+    request_timeout: int = 30 # timeout for API call
     max_retries: int = 100 # number of retries for API call
 @dataclass
 class PromptModelConfig(ModelConfig):
-    request_timeout: int = 100 # timeout for API call
+    request_timeout: int = 30 # timeout for API call
     model_name: str = "prompt"
-    model_path: str = "gpt-3.5-turbo-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
+    model_path: str = "gpt-35-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -50,7 +52,7 @@ class QDConfig(BaseConfig):
     """
 
     """
-    model_path: str = "gpt-3.5-turbo-0125" # just for register the model
+    model_path: str = "gpt-35-0125" # just for register the model
     init_steps: int = 0  #250 # only mutation with base prompt, then sample from map and mutation after init_steps
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
@@ -254,7 +256,7 @@ class P3ProbSolChatEnv_IMGEP_random_Config(P3ProbSolChatEnvConfig_Base):
     embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
-    IMGEP_mode: str = "random" # guided exploration mode, option: "random" "smart" "none"
+    IMGEP_mode: str = "uniform" # guided exploration mode, option: "uniform" "smart" "none"
 
 @dataclass
 class P3ProbSolChatEnv_ELM_Config(P3ProbSolChatEnvConfig_Base):
@@ -342,13 +344,47 @@ rd-gen: "qd": "mapelites"
 ELM: "qd": "cvtmapelites" P3ProbSolChatEnv_ELM
 
 """
+
 defaults_elm = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "P3ProbSolChatEnv_ELM_NLP"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+rd_gen = [
+    {"model": "prompt"},
+    {"qd": "mapelites_rd"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+elm_base = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "P3ProbSolChatEnv_ELM"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+elm_nlp = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "P3ProbSolChatEnv_ELM_NLP"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+aces = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_random"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+aces_smart = [
     {"model": "prompt"},
     {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
     {"env": "p3_probsol_Chat_IMGEP_smart"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",
 ]
-
 
 @dataclass
 class ELMConfig(BaseConfig):
@@ -364,6 +400,27 @@ class ELMConfig(BaseConfig):
     qd: Any = MISSING
     env: Any = MISSING
     run_name: Optional[str] = None
+
+@dataclass
+class Rd_genConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: rd_gen)
+    
+@dataclass
+class ELM_baseConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: elm_base)
+
+@dataclass
+class ELM_nlpConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: elm_nlp)
+
+@dataclass
+class ACESConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces)
+
+@dataclass
+class ACES_smartConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_smart)
+
 
 
 defaults_p3 = [
@@ -428,6 +485,12 @@ def register_configstore() -> ConfigStore:
     cs.store(group="model", name="diff", node=DiffModelConfig)
     cs.store(name="elmconfig", node=ELMConfig)
     cs.store(name="p3config", node=P3Config)
+    cs.store(name="rd_gen", node=Rd_genConfig)
+    cs.store(name="elm", node=ELM_baseConfig)
+    cs.store(name="elm_nlp", node=ELM_nlpConfig)
+    cs.store(name="aces", node=ACESConfig)
+    cs.store(name="aces_smart", node=ACES_smartConfig)
+
     return cs
 
 
