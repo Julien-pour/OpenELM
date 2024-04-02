@@ -218,10 +218,10 @@ class MAPElitesBase:
         self.config: QDConfig = config
         self.history_length = self.config.history_length
         self.save_history = self.config.save_history
-        self.save_all_individual = self.config.save_all_individual
+        self.save_bad_individual = self.config.save_bad_individual
         
-        if self.save_all_individual:
-            self.list_of_all_individuals = []
+        if self.save_bad_individual:
+            self.list_of_bad_individuals = []
         self.save_snapshot_interval = self.config.save_snapshot_interval
         self.start_step = 0
         self.save_np_rng_state = self.config.save_np_rng_state
@@ -307,7 +307,11 @@ class MAPElitesBase:
             with open(snapshot_path, "rb") as f:
                 maps = pickle.load(f)
 
-
+            try :
+                with open((log_path / "save_bad.json"), "r") as f:
+                    self.list_of_bad_individuals=json.load(f)
+            except Exception:
+                pass                          
             self.genomes = maps["genomes"]
             self.fitnesses = maps["fitnesses"]
             self.nonzero = maps["nonzero"] #self.nonzero.array = maps["nonzero"]
@@ -521,11 +525,12 @@ class MAPElitesBase:
             # add trainset to the MAP
             print("loading P3 trainset to map")
             if self.env.config.use_preprocessed_trainset:
-                for individual in self.env.archive_P3puzzle:
+                for id,individual in enumerate(self.env.archive_P3puzzle):
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
                     # TODO compute quality
                     self.fitnesses.append(self.env.fitness(individual)) # need to add quality here individual.quality
+                    individual.unique_id="P3_train-"+str(id)
                     self.genomes[map_ix] = individual
                     key_embedding = str(map_ix)
                     value_nonzero = len(self.fitnesses)-1
@@ -642,12 +647,13 @@ class MAPElitesBase:
             if condition_add_individual:
                 phenotype = individual.to_phenotype()
                 map_ix = self.to_mapindex(phenotype)
+                individual.unique_id = f"{self.config.unique_id}{value_nonzero}"
             else:
                 map_ix=None
                 phenotype=None
                 individual.emb = None
-            
-            if self.save_all_individual: # save all individuals
+                individual.unique_id = f"bad_{self.config.unique_id}{value_nonzero}"
+            if self.save_bad_individual: # save all individuals
                 state_individual = individual.__getstate__().copy()
                 if "result_obj" in state_individual:
                     del state_individual["result_obj"]
@@ -665,7 +671,7 @@ class MAPElitesBase:
                     state_individual["map_ix"] = None
                 state_individual["fitness"] = fitness
 
-                self.list_of_all_individuals.append(state_individual)
+                self.list_of_bad_individuals.append(state_individual)
 
             if np.isinf(fitness):
                 continue
@@ -695,6 +701,7 @@ class MAPElitesBase:
                     else:
                         self.nonzero[str(map_ix)]=[value_nonzero]
                     self.fitnesses.append(fitness)
+                    individual.unique_id = f"{self.config.unique_id}{value_nonzero}"
                     self.genomes.archive.append(individual)
             except Exception as e:
                 
@@ -791,10 +798,10 @@ class MAPElitesBase:
         with open((output_folder / "config.json"), "w") as f:
             json.dump(tmp_config, f,indent=4)
             
-        if self.save_all_individual:
+        if self.save_bad_individual:
             try :
-                with open((output_folder / "save_all.json"), "w") as f:
-                    json.dump(self.list_of_all_individuals, f,indent=4)
+                with open((output_folder / "save_bad.json"), "w") as f:
+                    json.dump(self.list_of_bad_individuals, f,indent=4)
             except Exception:
                 pass          
                   

@@ -31,11 +31,13 @@ logging.set_verbosity_error()  # avoid all FutureWarnings
 
 
 @hydra.main(
-    config_name="elmconfig",
+    config_name="elm_nlp",
     version_base="1.2",
 )
 def main(config):
-    config.output_dir = HydraConfig.get().runtime.output_dir
+    path_out=HydraConfig.get().runtime.output_dir
+    config.output_dir = path_out
+    config.qd.unique_id = config.unique_id+"_s"+str(config.qd.seed)+"_p"
     print("----------------- Config ---------------")
     print(OmegaConf.to_yaml(config))
     print("-----------------  End -----------------")

@@ -10,13 +10,13 @@ import transformers
 @dataclass
 class BaseConfig:
     output_dir: str = "logs/"
+    seed: Optional[int] = 0
 
 @dataclass
 class ModelConfig(BaseConfig):
     fp16: bool = True
     cuda: bool = True
     gpus: int = 1
-    seed: Optional[int] = None
     deterministic: bool = False
     top_p: float = 1.
     temp: float = 0.7
@@ -58,17 +58,17 @@ class QDConfig(BaseConfig):
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
     save_history: bool = False
-    save_snapshot_interval: int = 5 #5
+    save_snapshot_interval: int = 1 #5
     loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
     log_snapshot_dir: str ="" #"/home/flowers/work/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/24-02-16_16:11/step_80"#"/home/flowers/work/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM_NLP/24-02-15_22:14/step_15"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
-    seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
     crossover: bool = False
     crossover_parents: int = 2
-    save_all_individual: bool = True
+    save_bad_individual: bool = True
     sampling_strategy: str = 'uniform'  # one of {'prob_best_5', 'uniform'}
     n_fewshot_examples: int = 2 # number of example to give to the model before generation
+    unique_id: str = "default"
 
 @dataclass
 class MAPElitesConfig(QDConfig):
@@ -99,7 +99,6 @@ class EnvConfig(BaseConfig):
     batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
-    seed: Optional[int] = 43 #[42, 43, 44, 45, 46] #None
     n_descriptor: int = 20 # number of descriptor for MAP-Elites
     max_descriptor_targeted: int = 5 # max number of target descriptor for MAP-Elites
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
@@ -442,7 +441,7 @@ class ELMConfig(BaseConfig):
     hydra: Any = field(
         default_factory=lambda: {
             "run": {
-                "dir": "logs/elm/${hydra.job.override_dirname}/${now:%y-%m-%d_%H:%M}"
+                "dir": "logs/elm/${hydra.job.config_name}_seed-${seed}/${now:%y-%m-%d_%H:%M}"
             }
         }
     )
@@ -455,36 +454,40 @@ class ELMConfig(BaseConfig):
 @dataclass
 class Rd_genConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: rd_gen)
+    unique_id="rd_gen"
     
 @dataclass
 class ELM_baseConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: elm_base)
+    unique_id="elm"
 
 @dataclass
 class ELM_nlpConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: elm_nlp)
+    unique_id="elm_nlp"
 
 @dataclass
 class ACESConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces)
+    unique_id="aces"
 
 @dataclass
 class ACES_smartConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_smart)
-
+    unique_id="aces_smart"
 # quality
 @dataclass
 class ELM_nlp_yesConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: elm_nlp_yes_quality)
-
+    unique_id="elm_nlp_yes"
 @dataclass
 class ACES_yesConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_yes_quality)
-
+    unique_id= "aces_yes"
 @dataclass
 class ACES_smart_yesConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_smart_yes_quality)
-
+    unique_id="aces_smart_yes"
 
 defaults_p3 = [
     {"model": "prompt"},
