@@ -742,7 +742,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.n_skills = len(skill_list)
         self.mutation_model = mutation_model
         self.config = config
-        print(f" \n\n ======================\n\n ======================\n\n{self.config.IMGEP_mode} \n\n ======================\n\n\n ======================\n\n")
+        print(f" \n\n ======================\n\n ======================\n\n IMGEP mode = {self.config.IMGEP_mode} \n\n ======================\n\n\n ======================\n\n")
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
         self.rng = np.random.default_rng(self.config.seed)

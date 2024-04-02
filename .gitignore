@@ -218,3 +218,5 @@ run_elm_rd_gen.sh
 compute_PP.ipynb
 
 puzzles_train_1_preprocess.json
+
+run_script/export_key.sh

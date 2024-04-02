@@ -23,11 +23,12 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "gpt-3.5-turbo-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     azure: bool = True
+    azure_endpoint: str = "https://petunia-3.openai.azure.com/"
     api_version = "2024-02-15-preview", 
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 10
+    processes: int = 15
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
@@ -59,7 +60,7 @@ class QDConfig(BaseConfig):
     save_history: bool = False
     save_snapshot_interval: int = 5 #5
     loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
-    log_snapshot_dir: str = ""# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
+    log_snapshot_dir: str ="" #"/home/flowers/work/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/24-02-16_16:11/step_80"#"/home/flowers/work/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM_NLP/24-02-15_22:14/step_15"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     seed: Optional[int] = 42
     save_np_rng_state: bool = False
     load_np_rng_state: bool = False
@@ -94,7 +95,7 @@ class EnvConfig(BaseConfig):
     timeout: float = 10.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
-    processes: int = 10
+    processes: int = 15
     batch_size: int = 10 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
@@ -292,16 +293,16 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     Prediction Progress version.
     """
     env_name: str = "p3_probsol_Chat_PP"
-    batch_size: Optional[int] = 2
+    batch_size: Optional[int] = 8
     # archive_dataset_name: str = 'puzzles_train_1.json'
-    archive_dataset_name: str = 'puzzles_train_1.json'
+    archive_dataset_name: str = 'puzzles_train_1.json' #"/home/flowers/work/OpenELM/puzzles_train_1.json"#
     model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
     reference_probsol: Optional[str] = None
     one_shot_prompt_id: str = 'progress_base_example_prompt.md'
     use_docstring: bool = True
     num_workers: int = 12
-    compile: bool = False
-    flash_attn: bool = False
+    compile: bool = True
+    flash_attn: bool = True
     num_max_tokens: Optional[int] = 2048
 
 
