@@ -9,6 +9,9 @@ environment, a 2D physics-based environment in which robots specified by
 Python dictionaries are evolved over.
 
 """
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
