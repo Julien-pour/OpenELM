@@ -163,7 +163,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     prompt = base_persona 
     prompt += """
     I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
-    I will provide two existing puzzles for reference, and I need you to create three new and distinct puzzles (Puzzle 2 to Puzzle 4){prompt_elm}.
+    I will provide two existing puzzles for reference, and I need you to create five new and distinct puzzles (Puzzle 2 to Puzzle 6){prompt_elm}.
     
     Rules:
     - Each puzzle includes two functions: `def f(...)` and `def g(...)`.
@@ -190,7 +190,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     ```
     {examples}
     Your Task:
-    Create three new Python Programming Puzzles (Puzzle 2 to Puzzle 4)."""
+    Create three new Python Programming Puzzles (Puzzle 2 to Puzzle 6)."""
     prompt = textwrap.dedent(prompt)
     if elm_mode == True:
         prompt2add = f" Ensure that each new puzzle is derived from a mutated Puzzle {i+1}."
@@ -224,7 +224,18 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
 
 ### mostly old stuff (need to check and remove it)
 
+
+
+
+
+
+
+
+
+
+
 old_skill_list = ['Sorting and Searching', 'Counting and combinatorics', 'Tree and Graph problem', 'Math', 'Bit Manipulation', 'String Manipulation', 'Geometry', 'Recursion and Dynamic Programming', 'Stacks and Queues', 'Optimization']
+
 SKILLS ="""
 0 - Sorting or Searching: Sorting refers to arranging a data structure (list, string, grid,...) in a specific order, typically in ascending or descending order. Searching involves finding the location or presence of a particular element or pattern in a data structure (list, string, grid,...).
 1 - Counting or combinatorics: Understanding principles of counting and combinatorial analysis, including permutations, combinations, and other counting techniques. These skills are essential for solving problems that involve counting the number of possibilities, occurrence or arrangements. Counting the number of occurrences of something also falls in this category.

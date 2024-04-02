@@ -210,3 +210,7 @@ analysis_P3/quality/to_analyse/maps_1_imgep_smart.json
 notebook/analysis_quality.ipynb
 
 notebook/
+
+run_elm_aces.sh
+
+run_elm_rd_gen.sh

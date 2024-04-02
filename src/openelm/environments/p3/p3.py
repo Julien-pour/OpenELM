@@ -36,6 +36,7 @@ from typing import List, Optional, Union
 # non-local imports, move quality in openelm?
 
 from openelm.quality_metrics import utils
+from openelm.quality_metrics.yes import return_proba_yes, return_yes_prompt, return_prompt_format
 from openelm.quality_metrics.utils import load_prompt_PP
 from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
@@ -352,14 +353,17 @@ class P3ProbSolResult(Genotype):
             i_assert = self.solution_func.find("assert") 
             self.solution_func = self.solution_func[:i_assert].strip() 
         
-        self.quality = quality,
-        self.description=description,
-        self.is_valid = is_valid, 
+        self.quality = quality
+        self.description=description
+        if isinstance(self.description, list):
+            self.description = self.description[0]
+
+        self.is_valid = is_valid
         self.is_valid_explanation = is_valid_explanation
 
         if self.config.GPT_feedback:
-            self.interestingness_f = interestingness_f, 
-            self.interestingness_g = interestingness_g,
+            self.interestingness_f = interestingness_f
+            self.interestingness_g = interestingness_g
 
 
 
@@ -372,6 +376,7 @@ class P3ProbSolResult(Genotype):
             self.emb = []
         if self.target_skills is None:
             self.target_skills = []
+            
         dic={"fitness":self.fitness,"program_str":self.program_str, "emb":list(self.emb),"explanation_emb":self.explanation_emb}
         dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills),"puzzle_history": self.puzzle_history})
         dic.update({"quality":self.quality,"description" : self.description, "interestingness_f": self.interestingness_f})
@@ -1075,8 +1080,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print('begin phenotype computation')
 
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle) # should probably give description to label puzzle ?
-        # with parallel_config(n_jobs=self.config.processes, prefer="threads"): #backend='threading',
-        #     list_phenotype_correct_puzzle = Parallel()(delayed(self.to_phenotype)(puzzl) for puzzl in list_correct_puzzle) # need to handle batch within self.to_phenotype
+
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
         list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
@@ -1463,3 +1467,136 @@ class P3ProbSol_Chat_PP(P3ProbSol_Chat):
                 list_solving_fitness[idx] = - fitness
                 list_probsol[idx].fitness = - fitness
         return list_solving_fitness
+    
+
+
+class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
+    def __init__(
+        self,
+        config: P3ProbSolEnvConfig,
+        mutation_model: MutationModel,
+    ) -> None:
+        """
+        Version of the P3 Problem-solution environment with the Prediction Progress (PP)
+        fitness measure. This emvironment implements the in=context version of PP.
+
+        PP needs a model and an archive probsol dataset. For the currently evaluated
+        probsol, we put it as an example in the prompt before a probsol from the archive
+        and we measure how much loss decreases compared to a reference probsol. We average
+        out this value for probsols on the whole archive.
+        """
+
+        # for computing the solution attention mask in parallel
+        self.batch_size = config.batch_size
+        self.compile = config.compile
+        self.flash_attn = config.flash_attn
+        self.num_max_tokens = config.num_max_tokens
+
+        super().__init__(config, mutation_model)
+
+        # from vllm import LLM, SamplingParams
+        # llm = LLM('microsoft/phi-1')
+
+        # load model and tokenizer
+        self.model, self.tokenizer = utils.create_model_and_tokenizer(
+            config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn
+        )
+
+        print(f'bsize {self.batch_size}')
+        print(self.model)
+        print(self.model.config.max_position_embeddings)
+        print('BWAAA')
+
+
+# TODO: add yes quality fitness
+
+    def prompt_format(self, text):
+        """
+        return the prompt format for the model system,user,...
+        """
+        return return_prompt_format(self.model_id, text)
+
+
+    def generate_quality(self,list_text: list[str]):
+        assert isinstance(list_text,list)
+        with torch.inference_mode():
+            inputs = self.tokenizer(list_text, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
+            out_yes = self.model(**inputs)
+            # out = self.tokenizer.decode(out_tok[0])
+            k=25# get top 25 tokens
+            yes_logits=self.soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
+            values,indices=torch.topk(yes_logits, k)
+            list_words=self.tokenizer.batch_decode(indices.flatten())
+            list_words=np.array(list_words).reshape(values.shape).tolist()
+            values = values.tolist()
+            list_proba_yes=[]
+            # values,list_token
+            for idx in range(len(list_words)):
+                if self.debug:
+                    print("-----")
+                    for j in range(len(list_words[idx])):
+                        print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
+                list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+        return list_proba_yes
+    
+    def generate_quality(self,list_text: list[str]):
+        assert isinstance(list_text,list)
+
+        with torch.inference_mode():
+            list_proba_yes=[]
+            for i in range(0, len(list_text), self.batch_size):
+                batch_texts = list_text[i:i+self.batch_size]
+
+
+                inputs = self.tokenizer(batch_texts, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
+                out_yes = self.model(**inputs)
+                # out = self.tokenizer.decode(out_tok[0])
+                k=25# get top 25 tokens
+                yes_logits=self.soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
+                values,indices=torch.topk(yes_logits, k)
+                list_words=self.tokenizer.batch_decode(indices.flatten())
+                list_words=np.array(list_words).reshape(values.shape).tolist()
+                values = values.tolist()
+                
+                # values,list_token
+                for idx in range(len(list_words)):
+                    if self.debug:
+                        print("-----")
+                        for j in range(len(list_words[idx])):
+                            print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
+                    list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+        return list_proba_yes
+
+
+    def absolute_grade(self,list_text: list[str]):
+        """return the absolute_grade float between 0 and 10"""
+        assert isinstance(list_text,list)
+        yes_mode = "skills_improvement" #TODO: add to config 
+        yes_prompt = return_yes_prompt(yes_mode)
+        for idx in range(len(list_text)):
+            list_text[idx] = self.prompt_format(yes_prompt.format(datapoint=list_text[idx]))
+
+        out = self.generate_quality(list_text) # remove [0] when main loop is batchable
+        return out
+
+    def fitness(self, probsol: P3ProbSolResult, use_pass_k=False) -> float:
+        solving_fitness = super().fitness(probsol, use_pass_k)
+        if solving_fitness <= 0:
+            return solving_fitness  # we require that the problem be solvable by chatgpt
+
+        # check the docstring works fine
+        fitness = self.absolute_grade([probsol.program_str])[0]
+        return fitness
+
+    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True, disable_tqdm=True):
+        
+        list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
+        assert len(list_solving_fitness) == len(list_probsol)
+        list_idx_correct=[idx for idx,i in enumerate(list_solving_fitness) if i>0]
+        list_puzzle_str = [list_probsol[idx].program_str for idx in list_idx_correct]
+        list_fitness = self.absolute_grade(list_puzzle_str)
+        for idx,idx_correct in enumerate(list_idx_correct):
+            list_solving_fitness[idx_correct] = list_fitness[idx]
+            list_probsol[idx_correct].fitness = list_fitness[idx]
+        return list_solving_fitness
+    
