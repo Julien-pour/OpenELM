@@ -258,7 +258,7 @@ class PromptModel(MutationModel):
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
     
     def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,activate_parrallel=True) -> list[str]:
-        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
+        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path:
             if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
                 results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature)
@@ -268,7 +268,7 @@ class PromptModel(MutationModel):
         return results
 
     def generate_completion_instructor(self,list_prompt: list[str],batch_tools=None,temperature=None,activate_parrallel=True) -> list[str]:
-        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
+        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path:
             if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
                 results = get_multiple_completions_instructor(self.instructor_model, batch_prompt=list_prompt, cfg_generation = self.cfg_generation, batch_tools= batch_tools ,max_workers=self.config.processes,temperature=temperature)
@@ -303,7 +303,7 @@ class PromptModel(MutationModel):
         """
         prompts = [prompt_dict["prompt"] for prompt_dict in prompt_dicts]
         templates = [prompt_dict["template"] for prompt_dict in prompt_dicts]
-        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path:
+        if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path:
             
             if self.config.parrallel_call:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)

@@ -5,7 +5,9 @@ import json
 import numpy as np
 import textwrap
 from pydantic import BaseModel,Field
+from openelm.utils.code_eval import find_first_argument_of_first_function
 
+from openelm.environments.p3.prompt_code import base_persona_code, prompt_gen_description
 
 
 skill_list = [
@@ -74,8 +76,6 @@ class Topics_evaluation(BaseModel):
 
 
 
-from openelm.utils.code_eval import find_first_argument_of_first_function
-from prompt import base_persona_code, prompt_gen_description
 def create_prompt_label(puzzle : str, mode="give_skills"):
     """
     create prompt for label_puzzle goes with Topics_evaluation class with give_skills=True
