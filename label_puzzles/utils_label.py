@@ -5,6 +5,68 @@ import tiktoken
 import requests
 import json
 import numpy as np
+import torch
+from openelm.quality_metrics.yes import return_proba_yes, return_yes_prompt, return_prompt_format
+
+
+
+
+def prompt_format(self, text):
+    """
+    return the prompt format for the model system,user,...
+    """
+    return return_prompt_format("deepseek-coder", text)
+
+
+def generate_quality(tokenizer,model,list_text: list[str],batch_size_quality=32):
+    soft = torch.nn.Softmax(dim=1)
+    assert isinstance(list_text,list)
+    with torch.inference_mode():
+        list_proba_yes=[]
+        for i in range(0, len(list_text), batch_size_quality):
+            batch_texts = list_text[i:i+batch_size_quality]
+            inputs = tokenizer(batch_texts, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
+            out_yes = model(**inputs)
+            # out = self.tokenizer.decode(out_tok[0])
+            k=25# get top 25 tokens
+            yes_logits=soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
+            values,indices=torch.topk(yes_logits, k)
+            list_words=tokenizer.batch_decode(indices.flatten())
+            list_words=np.array(list_words).reshape(values.shape).tolist()
+            values = values.tolist()
+            
+            # values,list_token
+            for idx in range(len(list_words)):
+                # if self.debug:
+                #     print("-----")
+                #     for j in range(len(list_words[idx])):
+                #         print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
+                list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+    return list_proba_yes
+
+
+def absolute_grade(tokenizer,model,list_text: list[str]):
+    """return the absolute_grade float between 0 and 10"""
+    assert isinstance(list_text,list)
+    yes_mode = "skills_improvement" #TODO: add to config 
+    yes_prompt = return_yes_prompt(yes_mode)
+    for idx in range(len(list_text)):
+        list_text[idx] = prompt_format(yes_prompt.format(datapoint=list_text[idx]))
+
+    out = generate_quality(tokenizer,model,list_text) # remove [0] when main loop is batchable
+    return out
+
+def ret_list_fitness(tokenizer,model,list_program_str) -> list[float]:
+
+    # check the docstring works fine
+    fitness = absolute_grade(tokenizer,model,list_program_str)
+    return fitness
+
+
+
+
+
+
 
 def preprocessing_P3(split: str = "train", n_token_max: int =512,debug=False,path_puzzle=None) -> list[dict]:
     """
