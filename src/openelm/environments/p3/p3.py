@@ -322,7 +322,7 @@ class P3ProbSolResult(Genotype):
     def __init__(self, program_str: str, config: P3ProbSolEnvConfig, emb: list= None,
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
                   description:str=" description of the puzzle", interestingness_f:int=None,
-                  interestingness_g:float=None, is_valid:bool=None, puzzle_history: list = [],
+                  interestingness_g:float=None, is_valid:bool=None, puzzle_history: list = [],puzzles_id_fewshot:list[str]=[],
                   is_valid_explanation:str=None,result_obj: Optional[dict]={}, explanation_emb=None) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
@@ -342,6 +342,7 @@ class P3ProbSolResult(Genotype):
         self.idx_generation = idx_generation
         self.target_skills = target_skills
         self.puzzle_history = puzzle_history
+        self.puzzles_id_fewshot = puzzles_id_fewshot
         if self.config.env_name == "p3_probsol_Chat" :
             # print("not implemented yet")
             # i_f = program_str.find("def f(")
@@ -378,7 +379,7 @@ class P3ProbSolResult(Genotype):
             self.target_skills = []
             
         dic={"fitness":self.fitness,"program_str":self.program_str, "emb":list(self.emb),"explanation_emb":self.explanation_emb}
-        dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills),"puzzle_history": self.puzzle_history})
+        dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills),"puzzle_history": self.puzzle_history,"puzzles_id_fewshot":self.puzzles_id_fewshot})
         dic.update({"quality":self.quality,"description" : self.description, "interestingness_f": self.interestingness_f})
         dic.update({"interestingness_g":self.interestingness_g,"is_valid":self.is_valid,"is_valid_explanation":self.is_valid_explanation})
         return dic
@@ -981,15 +982,20 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype, code_batch=code_batch)
         else:
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,skill_targeted=skill_targeted)
-
+        list_id_puzzle_fewshot = [puz.unique_id for puz in list_phenotype]
         template = ""#f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         few_shot_ex = [puz.program_str for puz in list_phenotype]
-        return {"prompt": prompt_str, "template": template, "few_shot_ex": few_shot_ex},skill_targeted
+        return {"prompt": prompt_str, "template": template, "few_shot_ex": few_shot_ex,"puzzles_id_fewshot": list_id_puzzle_fewshot},skill_targeted
 
 
     def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
-        """Generate new programs with a mutation model parse them, compute fitness and evaluate them."""
-        
+        """Generate new programs with a mutation model parse them, compute fitness and evaluate them.
+        code_batch is a list of dict with keys:
+        "prompt" : str : the prompt for the LLM
+        "template": str : the template for the LLM add it before the generated code
+        "few_shot_ex": list[str] : the few shot example puzzle 
+        "puzzles_id_fewshot": list[str] : the id of the few shot example puzzle
+        """
         print('generating programs')
         local_scope_exec = False
         start_t0 = time.time()
@@ -1010,6 +1016,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print('done')
         start_t1 = time.time()
         list_few_shot_ex=[]
+        puzzles_id_fewshot=[]
         list_pb=[]
 
         # parse the generated code
@@ -1028,7 +1035,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                     list_pb.append(split_pb[idx])
                     skill_targeted_list_duplicate.append(skill_targeted_list[idx_gen_prog])
                     list_few_shot_ex.append(code_batch[idx_gen_prog]["few_shot_ex"])
-
+                    puzzles_id_fewshot.append(code_batch[idx_gen_prog]["puzzles_id_fewshot"])
         # with open(path_debug, "a") as f:
         #     f.write(txt+f"\n\n  n puzzle gen = {_generated_programs}\n\n  n real puzzle gen = {list_pb}")
 
@@ -1100,8 +1107,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # add phenotype of correct puzzle to the list of phenotype            
         generated_programs = [gen_prog for gen_prog in generated_programs]
         results = [
-            {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness, "puzzle_history": few_shot_ex}
-            for (gen_prog, target_skills,pheno,fitness,few_shot_ex) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness,list_few_shot_ex)
+            {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness, "puzzle_history": few_shot_ex,"puzzles_id_fewshot":few_shot_id}
+            for (gen_prog, target_skills,pheno,fitness,few_shot_ex,few_shot_id) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness,list_few_shot_ex,puzzles_id_fewshot)
         ]
 
         # add embedding + description embedding to the results
@@ -1287,7 +1294,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             dic_prompt, skill_targeted = self.construct_prompt(list_few_shot_example_phenotypes, skill_targeted, trainset_only=True)
             program_list.append(dic_prompt)
             skill_targeted_list.append(skill_targeted)
-
+        #TODO: keep track of puzzles history
         new_probsols = self.generate_programs(program_list,skill_targeted_list)
         return new_probsols
 
@@ -1300,7 +1307,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             dic_prompt, skill_targeted = self.construct_prompt(list_few_shot_example_phenotypes, skill_targeted, trainset_only=False)
             program_list.append(dic_prompt)
             skill_targeted_list.append(skill_targeted)
-
+        #TODO: keep track of puzzles history
         new_probsols = self.generate_programs(program_list, skill_targeted_list)
 
         return new_probsols
