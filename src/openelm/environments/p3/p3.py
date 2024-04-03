@@ -892,11 +892,13 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         prompt = create_prompt_label(program_str, mode = mode)
         tool_skill_labeling = get_class_PuzzleCheck(mode)
-
-        result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
+        if mode =="description":
+            result = self.generate_completion(list_prompt = [prompt],temperature=0.,activate_parrallel=False)[0]
+        else:
+            result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
         dic_features = {}
         if "description" in mode: 
-            puzzle_description = result.puzzle_description
+            puzzle_description = result
             dic_features["description"] = puzzle_description
         if "is_valid" in mode:
             is_valid_explanation = result.explanations
