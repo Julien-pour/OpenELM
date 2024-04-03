@@ -354,21 +354,24 @@ class MAPElitesBase:
         return list_niche_idx
     
     def sample_examples_from_niche(self,niche_idx) -> int:
-        """Sample one example given a niche"""
+        """Sample one example from a niche"""
+
         size_niche = len(self.nonzero[niche_idx])
+        if size_niche == 0:
+            raise ValueError('Empty niche')
+        if size_niche == 1:
+            archive_index = self.rng.choice(self.nonzero[niche_idx])
+            archive_index = int(archive_index)
+            return archive_index
         match self.config.sampling_strategy:
             case 'uniform':
                 # sample a random niche
                 # print(f'nonzero {self.nonzero}')
                 
-                if size_niche == 0:
-                    raise ValueError('Empty niche')
                 archive_index = self.rng.choice(self.nonzero[niche_idx]) # sample a random individual
 
             case 'prob_best_5':
-                # sample a random niche and a random individual in a niche
-                idx_sampled = self.rng.choice(len(self.nonzero.keys()))
-                niche_idx = list(self.nonzero.keys())[idx_sampled]
+                # self.nonzero[niche_idx]
                 # sort_keys = sorted(lisself.nonzero.keys())
                 fitness_range = [self.min_fitness(), self.max_fitness()]  # can these be -inf/+inf?
                 # sort indices by fitness
@@ -389,6 +392,21 @@ class MAPElitesBase:
                 print(f'probabilities {normalized_fitnesses}')
                 archive_index = self.rng.choice([idx for idx, f, in fit_idx], p=normalized_fitnesses)
                 
+            case 'soft_normalised':
+                puzz_idx = [idx for idx in self.nonzero[niche_idx]]
+                qualities = np.array([self.fitnesses[idx] for idx in self.nonzero[niche_idx]])
+                min_quality = qualities.min()
+                max_quality = qualities.max()
+                normalized_qualities = (qualities - min_quality) / (max_quality - min_quality)
+                # Softmax calculation
+                temperature = self.config.temperature_soft_sampling
+                scaled_logits = normalized_qualities / temperature
+                # Subtract the max for numerical stability
+                exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
+                probabilities = exp_logits / np.sum(exp_logits)
+                archive_index = self.rng.choice(puzz_idx, p=probabilities)
+                raise NotImplementedError
+
             case _:
                 raise NotImplementedError(f'Unrecognized sampling strategy "{self.config.sampling_strategy}"')
         archive_index = int(archive_index)

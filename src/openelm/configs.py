@@ -66,7 +66,8 @@ class QDConfig(BaseConfig):
     crossover: bool = False
     crossover_parents: int = 2
     save_bad_individual: bool = True
-    sampling_strategy: str = 'uniform'  # one of {'prob_best_5', 'uniform'}
+    sampling_strategy: str = 'uniform'  # one of {'prob_best_5', 'uniform','soft_normalised'} 
+    temperature_soft_sampling: float = 0.2 # temperature for soft_normalised
     n_fewshot_examples: int = 2 # number of example to give to the model before generation
     unique_id: str = "default"
 
