@@ -51,6 +51,7 @@ def get_model(config: ModelConfig):
         # if config.gen_max_len!=-1:
         #     cfg["max_tokens"]=config.gen_max_len
         if config.azure:
+            print("USING AZURE API")
 
             client = AzureOpenAI(
                 azure_endpoint = config.azure_endpoint, 
@@ -59,6 +60,7 @@ def get_model(config: ModelConfig):
                 )
             return client
         else:
+            print("USING base openai API")
             client = OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)
             return client
     else:
