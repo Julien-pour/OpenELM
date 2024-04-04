@@ -29,7 +29,7 @@ skill_list = [
     "Algorithm Optimization",
     "Number Theory (factors, primes, etc.)",
     "Graph Theory (paths, edges, vertices)",
-    "Cryptography",
+    "Array Indexing",
     "Hashing"
 ]
 # add Set Operations and Hashing

@@ -1,31 +1,36 @@
 import sys
 sys.path.append('/home/flowers/work/OpenELM')
-from src.openelm.utils.code_eval import pool_exec_processes
 from utils_label import preprocessing_P3
-from openelm.sandbox.server.sandbox_codex_execute import ExecResult
-from openelm.environments.p3.p3 import P3ProbSolResult
-from hydra import initialize, initialize_config_module, initialize_config_dir, compose
+from hydra import initialize, compose
 from omegaconf import OmegaConf
 import json
+from openelm.environments.p3.p3 import P3ProbSol_Chat
 from openelm.environments.p3 import create_prompt_label,Topics_evaluation
 from openelm.mutation_model import get_model,get_multiple_completions,get_multiple_completions_instructor
-from tqdm import tqdm
+from src.openelm.utils.code_eval import pool_exec_processes
+from openelm.environments.p3.p3 import P3ProbSolResult
+
+from openelm.mutation_model import PromptModel
 import os
-from tenacity import *
 import instructor
+
+from tenacity import *
 
 script_dir = os.path.dirname(__file__) 
 
 
-bs=4
-generate_skills=False
-generate_description=False
-generate_quality=False
 
+bs=4
+# for label puzzles
+generate_skills=True # generate label for skills
+generate_description=True # generate puzzles description
+generate_quality=True # generate quality of the puzzles 
 n_skills=20 # length of the skill vector
 max_workers=40
-path_embed = "/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"#"/home/flowers/work/OpenELM/label_puzzles/preprocess_p3_emb.json"#script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
 
+
+path_embed = "/home/flowers/work/OpenELM/puzzles_train_1.json"#if set to None use full P3 training set
+path_embed_save="/home/flowers/work/OpenELM/preprocess_p3_emb_dedup_puzzles.json"
 with initialize(version_base="1.2"):
     cfg = compose(config_name="elmconfig")
     # print(cfg)
@@ -35,13 +40,38 @@ cfg_generation: dict = {
             "temperature": 0.,
             "model": config.model.model_path,
         }
+print(config.model.model_path)
+
 
 client = get_model(config.model)
 instructor_client = instructor.patch(client)
 
 
-with open(path_embed, "r") as f:
-    out = json.load(f)
+# n_skills=config.env.n_skills
+
+# client = get_model(config.model)
+#init prompt model
+mutation_model = PromptModel(config.model)
+#init p
+env = P3ProbSol_Chat(config= config.env,
+        mutation_model=mutation_model)
+
+
+out = preprocessing_P3(path_puzzle=path_embed,n_token_max=1024)
+
+print("n_puzzle after 1st preprocessing of P3: ", len(out))
+# preprocess puzzles
+out=out
+for i in out:
+    del i["f"], i["g"],i["attempts"]
+    config.env.GPT_feedback=True
+    # i["config"] = config.env
+
+with open(path_embed_save, "w") as f:
+    json.dump(out, f, indent=4)
+
+
+
 
 
 # preprocess puzzles
@@ -73,7 +103,7 @@ if generate_skills:
     for idx in range(len(results1)):  
         out[idx].update(results1_processed[idx])
 
-    with open(path_embed, "w") as f:
+    with open(path_embed_save, "w") as f:
         json.dump(out, f, indent=4)
 
 
@@ -94,8 +124,29 @@ if generate_description:
             if key in out[idx]:
                 del out[idx][key]
 
-    with open(path_embed, "w") as f:
+    with open(path_embed_save, "w") as f:
         json.dump(out, f, indent=4)
+
+if generate_quality:
+    print("--------------- start generating quality -----------------")
+
+    path_hf ="/home/flowers/work/hf/deepseek-coder-1.3b-instruct"
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from utils_label import ret_list_fitness
+    tokenizer = AutoTokenizer.from_pretrained(path_hf)
+    model = AutoModelForCausalLM.from_pretrained(path_hf,device_map='auto')
+
+    list_program_str = [p["program_str"] for p in out]
+    list_fitness = ret_list_fitness(tokenizer,model,list_program_str,bs=bs)
+    for idx in range(len(out)):
+        out[idx]["fitness"]=list_fitness[idx]
+
+    with open(path_embed_save, "w") as f:
+        json.dump(out, f, indent=4)
+
+
+print("n puzzles=", len(out))
+## need to add quality labeling
 
 
 
@@ -132,29 +183,3 @@ except Exception as e:
     pass
 
 list_program_str=[p.__to_dict__() for p in list_p3]
-
-
-
-if generate_quality:
-    print("--------------- start generating quality -----------------")
-
-    path_hf ="/home/flowers/work/hf/deepseek-coder-1.3b-instruct"
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    from utils_label import ret_list_fitness
-    tokenizer = AutoTokenizer.from_pretrained(path_hf)
-    model = AutoModelForCausalLM.from_pretrained(path_hf,device_map='auto')
-
-    list_program_str = [p["program_str"] for p in out]
-    list_fitness = ret_list_fitness(tokenizer,model,list_program_str,bs=bs)
-    for idx in range(len(out)):
-        out[idx]["fitness"]=list_fitness[idx]
-
-    with open(path_embed, "w") as f:
-        json.dump(out, f, indent=4)
-
-
-print("n puzzles=", len(out))
-## need to add quality labeling
-
-
-

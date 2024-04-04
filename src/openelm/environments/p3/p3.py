@@ -343,16 +343,13 @@ class P3ProbSolResult(Genotype):
         self.target_skills = target_skills
         self.puzzle_history = puzzle_history
         self.puzzles_id_fewshot = puzzles_id_fewshot
-        if self.config.env_name == "p3_probsol_Chat" :
-            # print("not implemented yet")
-            # i_f = program_str.find("def f(")
-            i_g = program_str.find("def g(")
-            
-            self.problem_func = self.program_str[:i_g].strip()
-            self.solution_func = self.program_str[i_g:].strip()
-            # no more problem if an assert is in def f
-            i_assert = self.solution_func.find("assert") 
-            self.solution_func = self.solution_func[:i_assert].strip() 
+        i_g = program_str.find("def g(")
+        
+        self.problem_func = self.program_str[:i_g].strip()
+        self.solution_func = self.program_str[i_g:].strip()
+        # no more problem if an assert is in def f
+        i_assert = self.solution_func.find("assert") 
+        self.solution_func = self.solution_func[:i_assert].strip() 
         
         self.quality = quality
         self.description=description
@@ -893,9 +890,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         prompt = create_prompt_label(program_str, mode = mode)
         tool_skill_labeling = get_class_PuzzleCheck(mode)
         if mode =="description":
-            result = self.generate_completion(list_prompt = [prompt],temperature=0.,activate_parrallel=False)[0]
+            result = self.mutation_model.generate_completion(list_prompt = [prompt],temperature=0.,activate_parrallel=False)[0]
         else:
-            result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
+            result = self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
         dic_features = {}
         if "description" in mode: 
             puzzle_description = result
@@ -1538,38 +1535,13 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
         """
         return return_prompt_format(self.model_id, text)
 
-
-    def generate_quality(self,list_text: list[str]):
-        assert isinstance(list_text,list)
-        with torch.inference_mode():
-            inputs = self.tokenizer(list_text, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
-            out_yes = self.model(**inputs)
-            # out = self.tokenizer.decode(out_tok[0])
-            k=25# get top 25 tokens
-            yes_logits=self.soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
-            values,indices=torch.topk(yes_logits, k)
-            list_words=self.tokenizer.batch_decode(indices.flatten())
-            list_words=np.array(list_words).reshape(values.shape).tolist()
-            values = values.tolist()
-            list_proba_yes=[]
-            # values,list_token
-            for idx in range(len(list_words)):
-                if self.debug:
-                    print("-----")
-                    for j in range(len(list_words[idx])):
-                        print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
-                list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
-        return list_proba_yes
     
     def generate_quality(self,list_text: list[str]):
         assert isinstance(list_text,list)
-
         with torch.inference_mode():
             list_proba_yes=[]
             for i in range(0, len(list_text), self.batch_size_quality):
                 batch_texts = list_text[i:i+self.batch_size_quality]
-
-
                 inputs = self.tokenizer(batch_texts, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
                 out_yes = self.model(**inputs)
                 # out = self.tokenizer.decode(out_tok[0])
