@@ -37,11 +37,13 @@ logging.set_verbosity_error()  # avoid all FutureWarnings
 def main(config):
     path_out=HydraConfig.get().runtime.output_dir
     config.output_dir = path_out
-    config.qd.unique_id = config.unique_id+"_s"+str(config.qd.seed)+"_p"
     print("----------------- Config ---------------")
     print(OmegaConf.to_yaml(config))
     print("-----------------  End -----------------")
     config = OmegaConf.to_object(config)
+    config.qd.unique_id = config.unique_id+"_s"+str(config.qd.seed)+"_p"
+
+    
 
     elm = ELM(config)
     print(
