@@ -60,7 +60,7 @@ def get_model(config: ModelConfig):
                 )
             return client
         else:
-            print("USING base openai API")
+            print("USING base openai+9 API")
             client = OpenAI(max_retries=config.max_retries,timeout=config.request_timeout)
             return client
     else:
@@ -77,16 +77,25 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
         kwargs.update({"tools": tools})
         tool_name=tools[0]["function"]["name"]
         kwargs.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
-    try :
-        completion = client.chat.completions.create(
-        messages=[
-            {"role": "system", "content": "You are an AI programming assistant"},#You are a coding assistant, skilled in writting code with creative flair."},
-            {"role": "user", "content": prompt}
-        ],**kwargs
-        )
-    except Exception as e:
-        print("completion problem: ",e)
-        return None 
+    n_try=4
+    count=1
+    while count<n_try:
+        try :
+            completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are an AI programming assistant"},#You are a coding assistant, skilled in writting code with creative flair."},
+                {"role": "user", "content": prompt}
+            ],**kwargs
+            )
+            out = completion.choices[0].message.content
+            if out == None:
+                raise Exception("No completion")
+            
+            break
+        except Exception as e:
+            print("completion problem: ",e)
+            count+=1
+
     # completion_token = completion.usage.completion_tokens
     # prompt_token = completion.usage.prompt_tokens
     
@@ -98,7 +107,7 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
             print("tool parsing problem: ",e)
             return None
         
-    out = completion.choices[0].message.content
+    
     return out
 
 def chunks(lst, n):

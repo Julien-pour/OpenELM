@@ -662,6 +662,7 @@ class MAPElitesBase:
 
             fitness = self.env.fitness(individual)
             condition_add_individual = fitness != -np.inf
+            value_nonzero = len(self.fitnesses)
             if condition_add_individual:
                 phenotype = individual.to_phenotype()
                 map_ix = self.to_mapindex(phenotype)
