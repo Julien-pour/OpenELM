@@ -58,7 +58,7 @@ class QDConfig(BaseConfig):
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
     save_history: bool = False
-    save_snapshot_interval: int = 1 #5
+    save_snapshot_interval: int = 10 #5
     loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
     log_snapshot_dir: str ="" #"/home/flowers/work/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/24-02-16_16:11/step_80"#"/home/flowers/work/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM_NLP/24-02-15_22:14/step_15"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     save_np_rng_state: bool = False

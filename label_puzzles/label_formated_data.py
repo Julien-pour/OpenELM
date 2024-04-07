@@ -20,11 +20,11 @@ script_dir = os.path.dirname(__file__)
 bs=4
 generate_skills=False
 generate_description=False
-generate_quality=False
+generate_quality=True
 
 n_skills=20 # length of the skill vector
 max_workers=40
-path_embed = "/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"#"/home/flowers/work/OpenELM/label_puzzles/preprocess_p3_emb.json"#script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
+path_embed = "/home/flowers/work/OpenELM/logs/elm/elm_nlp_seed-1/24-04-05_17:56/step_499/elm_nlp_seed-1_step_499.json"#"/home/flowers/work/OpenELM/label_puzzles/preprocess_p3_emb.json"#script_dir+"/src/openelm/utils/preprocess_p3_emb.json"
 
 with initialize(version_base="1.2"):
     cfg = compose(config_name="elmconfig")
@@ -36,8 +36,10 @@ cfg_generation: dict = {
             "model": config.model.model_path,
         }
 
-client = get_model(config.model)
-instructor_client = instructor.patch(client)
+
+if generate_skills or generate_description:
+    client = get_model(config.model)
+    instructor_client = instructor.patch(client)
 
 
 with open(path_embed, "r") as f:
@@ -131,7 +133,7 @@ except Exception as e:
     print("Error in the evaluation of the puzzles")
     pass
 
-list_program_str=[p.__to_dict__() for p in list_p3]
+# list_program_str=[p.__to_dict__() for p in list_p3]
 
 
 

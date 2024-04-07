@@ -397,16 +397,22 @@ class MAPElitesBase:
                 qualities = np.array([self.fitnesses[idx] for idx in self.nonzero[niche_idx]])
                 min_quality = qualities.min()
                 max_quality = qualities.max()
-                normalized_qualities = (qualities - min_quality) / (max_quality - min_quality)
-                # Softmax calculation
-                temperature = self.config.temperature_soft_sampling
-                scaled_logits = normalized_qualities / temperature
-                # Subtract the max for numerical stability
-                exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
-                probabilities = exp_logits / np.sum(exp_logits)
-                archive_index = self.rng.choice(puzz_idx, p=probabilities)
-                raise NotImplementedError
-
+                if abs(max_quality-min_quality) < 1e-6:
+                    probabilities = np.ones(len(qualities)) / len(qualities)
+                else:
+                    normalized_qualities = (qualities - min_quality) / (max_quality - min_quality)
+                    # Softmax calculation
+                    temperature = self.config.temperature_soft_sampling
+                    scaled_logits = normalized_qualities / temperature
+                    # Subtract the max for numerical stability
+                    exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
+                    probabilities = exp_logits / np.sum(exp_logits)
+                try:
+                    archive_index = self.rng.choice(puzz_idx, p=probabilities)
+                except:
+                    print("proba",probabilities)
+                    print("quality",qualities)
+                    raise ValueError('Error in softmax sampling')
             case _:
                 raise NotImplementedError(f'Unrecognized sampling strategy "{self.config.sampling_strategy}"')
         archive_index = int(archive_index)
