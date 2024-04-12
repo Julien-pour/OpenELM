@@ -96,6 +96,10 @@ class CVTMAPElitesConfig(QDConfig):
     cvt_samples: int = 40000
     load_centroids: bool = False # load centroids from log_snapshot_dir
 
+@dataclass
+class CVTMAPElitesQualityConfig(CVTMAPElitesConfig):
+    sampling_strategy: str = 'soft_normalised'  # one of {'prob_best_5', 'uniform','soft_normalised'} 
+
 
 @dataclass
 class EnvConfig(BaseConfig):
@@ -295,7 +299,16 @@ class P3ProbSolChatEnv_ELM_Config(P3ProbSolChatEnvConfig_Base):
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = False # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
-    
+
+@dataclass
+class P3ProbSolChatEnv_ELM_quality_Config(P3ProbSolChatEnv_ELM_Config):
+    env_name: str = "p3_probsol_Chat_yes"
+    batch_size_quality: Optional[int] = 8
+    model_or_model_path: str = "/home/flowers/work/hf/deepseek-coder-1.3b-instruct"#'deepseek-ai/deepseek-coder-1.3b-instruct'
+    compile: bool = False
+    flash_attn: bool = False
+
+
 @dataclass
 class P3ProbSolChatEnv_ELM_NLP_Config(P3ProbSolChatEnvConfig_Base):
     """ use it with regular mapelites """
@@ -396,7 +409,7 @@ rd_gen = [
 
 elm_base = [
     {"model": "prompt"},
-    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"qd": "cvtmapelites"}, #mapelites #"cvtmapelites"},
     {"env": "P3ProbSolChatEnv_ELM"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",
 ]
@@ -424,6 +437,12 @@ aces_smart = [
 ]
 
 #quality
+elm_quality = [
+    {"model": "prompt"},
+    {"qd": "cvtmapelites_quality"}, #mapelites #"cvtmapelites"},
+    {"env": "P3ProbSolChatEnv_ELM_Yes_quality"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
 elm_nlp_yes_quality = [
     {"model": "prompt"},
     {"qd": "mapelites_quality"}, #mapelites #"cvtmapelites"},
@@ -482,7 +501,14 @@ class ACESConfig(ELMConfig):
 class ACES_smartConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_smart)
     unique_id="aces_smart"
+
 # quality
+
+@dataclass
+class ELM_yesConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: elm_quality)
+    unique_id="elm_yes"
+
 @dataclass
 class ELM_nlp_yesConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: elm_nlp_yes_quality)
@@ -552,6 +578,7 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_Yes_quality", node=P3ProbSolChatEnv_IMGEP_smart_quality_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_Yes_quality", node=P3ProbSolChatEnv_IMGEP_random_quality_Config)
     cs.store(group="env", name="P3ProbSolChatEnv_ELM_NLP_Yes_quality", node=P3ProbSolChatEnv_ELM_NLP_quality_Config)
+    cs.store(group="env", name="P3ProbSolChatEnv_ELM_Yes_quality", node=P3ProbSolChatEnv_ELM_quality_Config)
 
 
 
@@ -563,6 +590,9 @@ def register_configstore() -> ConfigStore:
 
     cs.store(group="qd", name="mapelites_rd", node=MAPElitesConfig_random)
     cs.store(group="qd", name="cvtmapelites", node=CVTMAPElitesConfig)
+    cs.store(group="qd", name="cvtmapelites_quality", node=CVTMAPElitesQualityConfig)
+
+
     cs.store(group="model", name="prompt", node=PromptModelConfig)
     cs.store(group="model", name="diff", node=DiffModelConfig)
     cs.store(name="elmconfig", node=ELMConfig)
@@ -575,7 +605,7 @@ def register_configstore() -> ConfigStore:
     cs.store(name="elm_nlp_quality", node=ELM_nlp_yesConfig)
     cs.store(name="aces_quality", node=ACES_yesConfig)
     cs.store(name="aces_smart_quality", node=ACES_smart_yesConfig)
-
+    cs.store(name="elm_quality", node=ELM_yesConfig)
 
     return cs
 

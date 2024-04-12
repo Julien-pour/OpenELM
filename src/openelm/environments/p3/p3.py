@@ -837,8 +837,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # when the model can't be loaded, with feat-extraction
             if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
                 with torch.no_grad():
-                    inputs = self.tokenizer.encode(program_str, return_tensors="pt",truncation=True,max_length=512)
-                    emb = self.model(inputs)[0]
+                    inputs = self.tokenizer.encode(program_str, return_tensors="pt",truncation=True,max_length=512).to(self.model.device)
+                    emb = self.model(inputs)[0].cpu()
                 return {"emb":emb.numpy()}
             
             elif self.config.embedding_model_type == "hf":
@@ -976,11 +976,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         elif skill_targeted == []: # elm mode
             # code_batch is puzzle to mutate (last puzzle of list_phenotype)
-            code_batch = list_phenotype[-1]
+            code_batch = [list_phenotype[-1]]
             list_phenotype = list_phenotype[:-1]
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype, code_batch=code_batch)
-            for i in code_batch:
-                list_id_puzzle_fewshot.append(i.unique_id)
+            # for i in code_batch:
+            list_id_puzzle_fewshot.append(code_batch[0].unique_id)
         else:
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,skill_targeted=skill_targeted)
         
