@@ -3,7 +3,6 @@
 #SBATCH --nodelist=sirocco[14-24]
 #SBATCH --nodes=1
 #SBATCH --exclusive
-#SBATCH --cpus-per-task=8
 #SBATCH --job-name=rd_gen
 #SBATCH --hint=nomultithread
 #SBATCH --time=20:00:00
