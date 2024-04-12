@@ -4,8 +4,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import json
 # /!\ change seed here
-path = f"/home/flowers/work/OpenELM/logs/elm/elm_nlp_quality_seed-1/24-04-06_15:10/step_499/maps.pkl"
-
+path = f"/home/flowers/work/OpenELM/logs/elm/elm_nlp_seed-1/24-04-05_17:56/step_499/maps.pkl"
 path_save=path.split("maps.pkl")[0]
 with open(path, 'rb') as f:
     maps = pickle.load(f)

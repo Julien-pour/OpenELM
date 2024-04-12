@@ -100,12 +100,13 @@ if generate_description:
         json.dump(out, f, indent=4)
 
 
-
+import copy
+out1= copy.deepcopy(out)
 try:
-    for i in out:
+    for i in out1:
         config.env.GPT_feedback=True
         i["config"] = config.env
-    list_p3 = [P3ProbSolResult(**p) for p in out]
+    list_p3 = [P3ProbSolResult(**p) for p in out1]
     correct_pb=0
     for probsol in list_p3:
         # if isinstance(probsol.result_obj, ExecResult):

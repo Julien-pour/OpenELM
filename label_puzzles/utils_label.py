@@ -7,6 +7,7 @@ import json
 import numpy as np
 import torch
 from openelm.quality_metrics.yes import return_proba_yes, return_yes_prompt, return_prompt_format
+from tqdm import trange
 
 
 
@@ -17,13 +18,12 @@ def prompt_format(text):
     """
     return return_prompt_format("deepseek-coder", text)
 
-
 def generate_quality(tokenizer,model,list_text: list[str],batch_size_quality=16):
     soft = torch.nn.Softmax(dim=1)
     assert isinstance(list_text,list)
     with torch.inference_mode():
         list_proba_yes=[]
-        for i in range(0, len(list_text), batch_size_quality):
+        for i in trange(0, len(list_text), batch_size_quality):
             batch_texts = list_text[i:i+batch_size_quality]
             inputs = tokenizer(batch_texts, return_tensors="pt",padding=True).to("cuda") #maybe need to batch that
             out_yes = model(**inputs)

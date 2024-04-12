@@ -80,8 +80,8 @@ assert f(g()) == True
 Is the previous paragraph demarcated within ### and ###
 contain informative signals for you to improve your skills in solving Python Programming Puzzles?
 OPTIONS:
-- yes
-- no
+- Yes
+- No
 """
 
 yes_pretraining="""###

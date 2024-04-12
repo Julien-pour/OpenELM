@@ -1551,14 +1551,16 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
                 list_words=self.tokenizer.batch_decode(indices.flatten())
                 list_words=np.array(list_words).reshape(values.shape).tolist()
                 values = values.tolist()
-                
+                Yes_idx=5652 # idx token "Yes" #TODO: set it automatically
+                Yes_logits = yes_logits[:,Yes_idx].tolist()
                 # values,list_token
-                for idx in range(len(list_words)):
-                    if self.debug:
-                        print("-----")
-                        for j in range(len(list_words[idx])):
-                            print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
-                    list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+                # for idx in range(len(list_words)):
+                #     if self.debug:
+                #         print("-----")
+                #         for j in range(len(list_words[idx])):
+                #             print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
+                #     list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+                list_proba_yes.extend(Yes_logits)
         return list_proba_yes
 
 
