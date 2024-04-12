@@ -17,5 +17,5 @@ cd ..
 cd ..
 seed=1
 path="" 
-python run_elm.py --config-name=rd_gen seed=$seed env.seed=$seed qd.seed=$seed env.model_or_model_path="/projets/flowers/julien/hf/deepseek-coder-1.3b-instruct"
+python run_elm.py --config-name=rd_gen seed=$seed env.seed=$seed qd.seed=$seed
 # start from save: 'qd.loading_snapshot_map=True' 'qd.log_snapshot_dir=$path'
