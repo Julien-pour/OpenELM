@@ -280,7 +280,7 @@ class P3ProbSolChatEnv_IMGEP_random_quality_Config(P3ProbSolChatEnv_IMGEP_random
     env_name: str = "p3_probsol_Chat_yes"
     batch_size_quality: Optional[int] = 8
     model_or_model_path: str = 'deepseek-ai/deepseek-coder-1.3b-instruct'
-    compile: bool = True
+    compile: bool = False
     flash_attn: bool = False
 
 @dataclass
@@ -334,7 +334,7 @@ class P3ProbSolChatEnv_PP_ELM_NLP_Config(P3ProbSolChatEnv_ELM_NLP_Config):
     one_shot_prompt_id: str = 'progress_base_example_prompt.md'
     use_docstring: bool = True
     num_workers: int = 12
-    compile: bool = True
+    compile: bool = False
     flash_attn: bool = False
     num_max_tokens: Optional[int] = 2048
 
