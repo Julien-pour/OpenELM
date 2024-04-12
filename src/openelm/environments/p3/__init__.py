@@ -125,7 +125,7 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
 def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch: Optional[List[str]] = None, skill_targeted: Optional[List[int]]=None,n_fewshot_ex=2):
     """
     should change that to list_few_shot_example from list to Phenotype type
-    skill_targeted list of binary vector
+    skill_targeted list of binary vector [(0/1)]^n_skills indicating if the skill is targeted or not
     remove n_fewshot_ex
     """
     elm_mode=False
@@ -151,7 +151,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
         examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
     if elm_mode:
         prompt_elm=f", each being a **mutation** derived from Puzzle {i+1}" #the structure of Puzzle 2
-        examples += f"\nPuzzle {i+1} to mutate :\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
+        examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
 
 
     # /!\ should use persona (could be an improved version) smthing like:
@@ -159,9 +159,9 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
     # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
     base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
-    base_persona += "The Professor want to give some puzzles to his master's student to teach them Python." # student -> Master student
+    base_persona += "The Professor wants to give some puzzles to his master's students to teach them Python.\n" # student -> Master student
     prompt = base_persona 
-    main_prompt = """   I already have a series of Python Programming Puzzles (P3) where each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
+    main_prompt = """    I already have a series of Python Programming Puzzles (P3). Each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create five new distinct puzzles (Puzzle 2 to Puzzle 6){prompt_elm}.
     
     Rules:
@@ -169,7 +169,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     - The first argument of `f` is always the output from `g()`.
     - Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
     - Avoid using `f` inside `g`, and `g` inside `f`.
-    - Include any necessary imports for your code to run smoothly.
+    - Include any necessary imports so your code runs smoothly.
     - Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
     - Make sure the puzzle is self-contained within these two functions.
 
@@ -178,7 +178,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     ```python
     def f(solution, args=...) -> bool:
         # Python code to test the solution returned by g.
-        # This function is a test unit and must return True if the solution is correct, False otherwise.
+        # This function is a test unit and must return True if the solution is correct, and False otherwise.
 
     def g(args=...) -> solution:
         # Python code to generate a solution for the problem.
@@ -192,7 +192,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     Create five new Python Programming Puzzles (Puzzle 2 to Puzzle 6)."""
     prompt += textwrap.dedent(main_prompt)
     if elm_mode == True:
-        prompt2add = f" Ensure that each new puzzle is derived from a mutated Puzzle {i+1}."
+        prompt2add = f" Ensure that each new puzzle is created by making mutations to Puzzle {i+1}."
     if aces_mode == True:
         skill_target=" "
         idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
@@ -200,11 +200,11 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
             skill_target += f"\n- {skill_list[idx]}"
 
         # previous version
-        prompt2add = " Ensure that each puzzle is meaningfully different from the provided example and from each other. The puzzles should be challenging."# and adhere to the specified format."
+        prompt2add = " Ensure that each puzzle is meaningfully different from the provided examples and from each other." #The puzzles should be challenging."# and adhere to the specified format."
         # new version Make sure the new problems are no easier than the given problem
         prompt2add = " Ensure that the newly created puzzles are of comparable or greater difficulty."
 
-        prompt2add += f" Make sure that newly puzzles are based on ** all ** the following skills:{skill_target}"
+        prompt2add += f" Please make sure that new puzzles are based on ** all ** the following skills:{skill_target}"
 
     prompt = prompt.format(examples=examples,prompt_elm=prompt_elm)
     prompt += prompt2add

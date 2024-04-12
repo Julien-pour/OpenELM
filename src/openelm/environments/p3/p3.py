@@ -967,7 +967,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         """
         construct the prompt for the LLM
         """
-
+        list_id_puzzle_fewshot = [puz.unique_id for puz in list_phenotype]
         if not isinstance(skill_targeted, list):
             skill_targeted=skill_targeted.tolist()
 
@@ -979,9 +979,11 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             code_batch = list_phenotype[-1]
             list_phenotype = list_phenotype[:-1]
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype, code_batch=code_batch)
+            for i in code_batch:
+                list_id_puzzle_fewshot.append(i.unique_id)
         else:
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,skill_targeted=skill_targeted)
-        list_id_puzzle_fewshot = [puz.unique_id for puz in list_phenotype]
+        
         template = ""#f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         few_shot_ex = [puz.program_str for puz in list_phenotype]
         return {"prompt": prompt_str, "template": template, "few_shot_ex": few_shot_ex,"puzzles_id_fewshot": list_id_puzzle_fewshot},skill_targeted
