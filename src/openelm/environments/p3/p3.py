@@ -837,7 +837,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # when the model can't be loaded, with feat-extraction
             if "codet5p-110m-embedding" in self.config.embedding_model_path: #=="Salesforce/codet5p-110m-embedding":
                 with torch.no_grad():
-                    inputs = self.tokenizer_emb.encode(program_str, return_tensors="pt",truncation=True,max_length=512).to(self.model.device)
+                    inputs = self.tokenizer_emb.encode(program_str, return_tensors="pt",truncation=True,max_length=512).to(self.model_emb.device)
                     emb = self.model_emb(inputs)[0].cpu()
                 return {"emb":emb.numpy()}
             
