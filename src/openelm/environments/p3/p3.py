@@ -87,7 +87,7 @@ def g1():
             # )
             # return cosine_similarity(emb, self.baseline_emb)
         elif self.config.embedding_model_type == "hf":
-            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+            if "codet5p-110m-embedding" in self.config.embedding_model_path :
                 with torch.no_grad():
                     inputs = self.tokenizer.encode("def print_hello_world():\tprint('Hello World!')", return_tensors="pt")
                     embedding = self.model(inputs)[0]
@@ -407,7 +407,7 @@ class P3ProbSolResult(Genotype):
             elif self.config.env_name == "p3_probsol_Chat" and self.config.embedding_model_type == "hf": 
                 # Huggingface backend to get the embedding
                 # when the model can't be loaded, with feat-extraction
-                if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+                if "codet5p-110m-embedding" in self.config.embedding_model_path:
                     tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
                     model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
                     with torch.no_grad():
@@ -762,8 +762,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # when the model can't be loaded, with feat-extraction
             if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
                 print( "mode tokenzier + model from huggingface hub")
-                self.tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
-                self.model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                self.tokenizer_emb = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                self.model_emb = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
             else:
                 print( "mode pipeline from huggingface hub")
                 self.pl = pipeline(
@@ -835,10 +835,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     
         elif self.config.embedding_model_type == "hf": 
             # when the model can't be loaded, with feat-extraction
-            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+            if "codet5p-110m-embedding" in self.config.embedding_model_path: #=="Salesforce/codet5p-110m-embedding":
                 with torch.no_grad():
-                    inputs = self.tokenizer.encode(program_str, return_tensors="pt",truncation=True,max_length=512).to(self.model.device)
-                    emb = self.model(inputs)[0].cpu()
+                    inputs = self.tokenizer_emb.encode(program_str, return_tensors="pt",truncation=True,max_length=512).to(self.model.device)
+                    emb = self.model_emb(inputs)[0].cpu()
                 return {"emb":emb.numpy()}
             
             elif self.config.embedding_model_type == "hf":
