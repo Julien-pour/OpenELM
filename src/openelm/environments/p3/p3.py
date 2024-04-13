@@ -1549,10 +1549,10 @@ class P3ProbSol_Chat_Yes_quality(P3ProbSol_Chat):
                 # out = self.tokenizer.decode(out_tok[0])
                 k=25# get top 25 tokens
                 yes_logits=self.soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
-                values,indices=torch.topk(yes_logits, k)
-                list_words=self.tokenizer.batch_decode(indices.flatten())
-                list_words=np.array(list_words).reshape(values.shape).tolist()
-                values = values.tolist()
+                # values,indices=torch.topk(yes_logits, k)
+                # list_words=self.tokenizer.batch_decode(indices.flatten())
+                # list_words=np.array(list_words).reshape(values.shape).tolist()
+                # values = values.tolist()
                 Yes_idx=5652 # idx token "Yes" #TODO: set it automatically
                 Yes_logits = yes_logits[:,Yes_idx].tolist()
                 # values,list_token
