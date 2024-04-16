@@ -6,7 +6,7 @@ import requests
 import json
 import numpy as np
 import torch
-from openelm.quality_metrics.yes import return_proba_yes, return_yes_prompt, return_prompt_format
+from openelm.quality_metrics.yes import return_yes_prompt, return_prompt_format
 from tqdm import trange
 
 
@@ -30,18 +30,21 @@ def generate_quality(tokenizer,model,list_text: list[str],batch_size_quality=16)
             # out = self.tokenizer.decode(out_tok[0])
             k=25# get top 25 tokens
             yes_logits=soft(out_yes.logits[:,-1]).cpu().detach() #logits associated with the token "yes"
-            values,indices=torch.topk(yes_logits, k)
-            list_words=tokenizer.batch_decode(indices.flatten())
-            list_words=np.array(list_words).reshape(values.shape).tolist()
-            values = values.tolist()
-            
+            # values,indices=torch.topk(yes_logits, k)
+            # list_words=tokenizer.batch_decode(indices.flatten())
+            # list_words=np.array(list_words).reshape(values.shape).tolist()
+            # values = values.tolist()
+            Yes_idx=5652 # idx token "Yes" #TODO: set it automatically
+            Yes_logits = yes_logits[:,Yes_idx].tolist()
+
             # values,list_token
-            for idx in range(len(list_words)):
+            # for idx in range(len(list_words)):
                 # if self.debug:
                 #     print("-----")
                 #     for j in range(len(list_words[idx])):
                 #         print(f"list_words[idx][j]: {list_words[idx][j]}, values[idx][j]: {values[idx][j]}")
-                list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+                # list_proba_yes.append(return_proba_yes(values[idx],list_words[idx]))
+            list_proba_yes.extend(Yes_logits)
     return list_proba_yes
 
 
