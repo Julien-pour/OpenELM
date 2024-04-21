@@ -43,7 +43,7 @@ for name_yes in list_synth_prompt:
             out[idx]["quality"][name_yes]=list_fitness[idx]
         else:
             dic_qual={name_yes:list_fitness[idx]}
-        out[idx]["quality"]=dic_qual
+            out[idx]["quality"]=dic_qual
 
 
     with open(path_embed, "w") as f:
