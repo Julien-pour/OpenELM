@@ -1,6 +1,13 @@
 import sys
-sys.path.append('/home/flowers/work/OpenELM')
-from src.openelm.utils.code_eval import pool_exec_processes,return_f,add_return_bool_2_f,return_g,merge_Q_and_A
+# try:
+#     sys.path.append('/projets/flowers/julien/OpenELM')
+# except:
+#     pass
+# try:
+#     sys.path.append('/home/flowers/work/OpenELM')
+# except:
+    # pass
+from openelm.utils.code_eval import pool_exec_processes,return_f,add_return_bool_2_f,return_g,merge_Q_and_A
 import tiktoken
 import requests
 import json

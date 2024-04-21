@@ -1,5 +1,5 @@
 import json
-path_base="/projets/flowers/julien/OpenELM/logs/archives/"
+path_base="/projets/flowers/julien/OpenELM/logs/archives/"#"/home/flowers/work/OpenELM/logs/archives/"#
 list_archive=["rd_gen_seed-1.json",
         #    "elm_quality_seed-1.json",
            "elm_nlp_quality_seed-1.json",
