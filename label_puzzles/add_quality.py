@@ -1,12 +1,12 @@
 import json
 path_base="/home/flowers/work/OpenELM/logs/archives/"
 list_archive=["rd_gen_seed-1.json",
-           "elm_quality_seed-1.json",
+        #    "elm_quality_seed-1.json",
            "elm_nlp_quality_seed-1.json",
            "elm_nlp_seed-1.json",
            "aces_seed-1.json",
            "aces_quality_seed-1.json",
-           "aces_smart_quality_seed-1.json",
+        #    "aces_smart_quality_seed-1.json",
            ]
 list_emb= [path_base+archive for archive in list_archive]
 bs=16
