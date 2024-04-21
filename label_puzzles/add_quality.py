@@ -1,5 +1,5 @@
 import json
-path_base="/home/flowers/work/OpenELM/logs/archives/"
+path_base="/projets/flowers/julien/OpenELM/logs/archives/"
 list_archive=["rd_gen_seed-1.json",
         #    "elm_quality_seed-1.json",
            "elm_nlp_quality_seed-1.json",
@@ -21,7 +21,7 @@ for name_yes in list_synth_prompt:
 
         with open(path_embed, "r") as f:
             out = json.load(f)
-        path_hf ="/home/flowers/work/hf/deepseek-coder-1.3b-instruct"
+        path_hf ="/projets/flowers/julien/hf/deepseek-coder-1.3b-instruct"
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from utils_label import ret_list_fitness
         tokenizer = AutoTokenizer.from_pretrained(path_hf)
