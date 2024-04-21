@@ -58,7 +58,7 @@ def generate_quality(tokenizer,model,list_text: list[str],batch_size_quality=16)
 def absolute_grade(tokenizer,model,list_text: list[str],bs,yes_mode="skills_improvement"):
     """return the absolute_grade float between 0 and 10"""
     assert isinstance(list_text,list)
-    yes_mode = "skills_improvement" #TODO: add to config 
+    # yes_mode = "skills_improvement" #TODO: add to config 
     yes_prompt = return_yes_prompt(yes_mode)
     for idx in range(len(list_text)):
         list_text[idx] = prompt_format(yes_prompt.format(datapoint=list_text[idx]))
