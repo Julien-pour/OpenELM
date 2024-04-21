@@ -16,16 +16,27 @@ import instructor
 
 script_dir = os.path.dirname(__file__) 
 
-
+path_base="/home/flowers/work/evaluate_model/archives/"
+list_archive=["rd_gen_seed-1.json",
+           "elm_quality_seed-1.json",
+           "elm_nlp_quality_seed-1.json",
+           "elm_nlp_seed-1.json",
+           "aces_seed-1.json",
+           "aces_quality_seed-1.json",
+           "aces_smart_quality_seed-1.json",
+           ]
+list_emb= [path_base+archive for archive in list_archive]
 # list_emb= ["/home/flowers/work/OpenELM/logs/archives/elm_nlp_seed-1.json",
 #            "/home/flowers/work/OpenELM/logs/archives/rd_gen_seed-1.json"]
-list_emb= ["/projets/flowers/julien/OpenELM/logs/archives/elm_nlp_seed-1.json",
-           "/projets/flowers/julien/OpenELM/logs/archives/rd_gen_seed-1.json"]
+# list_emb= ["/projets/flowers/julien/OpenELM/logs/archives/elm_nlp_seed-1.json",
+#            "/projets/flowers/julien/OpenELM/logs/archives/rd_gen_seed-1.json"]
 bs=4
 generate_skills=False
 generate_description=False
-generate_quality=True
+generate_quality=False
 test_puzzles= False
+dedup=True
+
 n_skills=20 # length of the skill vector
 max_workers=40
 with initialize(version_base="1.2"):
@@ -170,3 +181,47 @@ for path_embed in list_emb:
 
 
 
+    if dedup:
+        from utils_label import sim_matrix_llm,sim_matrix_llm2
+
+        from transformers import AutoModel, AutoTokenizer
+        import torch
+        # checkpoint = "Salesforce/codet5p-110m-embedding"
+        # device = "cuda"  # for GPU usage or "cpu" for CPU usage
+
+        # tokenizer1 = AutoTokenizer.from_pretrained(checkpoint, trust_remote_code=True)
+
+        # model1 = AutoModel.from_pretrained(checkpoint, trust_remote_code=True,load_in_8bit=True,device_map='auto')
+        # sim_matrix_llm(list_program_str,tokenizer1,model1,bs=240)
+        model = AutoModel.from_pretrained('jinaai/jina-embeddings-v2-base-code', trust_remote_code=True,load_in_8bit=True,device_map='auto')
+        list_program_str = [p["program_str"] for p in out]
+        
+        sim = sim_matrix_llm2(list_program_str,model)
+
+        tres=0.97
+
+        sim = sim-torch.eye(sim.shape[0])
+        # Find the elements greater than the threshold. This returns a boolean matrix.
+        mask = sim > tres
+
+        # Use torch.triu to consider only upper triangle, including diagonal
+        # since j ranges from i to n in your loop, indicating you want upper triangular matrix indices
+        mask = torch.triu(mask)
+
+        # Extract the indices where the condition is True
+        list_idx = mask.nonzero(as_tuple=False)
+
+        # Print the number of elements above the threshold
+        print("\n==========\n")
+        print(f"Number of puzz with similarity greater than {tres}: {mask.sum().item()}")
+        idx_2_remove = set(list_idx[:,1].flatten().tolist())
+        print("before dedup",len(out))
+
+        print("puzzle 2 remove: ",len(idx_2_remove))
+        for i in range(len(out)):
+            if i in idx_2_remove:
+                out[i]["duplicate"]=True
+            else:
+                out[i]["duplicate"]=False
+        with open(path_embed, "w") as f:
+            json.dump(out, f, indent=4)

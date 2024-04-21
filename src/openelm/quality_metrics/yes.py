@@ -6,6 +6,16 @@ def return_yes_prompt(yes_mode="skills_improvement"):
     match yes_mode:
         case "skills_improvement":
             return yes_skills_improvement
+        case "yes_gpt4":
+            return yes_gpt4
+        case "yes_gpt4_2":
+            return yes_gpt4_2
+        case "yes_mixtral":
+            return yes_mixtral
+        case "yes_opus":
+            return yes_opus
+        case "yes_opus_2":
+            return yes_opus_2
         case "pretraining":
             return yes_pretraining
         case "finetuning":
@@ -83,7 +93,60 @@ OPTIONS:
 - Yes
 - No
 """
+yes_gpt4="""Consider the following Python Programming Puzzle (P3). This puzzle consists of a problem function `f` and its corresponding solution `g`. The function `g` is designed to solve the SAT problem posed by `f`. The challenge lies in solving a challenging the SAT problem `f` with a function `g` such that `f(g())` evaluates to `True`.
+Given the nature of this puzzle, do you find this specific Python Programming Puzzle (P3) helpful for learning new skills or improving your ability to solve other programming puzzles of similar complexity? Answer with 'Yes' or 'No'.
 
+# P3:
+```python
+{datapoint}
+```
+"""
+yes_gpt4_2="""Please evaluate the following Python Programming Puzzle:
+```python
+{datapoint}
+```
+The puzzle consists of two functions: a problem function f and its corresponding solution g. The primary goal is to solve a challenging SAT problem f using a function g such that the expression f(g()) evaluates to True.
+
+Details of the Python Programming Puzzle (P3):
+
+Problem Function (f): [Provide the specific details or description of the problem function here]
+Solution Function (g): [Provide the specific details or description of the solution function here]
+Based on the complexity and the skills required to solve this puzzle, do you think this P3 is helpful for the LLM to learn new skills or help it improve solving other similar P3 problems? Please answer 'Yes' or 'No'.
+"""
+yes_mixtral="""Below is a Python Programming Puzzle (P3) that involves solving a challenging SAT problem using a function. Determine whether this P3 is helpful for a large language model (LLM) with 2 billion parameters to learn new skills or improve its ability to solve other P3 problems.
+
+P3 Format:
+
+Function `f` is a SAT problem that takes a boolean expression as input and returns `True` if the expression is satisfiable, and `False` otherwise.
+
+Function `g` is a function that takes no input and returns a boolean expression as output.
+
+The challenge is to solve the SAT problem `f` using the function `g` such that `f(g())` evaluates to `True`.
+
+P3:
+```python
+{datapoint}
+```
+
+Based on the provided P3, answer the following question with only "Yes" or "No":
+"""
+
+yes_opus="""Analyze the following Python Programming Puzzle (P3):
+
+{datapoint}
+
+Based on the complexity, novelty, and potential for skill acquisition or improvement, is this P3 helpful for an LLM to learn new skills or enhance its ability to solve other P3 problems? Answer with a simple "Yes" or "No".
+"""
+yes_opus_2="""Given the following Python Programming Puzzle (P3):
+
+{datapoint}
+
+A P3 consists of a problem function `f` and a corresponding solution function `g`, where the challenge is to solve a difficult SAT problem `f` with a function `g` such that `f(g())` evaluates to `True`.
+
+Based on the provided P3, answer the following question with only "Yes" or "No":
+
+Will this P3 help the AI learn new skills or improve its ability to solve other Python Programming Puzzles?
+"""
 yes_pretraining="""###
 Python Programming Puzzles (P3) consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in solving a challenging SAT problem `f` with a function `g` such that `f(g())` evaluates to `True`.
 Here is a Python Programming Puzzle:

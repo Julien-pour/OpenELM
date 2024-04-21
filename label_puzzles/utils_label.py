@@ -48,7 +48,7 @@ def generate_quality(tokenizer,model,list_text: list[str],batch_size_quality=16)
     return list_proba_yes
 
 
-def absolute_grade(tokenizer,model,list_text: list[str],bs):
+def absolute_grade(tokenizer,model,list_text: list[str],bs,yes_mode="skills_improvement"):
     """return the absolute_grade float between 0 and 10"""
     assert isinstance(list_text,list)
     yes_mode = "skills_improvement" #TODO: add to config 
@@ -59,10 +59,10 @@ def absolute_grade(tokenizer,model,list_text: list[str],bs):
     out = generate_quality(tokenizer,model,list_text,batch_size_quality=bs) # remove [0] when main loop is batchable
     return out
 
-def ret_list_fitness(tokenizer,model,list_program_str,bs) -> list[float]:
+def ret_list_fitness(tokenizer,model,list_program_str,bs,yes_mode="skills_improvement") -> list[float]:
 
     # check the docstring works fine
-    fitness = absolute_grade(tokenizer,model,list_program_str,bs=bs)
+    fitness = absolute_grade(tokenizer,model,list_program_str,bs=bs,yes_mode=yes_mode)
     return fitness
 
 
@@ -154,3 +154,61 @@ def preprocessing_P3(split: str = "train", n_token_max: int =512,debug=False,pat
         print("number of puzzles after removing too long puzzles",len(puzzles_set))
         
         return puzzles_set
+
+
+def batch_embed_code(codes, tokenizer, model, bs=256):
+    """Embed multiple code snippets using Salesforce/codet5p-110m-embedding with batching.
+    
+    Args:
+        codes (list of str): List of code snippets to embed.
+        tokenizer (Tokenizer): Tokenizer that corresponds to the model.
+        model (Model): Pre-trained model for embeddings.
+        bs (int): Batch size for processing.
+    
+    Returns:
+        List of torch.Tensor: List of embeddings for each code snippet.
+    """
+    embeddings = []
+    for i in trange(0, len(codes), bs):
+        batch_codes = codes[i:i+bs]
+        with torch.inference_mode():
+            inputs = tokenizer(batch_codes, return_tensors="pt", padding=True, truncation=True).to(model.device)
+            output = model(**inputs)
+            batch_embeddings = output  # Assuming the first output is the embeddings
+        embeddings.extend(batch_embeddings)
+    embeddings=torch.vstack(embeddings)
+    return embeddings
+
+
+def sim_matrix_llm(list_code, tokenizer, model,bs=256):
+    """
+    Compute the similarity matrix for a list of code snippets using Salesforce/codet5p-110m-embedding model.
+    Args:
+        list_code (list of str): List of code snippets.
+        tokenizer: Tokenizer compatible with the model.
+        model: PyTorch model for embedding.
+    Returns:
+        torch.Tensor: Similarity matrix of size (number of codes x number of codes).
+    """
+    with torch.inference_mode():
+        # Generate embeddings for all code snippets in a single batch
+        embeddings = batch_embed_code(list_code, tokenizer, model,bs=bs)
+        
+        # Normalize the embeddings
+        embeddings_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+        
+        # Compute the similarity matrix: (batch_size x dim) x (dim x batch_size) -> (batch_size x batch_size)
+        similarity_matrix = torch.matmul(embeddings_norm, embeddings_norm.transpose(0, 1)).cpu()
+    
+    return similarity_matrix
+
+def sim_matrix_llm2(list_code,model):
+    """ work with jinaai/jina-embeddings-v2-base-code"""
+    with torch.inference_mode():
+        embeddings=torch.tensor(model.encode(list_code))
+        embeddings_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+        
+        # Compute the similarity matrix: (batch_size x dim) x (dim x batch_size) -> (batch_size x batch_size)
+        similarity_matrix = torch.matmul(embeddings_norm, embeddings_norm.transpose(0, 1)).cpu()
+    
+    return similarity_matrix
