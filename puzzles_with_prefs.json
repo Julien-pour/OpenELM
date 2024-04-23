@@ -84,17 +84,17 @@
         "notes": "",
         "weight": 1.0
     },
-    {
-        "name": "Study_5:0",
-        "sat": "def sat(li: List[int]):\n    return all([li.count(i) == i for i in range(10)])",
-        "ans_type": "List[int]",
-        "sol_header": "def sol():",
-        "sol_docstring": "    \"\"\"Find a list integers such that the integer i occurs i times, for i = 0, 1, 2, ..., 9.\"\"\"",
-        "sol_bodies": [
-            "    return [i for i in range(10) for j in range(i)]"
-        ],
-        "module": "appropriate",
-        "notes": "",
-        "weight": 1.0
-    }
+{
+    "name": "Study_5:0",
+    "sat": "def sat(li: List[int]):\n    return all([li.count(i) == i for i in range(10)])",
+    "ans_type": "List[int]",
+    "sol_header": "def sol():",
+    "sol_docstring": "    \"\"\"Find a list integers such that the integer i occurs i times, for i = 0, 1, 2, ..., 9.\"\"\"",
+    "sol_bodies": [
+        "    return [i for i in range(10) for j in range(i)]"
+    ],
+    "module": "appropriate",
+    "notes": "",
+    "weight": 1.0
+}
 ]
