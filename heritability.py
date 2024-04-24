@@ -329,7 +329,7 @@ def main(
         old_genomes,
         new_genomes,
         model_id=model_id,
-        batch_size=8,
+        batch_size=4,
     )
     print('done')
 
