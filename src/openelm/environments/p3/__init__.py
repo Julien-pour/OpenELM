@@ -150,14 +150,15 @@ def get_programming_puzzles_prompt(
     puzzles = [puzz for puzz in list_few_shot_example[:n_fewshot_ex]]
     
     examples = ""
-    for i, puzzle in enumerate(puzzles):   
+    for i, puzzle in enumerate(puzzles):
         puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
 
         examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
     if elm_mode:
+        puzzle_description = code_batch[0].description
+        p_str = code_batch[0].program_str
         prompt_elm=f", each being a **mutation** derived from Puzzle {i+1}" #the structure of Puzzle 2
-        examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
-
+        examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
 
     # /!\ should use persona (could be an improved version) smthing like:
     # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
@@ -165,7 +166,7 @@ def get_programming_puzzles_prompt(
     # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
     base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
     base_persona += "The Professor wants to give some puzzles to his master's students to teach them Python.\n" # student -> Master student
-    prompt = base_persona
+    prompt = base_persona 
     main_prompt = """    I already have a series of Python Programming Puzzles (P3). Each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create five new distinct puzzles (Puzzle 2 to Puzzle 6){prompt_elm}.
     
