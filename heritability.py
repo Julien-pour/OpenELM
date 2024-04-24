@@ -10,10 +10,13 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import hydra
+from hydra import compose, initialize
+from functools import partial
 import json
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
 from typing import List
+from typing import Optional
 
 from pprint import pprint
 from tqdm import tqdm
@@ -222,24 +225,88 @@ def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
     return metric_dict
 
 
-@hydra.main(
-    config_name="elm_nlp",
-    version_base="1.2",
-)
-def main(config):
-    path_out = HydraConfig.get().runtime.output_dir
-    config.output_dir = path_out
+def base_elm_prompt_fn(
+    list_few_shot_example : List[str],
+    code_batch: Optional[List[str]] = None,
+    skill_targeted: Optional[List[int]]=None,
+    n_fewshot_ex=2,
+    prompt: Optional[str] = None,
+):
+    puzzles = [puzz for puzz in list_few_shot_example[:n_fewshot_ex]]
+    
+    examples = ""
+    for i, puzzle in enumerate(puzzles):   
+        puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
+        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
+    puzzle_description = code_batch[0].description
+    p_str = code_batch[0].program_str
+    examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
+
+    default_prompt = """    You are a helpful assistant to a Professor teaching a programming course in Python.
+    The Professor wants to give some puzzles to his master's students to teach them Python.
+
+    I already have a series of Python Programming Puzzles (P3). Each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
+    I will provide two existing puzzles for reference, and I need you to create five new distinct puzzles (Puzzle 2 to Puzzle 6), each being a **mutation** derived from Puzzle {N}.
+    
+    Rules:
+    - Each puzzle includes two functions: `def f(...)` and `def g(...)`.
+    - The first argument of `f` is always the output from `g()`.
+    - Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
+    - Avoid using `f` inside `g`, and `g` inside `f`.
+    - Include any necessary imports so your code runs smoothly.
+    - Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
+    - Make sure the puzzle is self-contained within these two functions.
+
+    Puzzle Format:
+    Puzzle description: A brief, one to two sentence summary of the puzzle's content.
+    ```python
+    def f(solution, args=...) -> bool:
+        # Python code to test the solution returned by g.
+        # This function is a test unit and must return True if the solution is correct, and False otherwise.
+
+    def g(args=...) -> solution:
+        # Python code to generate a solution for the problem.
+        # The solution should generalize to all possible args.
+        return solution
+
+    assert f(g()) == True
+    ```
+    {examples}
+    Your Task:
+    Create five new Python Programming Puzzles (Puzzle 2 to Puzzle 6).
+    Ensure that each new puzzle is created by making mutations to Puzzle {N}."""
+
+    if prompt is None:
+        prompt = default_prompt
+
+    prompt = prompt.replace('\n    ', '\n')
+    prompt = prompt.format(examples=examples, N=i+1)
+    return prompt
+
+
+# @hydra.main(
+#     config_name="elm_nlp",
+#     version_base="1.2",
+# )
+def main(
+    config: Optional[HydraConfig] = None,
+    prompt_to_test: Optional[str] = None,
+    num_puz: Optional[int] = 100,
+):
+    
+    if config is None:  # hydra not initialized
+        # fetch default config for elm
+        with initialize(version_base="1.2"):
+            config = compose(config_name="elm_nlp")
+
     print("----------------- Config ---------------")
     print(OmegaConf.to_yaml(config))
     print("-----------------  End -----------------")
     config = OmegaConf.to_object(config)
-    config.qd.unique_id = config.unique_id+"_s"+str(config.qd.seed)+"_p"
 
     elm = ELM(config)
-    # print(
-    #     "Best Individual: ",
-    #     elm.run(init_steps=config.qd.init_steps, total_steps=config.qd.total_steps),
-    # )
+    if prompt_to_test is not None:
+        elm.qd_algorithm.env.prompt_seed_function = partial(base_elm_prompt_fn, prompt=prompt_to_test)
 
     quality_metric = None
     model_id = 'deepseek-ai/deepseek-coder-1.3b-instruct'
@@ -247,7 +314,7 @@ def main(config):
 
     old_genomes = load_genome('selected_genomes_umap.json')
     old_genomes = filter_genomes(old_genomes, model_id)
-    old_genomes = old_genomes[:10]  # dev
+    old_genomes = old_genomes[:num_puz]
 
     # make number of genomes divisible by mutation batch size
     mutation_batch_size = elm.qd_algorithm.env.batch_size
@@ -262,7 +329,7 @@ def main(config):
         old_genomes,
         new_genomes,
         model_id=model_id,
-        batch_size=8,
+        batch_size=4,
     )
     print('done')
 
