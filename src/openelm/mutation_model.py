@@ -55,7 +55,7 @@ def get_model(config: ModelConfig):
 
             client = AzureOpenAI(
                 azure_endpoint = config.azure_endpoint, 
-                # api_key="YOUR_API_KEY",  
+                # api_key="YOUR_API_KEY",
                 api_version=config.api_version,
                 )
             return client

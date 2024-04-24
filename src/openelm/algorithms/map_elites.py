@@ -426,7 +426,6 @@ class MAPElitesBase:
             
         return (list_few_shot_example_phenotypes, skill_targeted)
 
-
     def skill_sampling(self,mode=None):
         if mode is None:
             mode = self.env.config.IMGEP_mode
@@ -472,7 +471,7 @@ class MAPElitesBase:
     def sample_from_trainset(self,n_examples):
         return list(self.rng.choice(self.env.archive_P3puzzle,size=n_examples))
 
-    def sample_examples(self,trainset_only=False, mode_skill_sampling=None):
+    def sample_examples(self, trainset_only=False, mode_skill_sampling=None):
         """Sample a batch of examples from the map."""
 
         n_fewshot = self.config.n_fewshot_examples 
@@ -483,8 +482,6 @@ class MAPElitesBase:
         if trainset_only: # only use example from trainset
             list_few_shot_example_phenotypes = list(self.rng.choice(self.env.archive_P3puzzle,size=n_fewshot))
             return (list_few_shot_example_phenotypes, skill_targeted)
-        
-
 
         if skill_targeted == []: # no target
             #choose random cells 
@@ -496,7 +493,7 @@ class MAPElitesBase:
                 list_archive_index.append(archive_indexs)
 
         else: # imgep mode
-            #all niches explored
+            # all niches explored
             all_emb = list(self.nonzero.keys())
             all_emb = np.array([list(eval(i)) for i in all_emb])
 
@@ -549,7 +546,7 @@ class MAPElitesBase:
             # add trainset to the MAP
             print("loading P3 trainset to map")
             if self.env.config.use_preprocessed_trainset:
-                for id,individual in enumerate(self.env.archive_P3puzzle):
+                for id, individual in enumerate(self.env.archive_P3puzzle):
                     # self.update_map(individual, 0., 0.)
                     map_ix = self.to_mapindex(individual.emb)
                     # TODO compute quality

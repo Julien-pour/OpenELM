@@ -323,7 +323,7 @@ class P3ProbSolResult(Genotype):
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
                   description:str=" description of the puzzle", interestingness_f:int=None,
                   interestingness_g:float=None, is_valid:bool=None, puzzle_history: list = [],puzzles_id_fewshot:list[str]=[],
-                  is_valid_explanation:str=None,result_obj: Optional[dict]={}, explanation_emb=None) -> None:
+                  is_valid_explanation:str=None,result_obj: Optional[dict]={}, explanation_emb=None, **kwargs) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -744,6 +744,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         self.batch_size = self.config.batch_size
         self.seed_index = self.config.starting_seed
         self.rng = np.random.default_rng(self.config.seed)
+        self.idx_generation = 0
 
         if self.config.prompt_size == "long":
             raise ValueError("long prompt no implemented yet ")
@@ -950,8 +951,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         self.archive_P3puzzle = list_p3
 
-
-
     def mutate_vec(self, vec2mutate,k=1):
         """
         take an vector and mutate k values randomly (from 0. to 1. or 1. to 0.)
@@ -962,7 +961,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         return vec_mutate
     
     def construct_prompt(
-        self, list_phenotype,skill_targeted=[], trainset_only = False
+        self, list_phenotype, skill_targeted=[], trainset_only = False
     ) -> dict[str, str]:
         """
         construct the prompt for the LLM
@@ -988,8 +987,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         few_shot_ex = [puz.program_str for puz in list_phenotype]
         return {"prompt": prompt_str, "template": template, "few_shot_ex": few_shot_ex,"puzzles_id_fewshot": list_id_puzzle_fewshot},skill_targeted
 
-
-    def generate_programs(self, code_batch: list[dict[str, str]],skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
+    def generate_programs(self, code_batch: list[dict[str, str]]
+                          ,skill_targeted_list: list[Union[None,list[int]]]) -> list[P3ProbSolResult]:
         """Generate new programs with a mutation model parse them, compute fitness and evaluate them.
         code_batch is a list of dict with keys:
         "prompt" : str : the prompt for the LLM
@@ -1122,8 +1121,10 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 results[idx_puzzle].update(add_to_results[idx])
             
         print('finished generation')
+
+        self.idx_generation += 1
+
         return [P3ProbSolResult(**p) for p in results]
-    
     
     def try_solving_problem(self, probsol: P3ProbSolResult) -> list[P3ProbSolResult]:
         """

@@ -122,7 +122,12 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
     return prompt
 
 
-def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch: Optional[List[str]] = None, skill_targeted: Optional[List[int]]=None,n_fewshot_ex=2):
+def get_programming_puzzles_prompt(
+        list_few_shot_example : List[str],
+        code_batch: Optional[List[str]] = None,
+        skill_targeted: Optional[List[int]]=None,
+        n_fewshot_ex=2,
+    ):
     """
     should change that to list_few_shot_example from list to Phenotype type
     skill_targeted list of binary vector [(0/1)]^n_skills indicating if the skill is targeted or not
@@ -160,7 +165,7 @@ def get_programming_puzzles_prompt(list_few_shot_example : List[str], code_batch
     # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
     base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
     base_persona += "The Professor wants to give some puzzles to his master's students to teach them Python.\n" # student -> Master student
-    prompt = base_persona 
+    prompt = base_persona
     main_prompt = """    I already have a series of Python Programming Puzzles (P3). Each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
     I will provide two existing puzzles for reference, and I need you to create five new distinct puzzles (Puzzle 2 to Puzzle 6){prompt_elm}.
     
