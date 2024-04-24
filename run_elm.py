@@ -43,8 +43,6 @@ def main(config):
     config = OmegaConf.to_object(config)
     config.qd.unique_id = config.unique_id+"_s"+str(config.qd.seed)+"_p"
 
-    
-
     elm = ELM(config)
     print(
         "Best Individual: ",

@@ -64,8 +64,9 @@ class ELM:
             env (Optional): An optional environment to pass in. Defaults to None.
         """
         self.config: ELMConfig = config
-        path_out=HydraConfig.get().runtime.output_dir
-        self.config.qd.output_dir = path_out
+        if HydraConfig.initialized():
+            path_out=HydraConfig.get().runtime.output_dir
+            self.config.qd.output_dir = path_out
 
         env_name: str = self.config.env.env_name
         qd_name: str = self.config.qd.qd_name
