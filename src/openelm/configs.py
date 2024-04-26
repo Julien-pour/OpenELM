@@ -68,7 +68,7 @@ class QDConfig(BaseConfig):
     save_bad_individual: bool = True
     sampling_strategy: str = 'uniform'  # one of {'prob_best_5', 'uniform','soft_normalised'} 
     temperature_soft_sampling: float = 0.2 # temperature for soft_normalised
-    n_fewshot_examples: int = 2 # number of example to give to the model before generation
+    n_fewshot_examples: int = 3 # number of example to give to the model before generation
     unique_id: str = "default"
 
 @dataclass
@@ -163,7 +163,7 @@ class P3ProbSolEnvConfig(EnvConfig):
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
-    eval_k: int = -1 #100  # k for pass@k for fitness
+    eval_k: int = 1 #100  # k for pass@k for fitness
     embedding_model_type: str = "openai"  # openai or hf
     embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation
@@ -201,7 +201,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
-    eval_k: int = -1 #100  # k for pass@k for fitness
+    eval_k: int = 1 #100  # k for pass@k for fitness
     embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
     embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 

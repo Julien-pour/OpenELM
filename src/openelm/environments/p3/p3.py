@@ -8,6 +8,7 @@ import os
 # os.environ['TRANSFORMERS_CACHE'] = "models"
 import numpy as np
 import requests
+from typing import List, Tuple
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -40,6 +41,7 @@ from openelm.quality_metrics.yes import return_proba_yes, return_yes_prompt, ret
 from openelm.quality_metrics.utils import load_prompt_PP
 from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
+from openelm.environments.p3.code_sandbox import evaluate,PASS
 
 from tqdm import tqdm
 class P3Solution(Genotype):
@@ -70,7 +72,9 @@ def g1():
             # when the model can't be loaded, with feat-extraction
             if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
                 self.tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
-                self.model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
+                self.model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True,
+                                                    #    rope_scaling = {"type": "dynamic", "factor": 2}
+)
             self.pl = pipeline(
                 "feature-extraction", model=self.config.embedding_model_path
             )
@@ -950,15 +954,6 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
 
         self.archive_P3puzzle = list_p3
-
-    def mutate_vec(self, vec2mutate,k=1):
-        """
-        take an vector and mutate k values randomly (from 0. to 1. or 1. to 0.)
-        """
-        vec_mutate=copy.deepcopy(vec2mutate)
-        idx = self.rng.choice(vec_mutate.shape[0], k, replace=False)
-        vec_mutate[idx] = 1.-vec_mutate[idx]
-        return vec_mutate
     
     def construct_prompt(
         self, list_phenotype, skill_targeted=[], trainset_only = False
@@ -966,6 +961,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         """
         construct the prompt for the LLM
         """
+        code_batch=None
         list_id_puzzle_fewshot = [puz.unique_id for puz in list_phenotype]
         if not isinstance(skill_targeted, list):
             skill_targeted=skill_targeted.tolist()
@@ -985,6 +981,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         template = ""#f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         few_shot_ex = [puz.program_str for puz in list_phenotype]
+        if not code_batch is None:
+            few_shot_ex.append(code_batch[0].program_str)
         return {"prompt": prompt_str, "template": template, "few_shot_ex": few_shot_ex,"puzzles_id_fewshot": list_id_puzzle_fewshot},skill_targeted
 
     def generate_programs(self, code_batch: list[dict[str, str]]
@@ -1041,34 +1039,26 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         generated_programs = list_pb[:50] # 5 puzzles per query * 10 queries = 50 puzzles max
         print('parsing finished')
+
         print(f"time to generate {len(generated_programs)} program = {start_t1-start_t0} sec")
-        
+
+        #TODO: add filtering step here  
+
         print('evaluating pbs')
-        # list_lib = ["math", "random", "itertools"]
-        
-        # for idx in range(len(generated_programs)):
-        #     if "List" in generated_programs[idx] and not("from typing import List" in generated_programs[idx]):
-        #         generated_programs[idx] = "from typing import List\n" + generated_programs[idx]
-                
-            # check if lib are correctly imported (if not import them)
-            # for lib in list_lib:
-            #     if lib in generated_programs[idx]:
-            #         import_pb = generated_programs[idx].split("def f")[0]
-            #         if not(f"import {lib}" in import_pb or f"from {lib}" in  import_pb):
-            #             generated_programs[idx] = f"import {lib}\n" + generated_programs[idx]
-    
-        if self.config.sandbox:
-            results = []
-            for code in generated_programs:
-                resp = requests.post(
-                    f"{self.sandbox_server}/eval_p3_solution",
-                    json={"code": code, "timeout": self.config.timeout},
-                    timeout=self.config.timeout,
-                )
-                if resp.status_code == 200:
-                    return_dict = json.loads(resp.text)
-                    results.append(return_dict)
-            print('done')
+
+
+        # if self.config.sandbox:
+        #     results = []
+        #     for code in generated_programs:
+        #         resp = requests.post(
+        #             f"{self.sandbox_server}/eval_p3_solution",
+        #             json={"code": code, "timeout": self.config.timeout},
+        #             timeout=self.config.timeout,
+        #         )
+        #         if resp.status_code == 200:
+        #             return_dict = json.loads(resp.text)
+        #             results.append(return_dict)
+        #     print('done')
 
         # Just label correct problem to save computation time or $$ (chatGPT):
         pre_results = [
@@ -1126,42 +1116,51 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         return [P3ProbSolResult(**p) for p in results]
     
-    def try_solving_problem(self, probsol: P3ProbSolResult) -> list[P3ProbSolResult]:
+    def generate_new_solutions(self, list_f_str: List[str],list_task_id) -> Tuple[list[str],list[int]]:
         """
         generate new solution to a problem given multiple time (can be used for computing pass@k)
+        Task_id to associate new solution to the task id
+        output:
+        - list of new solutions with the original problem
+        - list of task id to associate the new olutions.
         """
-        new_probsol = copy.deepcopy(probsol)
-        prompt= prompt_solve_puzzle_given_f(new_probsol.program_str)
+        new_list_task_id=[]
+        list_all_prompts=[]
+        n_new_sol2gen = self.config.eval_k -1
+        for id, f_str in enumerate(list_f_str):
+             # -1 because we already have the original problem
+
+            list_all_prompts.extend([prompt_solve_puzzle_given_f(f_str) for _ in range(n_new_sol2gen)])
+            new_list_task_id.extend([list_task_id[id] for _ in range(n_new_sol2gen)])
         template = ""
-        code_batch=[{"prompt":prompt,"template":template} for _ in range(self.config.eval_k-1)] # -1 because we already have the original problem
+        code_batch=[{"prompt":prompt,"template":template} for prompt in list_all_prompts] # -1 because we already have the original problem
         local_scope_exec = False
         _generated_programs = self.mutation_model.generate_programs(
             code_batch, local_scope_exec,do_trunc=False
         )
-        
+
+        assert len(_generated_programs) == len(code_batch)
         # should we just ask LLM to correct g() or to correct the whole puzzle?
         list_pb=[]
         # parse the generated code 
         for gen_prog in _generated_programs:
-            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("```\n","```").split("```"))
-            for idx in range(len(split_pb)):
-                if "def g" in split_pb[idx] and "return " in split_pb[idx]:
-                    list_pb.append(split_pb[idx])
+            split_pb = copy.deepcopy(gen_prog.replace("```python","```").replace("```\n","```"))
+            if "```" in split_pb:
+                list_pb.append(split_pb.split("```")[1])
+    
+            else:
+                list_pb.append(split_pb)
+
+        assert len(list_pb) == len(code_batch)
+        assert len(new_list_task_id) == len(list_pb)
         for idx_assert in range(len(list_pb)):
+            idx_f = new_list_task_id[idx_assert]
+            list_pb[idx_assert] = list_f_str[idx_f] + list_pb[idx_assert] 
             if not "assert f(" in list_pb[idx_assert]:
                 list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
         generated_programs = list_pb
-        
-        list_new_puzzles = [probsol]
-        for idx in range(len(generated_programs)):
-            new_pb_str = new_probsol.program_str.split("def g(")[0] + generated_programs[idx]
-            
-            if "List" in generated_programs[idx] and not("from typing import List" in generated_programs[idx]):
-                new_pb_str = "from typing import List\n"  + new_pb_str
-                probsol_2_add=copy.deepcopy(new_probsol)
-                probsol_2_add.program_str = new_pb_str
-                list_new_puzzles.append(probsol_2_add)
-        return list_new_puzzles       
+        return generated_programs, new_list_task_id 
+    
 
     def fitness(self, probsol: P3ProbSolResult, use_pass_k = False) -> float:
         """
@@ -1210,28 +1209,49 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 return -np.inf
             
         # compute pass@k
-        else: # TODO; check if it is working
-            list_new_puzzles = self.try_solving_problem(probsol)
+        # else: # TODO; check if it is working
+        #     list_new_puzzles = self.try_solving_problem(probsol)
         
-            c = 0
-            for idx_sol in range(len(list_new_puzzles)):
-                p3probsol = list_new_puzzles[idx_sol]
-                if self.fitness(p3probsol, use_pass_k = False) == 1.0:
+        #     c = 0
+        #     for idx_sol in range(len(list_new_puzzles)):
+        #         p3probsol = list_new_puzzles[idx_sol]
+        #         if self.fitness(p3probsol, use_pass_k = False) == 1.0:
                     
-                    probsol.program_str = p3probsol.program_str
-                    c+=1
+        #             probsol.program_str = p3probsol.program_str
+        #             c+=1
 
-            pak = pass_at_k(len(list_new_puzzles), c, self.config.eval_k)
-            return 1 / pak if pak > 0 else 0
+        #     pak = pass_at_k(len(list_new_puzzles), c, self.config.eval_k)
+        #     return 1 / pak if pak > 0 else 0
+
+
+    def multiple_fitness_v2(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
+        list_task_id=[i for i in range(len(list_probsol))]
+        list_puzzle = [p.program_str for p in list_probsol]
+        list_problem = [p.program_str.split("def g")[0].strip() for p in list_puzzle]
+        if self.config.eval_k > 1: #generate new solutions if we need to compute pass@k
+            list_new_puzzle_solutions,new_list_task_id = self.generate_new_solutions(list_problem,list_task_id)
+            list_puzzle.extend(list_new_puzzle_solutions)
+            list_task_id.extend(new_list_task_id)
+        str_to_add=str(
+                    f"\ndef run_eval():\n"
+                    f"    if f(True) == True:\n"
+                    f"        return False\n"
+                    f"    else:\n"
+                    f"        return f(g())"
+                )
+        
+        list_puzzle = [puz.split("\nassert f")[0]+str_to_add for puz in list_puzzle]
+
+        results = evaluate(list_puzzle,list_task_id,entry_point="run_eval")
+
+        results["ordered_results"] 
 
 
     def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
-
         if parrallel_fitness:
             list_fitness = []
             eval_codes = []
             indices = []  # To keep track of the indices of the probsols being processed
-            indices_incorrect = [] # indices of puzzles that don't follow P3 guidelines 
             for index, probsol in enumerate(list_probsol):
                 incorrect = find_violations_ast(probsol.program_str)
                 if incorrect:
@@ -1282,8 +1302,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             list_fitness = [self.fitness(puzz) for puzz in list_probsol]
             for idx in range(len(list_probsol)):
                 list_probsol[idx].fitness = list_fitness[idx]
-            
         return list_fitness
+
 
     def random(self,batch) -> list[P3ProbSolResult]:
         # should just take few shot example from trainset not archive
