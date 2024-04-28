@@ -201,7 +201,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
-    eval_k: int = 1 #100  # k for pass@k for fitness
+    eval_k: int = 5 #100  # k for pass@k for fitness
     embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
     embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
@@ -554,7 +554,7 @@ class P3Config(BaseConfig):
     # problems instead of just solutions to given problems
     # set eval_k >0 to evaluate pass@k of previous runs using this k, instead of
     # doing a new run
-    eval_k: int = -1#-1
+    eval_k: int = 1#-1
     eval_timestamp: str = ""  # optionally provide timestamp of run to eval
     # pass@k, otherwise eval with latest run of every problem
 

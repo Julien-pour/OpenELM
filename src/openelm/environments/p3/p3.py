@@ -327,7 +327,8 @@ class P3ProbSolResult(Genotype):
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
                   description:str=" description of the puzzle", interestingness_f:int=None,
                   interestingness_g:float=None, is_valid:bool=None, puzzle_history: list = [],puzzles_id_fewshot:list[str]=[],
-                  is_valid_explanation:str=None,result_obj: Optional[dict]={}, explanation_emb=None, **kwargs) -> None:
+                  is_valid_explanation:str=None,result_obj: Optional[dict]={}, explanation_emb=None,
+                  all_solution:List[str]=None, all_solution_correct:List[bool]=None,  **kwargs) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -336,6 +337,8 @@ class P3ProbSolResult(Genotype):
             config: environment config
             idx_generation: -1 -> from intialisation, ...
             puzzle_history: few shot example to generate this puzzle
+            all_solution: if multiple were generated
+            all_solution_correct: list of bool to check which one was correct
         """
         self.fitness=fitness
         self.program_str = program_str
@@ -366,7 +369,9 @@ class P3ProbSolResult(Genotype):
         if self.config.GPT_feedback:
             self.interestingness_f = interestingness_f
             self.interestingness_g = interestingness_g
-
+        
+        self.all_solution = all_solution
+        self.all_solution_correct = all_solution_correct
 
 
 
@@ -383,6 +388,7 @@ class P3ProbSolResult(Genotype):
         dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills),"puzzle_history": self.puzzle_history,"puzzles_id_fewshot":self.puzzles_id_fewshot})
         dic.update({"quality":self.quality,"description" : self.description, "interestingness_f": self.interestingness_f})
         dic.update({"interestingness_g":self.interestingness_g,"is_valid":self.is_valid,"is_valid_explanation":self.is_valid_explanation})
+        dic.update({"all_solution":self.all_solution, "all_solution_correct" : self.all_solution_correct})
         return dic
 
     def to_phenotype(self) -> Optional[Phenotype]:
@@ -891,8 +897,16 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         elif self.config.activate_filtering_description and not self.config.puzzle_filtering:
             mode = "description"
         else: NotImplementedError("should not go there")
+        try:
+            # from openelm.utils.code_eval import find_first_argument_of_first_function
+            # # print(program_str)
+            # a = find_first_argument_of_first_function(program_str)
 
-        prompt = create_prompt_label(program_str, mode = mode)
+            prompt = create_prompt_label(program_str, mode = mode)
+        except Exception as e:
+            print(program_str)
+            print(str(e))
+            raise
         tool_skill_labeling = get_class_PuzzleCheck(mode)
         if mode =="description":
             result = self.mutation_model.generate_completion(list_prompt = [prompt],temperature=0.,activate_parrallel=False)[0]
@@ -1061,25 +1075,39 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         #     print('done')
 
         # Just label correct problem to save computation time or $$ (chatGPT):
+        
+        # from dic to P3 phenotypes
+        list_phenotype = [[-1] for _ in range(len(generated_programs))] 
         pre_results = [
-            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness": None}
-            for (gen_prog, target_skills) in zip(generated_programs, skill_targeted_list_duplicate)
+            {"program_str": gen_prog, "config": self.config, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness": None,"emb": pheno, "puzzle_history": few_shot_ex,"puzzles_id_fewshot":few_shot_id}
+            for (gen_prog, target_skills,pheno,few_shot_ex,few_shot_id) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_few_shot_ex,puzzles_id_fewshot)
         ]
         probsol_2_test = [P3ProbSolResult(**p) for p in pre_results]
-        start_t4 = time.time()
 
-        #compute fitness
-        list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
+        
+        #compute fitness pass@k
+        start_t4 = time.time()
+        # list_fitness = self.multiple_fitness(probsol_2_test) #[self.fitness(puzz) for puzz in probsol_2_test]
+        list_P3_phenotype = self.multiple_fitness_v2(probsol_2_test)
+
+        list_fitness = [p.fitness  for p in list_P3_phenotype]
         start_t5 = time.time()
+        
         print( f"time to compute {len(generated_programs)} fitness = {start_t5-start_t4}")
-        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if not fit == -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
+        idx_correct_puzzle = [idx for idx,fit in enumerate(list_fitness) if fit != -np.inf]#>= 0.0] # remove puzzle with fit<0 or just fit == -np.inf ?
+        print("debug corr puzz = ",sum(list_fitness))
         print(f"number of correct puzzle {len(idx_correct_puzzle)}")
-        list_correct_puzzle = [generated_programs[idx] for idx in idx_correct_puzzle]
+        list_correct_puzzle = [list_P3_phenotype[idx].program_str for idx in idx_correct_puzzle]
 
         # add gen description puzzle here (or should we do it with skill labeling ?) 
         # + add filtering step here ?
         if self.config.activate_filtering_description:
             add_to_results =self.multiple_description_filtering(list_correct_puzzle)
+            for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+                for key,values in add_to_results[idx].items():
+                    setattr(list_P3_phenotype[idx_puzzle],key,values)
+                
+
         time_filtering = time.time()
         print(f"time to compute filtering = {time_filtering-start_t5}")
 
@@ -1089,32 +1117,35 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print('begin phenotype computation')
 
         list_phenotype_correct_puzzle = self.to_multiple_phenotype(list_correct_puzzle) # should probably give description to label puzzle ?
+        for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+            for key,values in list_phenotype_correct_puzzle[idx].items():
+                setattr(list_P3_phenotype[idx_puzzle],key,values)
 
         start_t7 = time.time()
         print( f"time to compute phenotype for {len(list_correct_puzzle)} correct problem  = {start_t7-start_t6}")
-        list_phenotype = [[-1] for _ in range(len(generated_programs))] # [-1] when eval is not correct
+        # [-1] when eval is not correct
 
         # add phenotype of correct puzzle to the list of phenotype            
-        generated_programs = [gen_prog for gen_prog in generated_programs]
-        results = [
-            {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness, "puzzle_history": few_shot_ex,"puzzles_id_fewshot":few_shot_id}
-            for (gen_prog, target_skills,pheno,fitness,few_shot_ex,few_shot_id) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness,list_few_shot_ex,puzzles_id_fewshot)
-        ]
+        # generated_programs = [gen_prog for gen_prog in generated_programs]
+        # results = [
+        #     {"program_str": gen_prog, "config": self.config, "emb": pheno, "idx_generation": self.idx_generation, "target_skills":target_skills,"fitness":fitness, "puzzle_history": few_shot_ex,"puzzles_id_fewshot":few_shot_id}
+        #     for (gen_prog, target_skills,pheno,fitness,few_shot_ex,few_shot_id) in zip(generated_programs, skill_targeted_list_duplicate,list_phenotype,list_fitness,list_few_shot_ex,puzzles_id_fewshot)
+        # ]
 
         # add embedding + description embedding to the results
-        for idx,idx_puzzle in enumerate(idx_correct_puzzle):
-            results[idx_puzzle].update(list_phenotype_correct_puzzle[idx])
+        # for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+        #     results[idx_puzzle].update(list_phenotype_correct_puzzle[idx])
 
 
-        if self.config.activate_filtering_description: # add description and/or filtering to results
-            for idx,idx_puzzle in enumerate(idx_correct_puzzle):
-                results[idx_puzzle].update(add_to_results[idx])
+        # if self.config.activate_filtering_description: # add description and/or filtering to results
+        #     for idx,idx_puzzle in enumerate(idx_correct_puzzle):
+        #         results[idx_puzzle].update(add_to_results[idx])
             
         print('finished generation')
 
         self.idx_generation += 1
 
-        return [P3ProbSolResult(**p) for p in results]
+        return list_P3_phenotype #[P3ProbSolResult(**p) for p in results]
     
     def generate_new_solutions(self, list_f_str: List[str],list_task_id) -> Tuple[list[str],list[int]]:
         """
@@ -1224,28 +1255,63 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         #     return 1 / pak if pak > 0 else 0
 
 
-    def multiple_fitness_v2(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
-        list_task_id=[i for i in range(len(list_probsol))]
+    def multiple_fitness_v2(self,list_probsol: list[P3ProbSolResult]):
+        list_task_id = [i for i in range(len(list_probsol))]
+        set_task_id = [i for i in range(len(list_probsol))]
         list_puzzle = [p.program_str for p in list_probsol]
-        list_problem = [p.program_str.split("def g")[0].strip() for p in list_puzzle]
+        list_problem = [puz.split("def g")[0].strip() for puz in list_puzzle]
         if self.config.eval_k > 1: #generate new solutions if we need to compute pass@k
             list_new_puzzle_solutions,new_list_task_id = self.generate_new_solutions(list_problem,list_task_id)
             list_puzzle.extend(list_new_puzzle_solutions)
             list_task_id.extend(new_list_task_id)
         str_to_add=str(
                     f"\ndef run_eval():\n"
-                    f"    if f(True) == True:\n"
-                    f"        return False\n"
-                    f"    else:\n"
-                    f"        return f(g())"
+                    f"    try:\n"
+                    f"        if f(True) == True:\n"
+                    f"            return False\n"
+                    f"    except:\n"
+                    f"            pass\n"
+                    f"    return f(g())"
                 )
         
         list_puzzle = [puz.split("\nassert f")[0]+str_to_add for puz in list_puzzle]
+        typing_stuff2check = ["List","Dict"]
+        for id_puz in range(len(list_puzzle)):
+            for imp in typing_stuff2check:
+                import_lib = f"from typing import {imp}"
+                if imp in list_puzzle[id_puz] and import_lib not in list_puzzle[id_puz]:
+                    list_puzzle[id_puz] = import_lib + "\n" + list_puzzle[id_puz]
 
         results = evaluate(list_puzzle,list_task_id,entry_point="run_eval")
+        
+        # get results compute pass@k and put all solution from a given problem in P3ProbSolResult 
+        list_task_id_result = sorted(list(results['raw_result'].keys()))
+        assert list_task_id_result == set_task_id
+        count_correct_pb=0
+        for task_id in list_task_id_result:
+            all_solution_correct=[]
+            all_solution=[]
+            for res in results['raw_result'][task_id]:
+                res["code"]=res["code"].split(str_to_add)[0]+"\nassert f(g()) == True"
+                all_solution.append(copy.deepcopy(res["code"]))
+                all_solution_correct.append(copy.deepcopy(res["correct"]))
+            list_probsol[task_id].all_solution = copy.deepcopy(all_solution)
+            list_probsol[task_id].all_solution_correct = copy.deepcopy(all_solution_correct)
+            if True in all_solution_correct:
+                count_correct_pb +=1
+            if results['pass@k'][task_id] == 0:
+                list_probsol[task_id].fitness = -np.inf 
+            else:
+                list_probsol[task_id].fitness = - results['pass@k'][task_id] # fitness = - pass@k
+            if results['pass@k'][task_id] != 0:
+                # sample one correct solution
+                idx_correct = np.random.choice(np.where(np.array(all_solution_correct))[0])
+                one_correct_puzzle =  copy.deepcopy(all_solution[idx_correct])
+                list_probsol[task_id].program_str = one_correct_puzzle
+                
 
-        results["ordered_results"] 
-
+        print(f"There a {count_correct_pb} / {len(list_task_id_result)} puzzle with at least a good solution")
+        return list_probsol
 
     def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True):
         if parrallel_fitness:

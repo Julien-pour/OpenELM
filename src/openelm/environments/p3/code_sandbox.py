@@ -50,7 +50,7 @@ def pass_at_k(n, c, k):
         return 1.0
     return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
 
-def evaluate(list_codes,list_task_id=None,entry_point="test",parallel=None,min_time_limit=2,gt_time_limit_factor=2):
+def evaluate(list_codes,list_task_id=None,entry_point="test",parallel=None,min_time_limit=5,gt_time_limit_factor=2):
     """Evaluate the correctness of the code snippets in the given list.
     Args:
         list_codes List[str]: List of code snippets to be evaluated.
@@ -125,8 +125,12 @@ def evaluate(list_codes,list_task_id=None,entry_point="test",parallel=None,min_t
             eval_results[result["task_id"]].append(result)
     
     # compute pass@1
-    
+    for task_id, task_results in eval_results.items():
+        for idx in range(len(eval_results[task_id])):
+            eval_results[task_id][idx]["correct"] = eval_results[task_id][idx]["result"]==PASS
+
     results["raw_result"] = eval_results
+    
     results["eval"] = {}
     for task_id, task_results in eval_results.items():
         task_results.sort(key=lambda x: x["completion_id"])
@@ -263,7 +267,8 @@ def unsafe_execute(
                     assert exact_match
 
 
-                except BaseException:
+                except BaseException as e:
+                    # print("error "+str(e))
                     if fast_check:
                         raise
 
@@ -275,7 +280,8 @@ def unsafe_execute(
                 progress.value += 1
 
             stat.value = _SUCCESS
-        except BaseException:
+        except BaseException as e:
+            # print("error "+str(e))
             stat.value = _FAILED
         # Needed for cleaning up.
         shutil.rmtree = rmtree
