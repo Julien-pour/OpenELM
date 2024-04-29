@@ -551,7 +551,7 @@ class MAPElitesBase:
                     map_ix = self.to_mapindex(individual.emb)
                     # TODO compute quality
                     self.fitnesses.append(self.env.fitness(individual)) # need to add quality here individual.quality
-                    individual.unique_id="P3_train-"+str(id)
+                    # individual.unique_id="P3_train-"+str(id)
                     self.genomes[map_ix] = individual
                     key_embedding = str(map_ix)
                     value_nonzero = len(self.fitnesses)-1

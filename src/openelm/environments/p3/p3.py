@@ -42,6 +42,7 @@ from openelm.quality_metrics.utils import load_prompt_PP
 from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
 from openelm.environments.p3.code_sandbox import evaluate,PASS
+from tenacity import retry, wait_exponential
 
 from tqdm import tqdm
 class P3Solution(Genotype):
@@ -323,7 +324,7 @@ class P3Problem(BaseEnvironment[P3Solution]):
 
 # the one to use with P3ProbSol_Chat
 class P3ProbSolResult(Genotype):
-    def __init__(self, program_str: str, config: P3ProbSolEnvConfig, emb: list= None,
+    def __init__(self, program_str: str, config: P3ProbSolEnvConfig=None, emb: list= None,
                   idx_generation: int=-1,target_skills=None,fitness: int =None, quality: int =None,
                   description:str=" description of the puzzle", interestingness_f:int=None,
                   interestingness_g:float=None, is_valid:bool=None, puzzle_history: list = [],puzzles_id_fewshot:list[str]=[],
@@ -728,7 +729,9 @@ class P3ProbSol(BaseEnvironment[P3ProbSolResult]):
 
 # chatGPT version of Probsol
 
-
+import json
+from openelm.environments.p3.code_sandbox import evaluate
+import numpy as np
 class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
     def __init__(
         self,
@@ -763,6 +766,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             # self.prompt_seed= self.prompt_seed_function()
         else:
             raise ValueError("No seed string found")
+        
+
 
 
         
@@ -829,7 +834,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         dic_label={"emb":skill,"explanation_emb":explanation_skill}
         return dic_label
 
-    
+    @retry(wait=wait_exponential(multiplier=1, min=5, max=60))
     def to_phenotype(self,program_str: str):
         """compute embedding of the program"""
         # "regular" embedding
@@ -1186,7 +1191,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         assert len(new_list_task_id) == len(list_pb)
         for idx_assert in range(len(list_pb)):
             idx_f = new_list_task_id[idx_assert]
-            list_pb[idx_assert] = list_f_str[idx_f] + list_pb[idx_assert] 
+            list_pb[idx_assert] = list_f_str[idx_f] +"\n"+ copy.deepcopy(list_pb[idx_assert]) # add f
             if not "assert f(" in list_pb[idx_assert]:
                 list_pb[idx_assert] = list_pb[idx_assert] + "\nassert f(g()) == True"
         generated_programs = list_pb
@@ -1388,7 +1393,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
     def mutate(self, batch: list) -> list[P3ProbSolResult]:
         # (list_few_shot_example_phenotypes, skill_targeted) = batch
-        assert len(batch) == self.config.batch_size
+        # assert len(batch) == self.config.batch_size
         program_list = []
         skill_targeted_list = []
         for (list_few_shot_example_phenotypes, skill_targeted) in batch:

@@ -9,7 +9,7 @@ from openelm.utils.code_eval import find_first_argument_of_first_function
 
 from openelm.environments.p3.prompt_code import base_persona_code, prompt_gen_description
 
-
+from openelm.utils.code_eval import extract_arguments_except_first_specific
 skill_list = [
     "String Manipulation",
     "Mathematical Operations",
@@ -126,7 +126,7 @@ def get_programming_puzzles_prompt(
         list_few_shot_example : List[str],
         code_batch: Optional[List[str]] = None,
         skill_targeted: Optional[List[int]]=None,
-        n_fewshot_ex=2,
+        n_fewshot_ex=3,
     ):
     """
     should change that to list_few_shot_example from list to Phenotype type
@@ -218,22 +218,20 @@ def get_programming_puzzles_prompt(
 
 
 
-
-
-
-
-
 def prompt_solve_puzzle_given_f(problem_str: str): 
     """
     prompt to solve a puzzle (generate g) given f
     """
-    arg_sol= "..."#get_inputs(problem)
-    f = problem_str.split("def g")[0]
+    try:
+        arg_sol = extract_arguments_except_first_specific(problem_str)
+    except:
+        arg_sol= "..."
+    # arg_sol= "..."#get_inputs(problem)
+    f = problem_str.split("def g")[0].strip()
     few_shot_ex = 2
-    PY_SIMPLE_CHAT_INSTRUCTION_V2 = "You are a world-class Python developer with an eagle eye for unintended bugs and edge cases, that only responds with python code. You will be given a function and its docstring. Respond only in code with a correct, efficient implementation of the function."
-    prompt_base = "Now, you need to generate the correct solutions (g), for the Problem "+str(few_shot_ex)+" that satisfies the condition f(g) == True."
-    prompt_base += "\nYou will give the solution (def g("+arg_sol+")) to the last problem f. Don't forget that the first argument of f is the value returned by g(), so it is not given to g."
-    fewshot_problems = f'''----
+    prompt_response = "Now you need to give the solution (def g("+arg_sol+"):) to the last Problem 2 that satisfies the condition f(g()) == True "
+    fewshot_problems = f'''You will be given a function. Respond only in code with a correct, efficient implementation of the function. You will need to generate the correct solutions (g), for the Problem 2 that satisfies the condition f(g()) == True.
+
 Problem 0:
 ```python
 def f(stamps: List[int], target=80, max_stamps=4, options=[10, 32, 8]) -> bool:
@@ -277,15 +275,14 @@ def g(target = 2):
 assert f(g()) == True
 ```
 
-Now, you need to generate the correct solutions (def g), for the following Problem 2 that satisfies the condition f(g()) == True.
-----
+{prompt_response}
+
 Problem 2:
 ```python
 {f}
 ```'''
-    full_prompt = PY_SIMPLE_CHAT_INSTRUCTION_V2 + "\n" + prompt_base + "\n" + fewshot_problems 
+    full_prompt = fewshot_problems 
     return full_prompt
-
 
 
 

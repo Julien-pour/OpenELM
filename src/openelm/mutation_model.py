@@ -30,6 +30,7 @@ from openelm.utils.diff_eval import apply_diff, split_diff
 from openai import OpenAI
 from openai import AzureOpenAI
 
+from tenacity import retry, wait_exponential
 
 
 
@@ -65,7 +66,8 @@ def get_model(config: ModelConfig):
             return client
     else:
         raise NotImplementedError
-
+    
+@retry(wait=wait_exponential(multiplier=1, min=5, max=60))
 def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
     """Get completion from OpenAI API"""
     kwargs={}
@@ -160,7 +162,7 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
 
     return results
 
-
+@retry(wait=wait_exponential(multiplier=1, min=5, max=60))
 def get_completion_instructor(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
     """Get completion from OpenAI API with instructor"""
     kwargs={}

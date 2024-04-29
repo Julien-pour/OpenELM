@@ -82,6 +82,7 @@ def evaluate(list_codes,list_task_id=None,entry_point="test",parallel=None,min_t
         n_workers = max(1, multiprocessing.cpu_count() // 2)
     else:
         n_workers = parallel
+    print(n_workers)
     results = {
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "eval": {},
@@ -245,8 +246,8 @@ def unsafe_execute(
         rmdir = os.rmdir
         chdir = os.chdir
         # Disable functionalities that can make destructive changes to the test.
-        # allow only 4GB memory usage
-        maximum_memory_bytes = 4 * 1024 * 1024 * 1024
+        # allow only 0.5GB memory usage
+        maximum_memory_bytes = int(1/2 * 1024 * 1024 * 1024)
         reliability_guard(maximum_memory_bytes=maximum_memory_bytes)
         exec_globals = {}
         try:
@@ -448,3 +449,4 @@ def reliability_guard(maximum_memory_bytes: Optional[int] = None):
     sys.modules["resource"] = None
     sys.modules["psutil"] = None
     sys.modules["tkinter"] = None
+    sys.modules["random"] = None
