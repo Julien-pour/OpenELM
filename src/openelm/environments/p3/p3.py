@@ -329,7 +329,7 @@ class P3ProbSolResult(Genotype):
                   description:str=" description of the puzzle", interestingness_f:int=None,
                   interestingness_g:float=None, is_valid:bool=None, puzzle_history: list = [],puzzles_id_fewshot:list[str]=[],
                   is_valid_explanation:str=None,result_obj: Optional[dict]={}, explanation_emb=None,
-                  all_solution:List[str]=None, all_solution_correct:List[bool]=None,  **kwargs) -> None:
+                  all_solution:List[str]=None, all_solution_correct:List[bool]=None,unique_id:str=None,  **kwargs) -> None:
         """
         Genotype for a programming puzzle problem+solution pair.
         Args:
@@ -373,7 +373,7 @@ class P3ProbSolResult(Genotype):
         
         self.all_solution = all_solution
         self.all_solution_correct = all_solution_correct
-
+        self.unique_id = unique_id
 
 
     def __str__(self) -> str:
@@ -821,11 +821,34 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         TODO: add a safeguard if the model hallucinate too much e.g len(category_idx_predicted) > n_skills
         """
         
-        prompt = create_prompt_label(program_str)
-        tool_skill_labeling = Topics_evaluation
-        result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
-        skill=result.index_topics
-        explanation_skill =result.explanations_index_topics
+
+        if self.mutation_model.config.vllm:
+            prompt = create_prompt_label(program_str,mode="give_skills_no_instructor")
+            out = self.mutation_model.generate_completion(list_prompt = [prompt],temperature=0.,activate_parrallel=False)[0]
+            split_sentence="The list of skill use is:".lower()
+            explanation_skill=out
+            if split_sentence in out.lower():
+                try:
+                    out=out.split("use is:")[1]
+                except:
+                    pass
+            try:
+                out = out.split("[")[1].split("]")[0]
+                out = "["+out+"]"
+                skill = json.loads(out)
+            except:
+                skill=[]
+                pass
+            isallint = all(isinstance(i, int) for i in skill)
+            if not isallint:
+                skill = []
+
+        else:
+            prompt = create_prompt_label(program_str)
+            tool_skill_labeling = Topics_evaluation
+            result=self.mutation_model.generate_completion_instructor(list_prompt = [prompt],batch_tools=[tool_skill_labeling],temperature=0.,activate_parrallel=False)[0]
+            skill=result.index_topics
+            explanation_skill =result.explanations_index_topics
         if not len(skill)<=5: # we should have at most 5 topics
             skill=skill[:5]
         skill =[1 if i in skill else 0 for i in range(self.n_skills)]
@@ -834,7 +857,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         dic_label={"emb":skill,"explanation_emb":explanation_skill}
         return dic_label
 
-    @retry(wait=wait_exponential(multiplier=1, min=5, max=60))
+    # @retry(wait=wait_exponential(multiplier=1, min=1, max=2))
     def to_phenotype(self,program_str: str):
         """compute embedding of the program"""
         # "regular" embedding
@@ -971,7 +994,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 
         #     puz["program_str"] = just_remove_example_in_docstring(puz["program_str"]) # remove ex in docstring       
         list_p3 = [P3ProbSolResult(**p) for p in trainset]
-
+        for puz in list_p3:
+            if not hasattr(puz,"unique_id"):
+                raise ValueError("no unique_id in the trainset")
         self.archive_P3puzzle = list_p3
     
     def construct_prompt(

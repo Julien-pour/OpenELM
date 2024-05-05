@@ -31,7 +31,7 @@ logging.set_verbosity_error()  # avoid all FutureWarnings
 
 
 @hydra.main(
-    config_name="elm_nlp",
+    config_name="rd_gen",
     version_base="1.2",
 )
 def main(config):
@@ -51,6 +51,6 @@ def main(config):
 
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
+    # mp.set_start_method('spawn')
     main()
     

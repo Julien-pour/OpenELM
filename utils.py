@@ -505,7 +505,7 @@ def get_completion(client, prompt : str, cfg_generation,temperature=None)->str:
     try :
         completion = client.chat.completions.create(
         messages=[
-            {"role": "system", "content": "You are an AI programming assistant"},#You are a coding assistant, skilled in writting code with creative flair."},
+            {"role": "system", "content": "You are a helpful assistant."},#You are a coding assistant, skilled in writting code with creative flair."},
             {"role": "user", "content": prompt}
         ],**kwargs
         )
@@ -566,6 +566,79 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
             # if "kwargs" in kwargs_modified:
             #     original_kwargs = kwargs_modified.pop("kwargs")
             result = get_completion(**kwargs)
+            completions.append(result)
+            results = completions
+
+    return results
+
+
+
+def get_completion_instructor(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
+    """Get completion from OpenAI API with instructor"""
+    kwargs={}
+    kwargs.update(cfg_generation)
+    if temperature is not None:
+        kwargs["temperature"]= temperature
+    flag_tool=tools is not None
+    if flag_tool:
+        kwargs.update({"response_model": tools})
+    try :
+        completion = client.chat.completions.create(
+        messages=[{"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],**kwargs
+        )
+    except Exception as e:
+        print("completion problem: ",e)
+        return None 
+    return completion
+
+def chunks_instructor(lst1,lst2, n):
+    """Yield successive n-sized chunks from lst."""
+    assert len(lst1)==len(lst2), "lst1 and lst2 must be the same length"
+    for i in range(0, len(lst1), n):
+        yield zip(lst1[i : i + n],lst2[i : i + n])
+
+def get_multiple_completions_instructor(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]],max_workers=20,temperature=None)->list[str]:
+    """Get multiple completions from OpenAI API
+    batch_tools =[tools1,tools2,...] tools is a class, must be the same length as batch_prompt
+
+                    /!\ need to integrate batch tools in the loop /!\
+    """
+    # check that batch_prompt is list[str]
+    if isinstance(batch_prompt, str):
+        batch_prompt = [batch_prompt]
+    assert len(batch_prompt)==len(batch_tools), "batch_prompt and batch_tools must be the same length"
+    completions = []
+    if max_workers>1:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for sub_batch in chunks_instructor(batch_prompt,batch_tools, max_workers):
+                for idx,(message_list,tool) in enumerate(sub_batch):
+                    # kwargs_modified = args.copy()
+                    # kwargs_modified["messages"] = message_list
+                    kwargs = {"client":client, "prompt":message_list,"tools":tool}
+                    kwargs["cfg_generation"]=cfg_generation
+                    if temperature is not None:
+                        kwargs["temperature"]= temperature
+                    # if "kwargs" in kwargs_modified:
+                    #     original_kwargs = kwargs_modified.pop("kwargs")
+                    future = executor.submit(
+                        get_completion_instructor,**kwargs
+                    )
+                    completions.append(future)
+        # Retrieve the results from the futures
+        results = [future.result() for future in tqdm(completions)] # add timeout to result (timeout=None))?
+    else:
+        for idx,(message_list,tool) in enumerate(zip(batch_prompt,batch_tools)):
+            # kwargs_modified = args.copy()
+            # kwargs_modified["messages"] = message_list
+            kwargs = {"client":client, "prompt":message_list,"tools":tool}
+            kwargs["cfg_generation"]=cfg_generation
+            if temperature is not None:
+                kwargs["temperature"]= temperature
+            # if "kwargs" in kwargs_modified:
+            #     original_kwargs = kwargs_modified.pop("kwargs")
+            result = get_completion_instructor(**kwargs)
             completions.append(result)
             results = completions
 

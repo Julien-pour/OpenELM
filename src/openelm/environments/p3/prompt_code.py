@@ -15,5 +15,5 @@ The puzzle is:
 """
 
 base_persona_code ="""You are a helpful assistant to a Professor teaching a programming course in Python. 
-The Professor want to give Pyhton programming puzzles to his {level} to teach them Python.
+The Professor want to give Pyhton programming puzzles to his Computer Science student to teach them Python.
 A Python programming puzzle is defined by two functions, the puzzle f(…) and the solution g(…). f defines an algorithmic challenge, and g solves this challenge. g is a solution to f if and only if f(g()) == True."""

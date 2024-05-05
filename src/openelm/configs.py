@@ -23,7 +23,8 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 10
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "/home/flowers/work/hf/CodeQwen1.5-7B-Chat-AWQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    vllm: str = True
     azure: bool = True
     azure_endpoint: str = "https://petunia-3.openai.azure.com/"
     api_version = "2024-02-15-preview", 
@@ -33,13 +34,13 @@ class ModelConfig(BaseConfig):
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
-    request_timeout: int = 30 # timeout for API call
+    request_timeout: int = 120 # timeout for API call
     max_retries: int = 100 # number of retries for API call
 @dataclass
 class PromptModelConfig(ModelConfig):
     request_timeout: int = 30 # timeout for API call
     model_name: str = "prompt"
-    model_path: str = "gpt-35-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
+    # model_path: str = "gpt-35-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 
 
 @dataclass
@@ -58,7 +59,7 @@ class QDConfig(BaseConfig):
     total_steps: int = 500  #256 #2500
     history_length: int = 4096  #128 #2048
     save_history: bool = False
-    save_snapshot_interval: int = 20 #5
+    save_snapshot_interval: int = 5 #5
     loading_snapshot_map: bool = False  # load map located at log_snapshot_dir
     log_snapshot_dir: str ="" #"/home/flowers/work/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/24-02-16_16:11/step_80"#"/home/flowers/work/OpenELM/logs/elm/env=P3ProbSolChatEnv_ELM_NLP/24-02-15_22:14/step_15"# imgep smart "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_smart/23-09-14_15:26/step_260" imgep rd: "/media/data/flowers/OpenELM/logs/elm/env=p3_probsol_Chat_IMGEP_random/23-09-14_15:55/step_200"
     save_np_rng_state: bool = False
@@ -66,7 +67,7 @@ class QDConfig(BaseConfig):
     crossover: bool = False
     crossover_parents: int = 2
     save_bad_individual: bool = True
-    sampling_strategy: str = 'uniform'  # one of {'prob_best_5', 'uniform','soft_normalised'} 
+    sampling_strategy: str = 'soft_normalised'  # one of {'prob_best_5', 'uniform','soft_normalised'} 
     temperature_soft_sampling: float = 0.2 # temperature for soft_normalised
     n_fewshot_examples: int = 3 # number of example to give to the model before generation
     unique_id: str = "default"
@@ -209,7 +210,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 5 # number of puzzle to generate for one query
     remove_doc = True # can delete that?
-    activate_filtering_description = True # use LLM to describe puzzle after generation so it is not bias by skill labeling
+    activate_filtering_description = False # use LLM to describe puzzle after generation so it is not bias by skill labeling
     puzzle_filtering = False # filter or not, only work if puzzle activate_filtering_description = True, filtering not very usefull for now
 
 

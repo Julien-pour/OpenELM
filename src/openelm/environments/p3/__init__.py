@@ -84,40 +84,48 @@ def create_prompt_label(puzzle : str, mode="give_skills"):
     description use to give a description of the puzzle
     """
 
-    level = "master's student in CS"#"master's student"
+    # level = "master's student in CS"#"master's student"
     # skills format
     format_skills=""
     for idx,skill in enumerate(skill_list):
         format_skills+=f"{idx}. {skill}\n"
     skills = f"\n{format_skills}"
     
-    base_persona = base_persona_code.format(level=level)
+    base_persona = base_persona_code#.format(level=level)
     match mode:
         case "is_valid": # WIP should also use a persona to label the puzzle
             prompt=base_persona
             prompt += "Your role is to check if the following puzzle could be used or not."
-
+            prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
         case "description": # WIP 
             arg=find_first_argument_of_first_function(puzzle)
             puzzle=puzzle.split('def g')[0].strip() + "\n\ndef g(...):\n\nassert f(g()) == True"
             prompt=prompt_gen_description.format(arg_sol=arg,arg_solb=arg,puzzle=puzzle)
-
+            prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
         case "description+is_valid": # WIP
             arg=find_first_argument_of_first_function(puzzle)
             puzzle=puzzle.split('def g')[0].strip() + "\n\ndef g(...):\n\nassert f(g()) == True"
             prompt=prompt_gen_description.format(arg_sol=arg,arg_solb=arg,puzzle=puzzle)
             prompt += f"\nThen you should check if the following puzzle could be used or not to teach Python to {level}."
-
+            prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
         case "give_skills":
             prompt = base_persona+"\n"
             prompt+= "The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?"
             # prompt = "Your role is: given the following puzzle, and the list of topics, exctract the information requested."
             prompt += "\nThe list of topics is:\n"+ skills 
+            prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
+        case "give_skills_no_instructor": # WIP 
+            prompt = base_persona+"\n"
+            prompt+= "The Professor want to evaluate the diversity of those puzzles, can you label the following puzzle given the following list of topics, please?"
+            # prompt = "Your role is: given the following puzzle, and the list of topics, exctract the information requested."
+            prompt += "\nThe list of topics is:\n"+ skills 
+            prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"            
+            prompt += "Respond with two or three sentence explaning the topics used in the puzzle.\n"
+            prompt += "Then summarize your response by giving a list from 1 to 5 index corresponding to topics that are actually used in the puzzle above in this format: 'The list of skill use is: [].' where [] is the list of index of the topics used in the puzzle for example [3,5,6]."
 
         case "general":
             prompt= "Given the following puzzle, exctract the information requested."
-    
-    prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
+            prompt += "\n\nThe puzzle is:\n```python\n" + puzzle + "\n```\n"
             
     return prompt
 
@@ -229,7 +237,7 @@ def prompt_solve_puzzle_given_f(problem_str: str):
     # arg_sol= "..."#get_inputs(problem)
     f = problem_str.split("def g")[0].strip()
     few_shot_ex = 2
-    prompt_response = "Now you need to give the solution (def g("+arg_sol+"):) to the last Problem 2 that satisfies the condition f(g()) == True "
+    prompt_response = "Now you need to give the solution (def g("+arg_sol+"):) to the following Problem 2 that satisfies the condition f(g()) == True "
     fewshot_problems = f'''You will be given a function. Respond only in code with a correct, efficient implementation of the function. You will need to generate the correct solutions (g), for the Problem 2 that satisfies the condition f(g()) == True.
 
 Problem 0:

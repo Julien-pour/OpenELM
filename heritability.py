@@ -78,7 +78,7 @@ def build_pb(pb):
 
 def sample_examples_elm(elm, genomes):
     # sample fewshot examples (not including the example to mutate)
-    num_fewshot = elm.config.qd.n_fewshot_examples
+    num_fewshot = elm.config.qd.n_fewshot_examples-1
     examples = []
 
     for exid in range(num_fewshot):
@@ -86,11 +86,18 @@ def sample_examples_elm(elm, genomes):
 
     return examples
 
-
-def mutate_archive(old_genomes, elm):
+from itertools import combinations
+def mutate_archive(old_genomes, elm,aces_mode=False):
     batch_size = elm.qd_algorithm.env.batch_size
     all_new_genomes = []
     num_batches = (len(old_genomes) + batch_size - 1) // batch_size
+    n_skills=20
+    skills = list(range(1, n_skills+1))
+    np.random.seed(42)
+    skill_combinations = set()
+    for r in range(3, n_skills+1):  # From 1 skill to 5 skills
+        skill_combinations.update(combinations(skills, r))
+    skill_combinations = list(skill_combinations)
     for batch_index in range(num_batches):
         print(f'Batch index {batch_index}')
         batch = []
@@ -103,7 +110,13 @@ def mutate_archive(old_genomes, elm):
             # select stuff
             few_shot = sample_examples_elm(elm, old_genomes)
             examples = few_shot + [build_pb(old_genomes[i])]
-            batch.append((examples, []))
+            if aces_mode:
+                idx = np.random.choice(len(skill_combinations))
+                out = skill_combinations[idx]
+                skill_targeted = [1 if i in out else 0 for i in range(n_skills)]
+                batch.append((examples, skill_targeted))
+            else:
+                batch.append((examples, []))
         all_new_genomes.extend(elm.qd_algorithm.env.mutate(batch))
         ...
     # mutate
@@ -143,13 +156,21 @@ def embed(texts, tokenizer, model, batch_size, device):
                 texts[i:i+batch_size],
                 return_tensors='pt',
                 padding=True
-            )
-            outs = model(
-                toks.input_ids.to(device),
-                toks.attention_mask.to(device),
+            ).to(model.device)
+            last_hidden_state = model(
+                **toks,
                 output_hidden_states=True
-            )
-            embs.extend(sequence_average(outs.hidden_states[-1], toks.attention_mask.to(device)))
+            ).hidden_states[-1]
+            # weights_for_non_padding = t_input.attention_mask * torch.arange(start=1, end=last_hidden_state.shape[1] + 1,device=model.device).unsqueeze(0) # more weight on last tokens
+            # sum_embeddings = torch.sum(last_hidden_state * weights_for_non_padding.unsqueeze(-1), dim=1)
+            # num_of_none_padding_tokens = torch.sum(weights_for_non_padding, dim=-1).unsqueeze(-1)
+            equal_weights_for_padding = toks.attention_mask *  torch.ones_like(torch.arange(start=1, end=last_hidden_state.shape[1] + 1).unsqueeze(0),device=model.device) 
+            sum_embeddings = torch.sum(last_hidden_state * equal_weights_for_padding.unsqueeze(-1), dim=1)
+            num_of_none_padding_tokens = torch.sum(equal_weights_for_padding, dim=-1).unsqueeze(-1)
+
+            sentence_embeddings = sum_embeddings / num_of_none_padding_tokens
+
+            embs.extend(sentence_embeddings)
         return embs
 
 def embed2(texts, model):
@@ -191,6 +212,11 @@ def similarities(old_genomes, new_genomes, model_id, batch_size):
         )
     
     else:
+        if "/" in model_id:
+            name=model_id.split("/")[-1]
+        else:
+            name=model_id
+        print("loading emb model"+name)
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         model = AutoModel.from_pretrained(model_id)
@@ -198,7 +224,7 @@ def similarities(old_genomes, new_genomes, model_id, batch_size):
         model.eval()
 
         old_embeddings = embed(
-            [gen['program_str'] for gen in old_genomes],
+            [gen['program_str'].split("def g")[0].strip() for gen in old_genomes],
             tokenizer,
             model,
             batch_size,
@@ -209,7 +235,7 @@ def similarities(old_genomes, new_genomes, model_id, batch_size):
         #     model,
         # )
         new_embeddings = embed(
-            [gen['program_str'] for gen in new_genomes],
+            [gen['program_str'].split("def g")[0].strip() for gen in new_genomes],
             tokenizer,
             model, 
             batch_size,
@@ -267,23 +293,58 @@ def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
     print(metric_dict)
     return metric_dict
 
+skill_list = [
+    "String Manipulation",
+    "Mathematical Operations",
+    "Conditional Logic",
+    "Recursion",
+    "Brute Force Search",
+    "Dynamic Programming",
+    "Greedy Algorithms",
+    "Backtracking",
+    "Set Operations",
+    "Permutations and Combinations",
+    "Probability and Statistics",
+    "Pattern Recognition", 
+    "Sorting and Ordering",
+    "Binary Operations (bitwise shifting, AND, OR)",
+    "Geometry and Coordinate Manipulation",
+    "Algorithm Optimization",
+    "Number Theory (factors, primes, etc.)",
+    "Graph Theory (paths, edges, vertices)",
+    "Array Indexing",
+    "Hashing"
+]
 
 def base_elm_prompt_fn(
     list_few_shot_example : List[P3ProbSolResult],
     code_batch: Optional[List[P3ProbSolResult]] = None,
     skill_targeted: Optional[List[int]]=None,
-    n_fewshot_ex=2,
+    n_fewshot_ex=None,
     prompt: Optional[str] = None,
 ):
-    puzzles = [puzz for puzz in list_few_shot_example[:n_fewshot_ex]]
-    
+    elm_mode=False
+    puzzles = [puzz for puzz in list_few_shot_example]
+    if not code_batch is None:
+        elm_mode=True
+    aces_mode=False
+    if skill_targeted != None:
+        aces_mode=True
+        idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
+        skill_target=""
+        for idx in idx_skill_targeted:
+            skill_target += f"\n- {skill_list[idx]}"
+
     examples = ""
     for i, puzzle in enumerate(puzzles):   
         puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
-        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
-    puzzle_description = code_batch[0].description
-    p_str = code_batch[0].program_str
-    examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
+        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str.strip()}\n```\n"
+    
+    
+    if elm_mode:
+        puzzle_description = code_batch[0].description
+        p_str = code_batch[0].program_str
+        examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
 
     default_prompt = """    You are a helpful assistant to a Professor teaching a programming course in Python.
     The Professor wants to give some puzzles to his master's students to teach them Python.
@@ -323,7 +384,10 @@ def base_elm_prompt_fn(
         prompt = default_prompt
 
     prompt = prompt.replace('\n    ', '\n')
-    prompt = prompt.format(examples=examples, N=i+1)
+    if aces_mode:
+        prompt = prompt.format(examples=examples, skills=skill_target)
+    else:
+        prompt = prompt.format(examples=examples, N=i+1)
     return prompt
 
 
@@ -351,8 +415,8 @@ def main(
     elm.qd_algorithm.env.config.activate_filtering_description = False
     if prompt_to_test is not None:
         elm.qd_algorithm.env.prompt_seed_function = partial(base_elm_prompt_fn, prompt=prompt_to_test)
-    if "elm" in config_name:
-        elm.config.qd.n_fewshot_examples = elm.config.qd.n_fewshot_examples -1
+    # if "elm" in config_name:
+    #     elm.config.qd.n_fewshot_examples = elm.config.qd.n_fewshot_examples -1
     quality_metric = None
     # model_id = 'deepseek-ai/deepseek-coder-1.3b-instruct'
     model_id = "/home/flowers/work/hf/deepseek-coder-1.3b-base"#'/home/flowers/work/hf/jina-embeddings-v2-base-code'
@@ -365,8 +429,10 @@ def main(
     mutation_batch_size = elm.qd_algorithm.env.batch_size
     # last_index = len(old_genomes) - (len(old_genomes) % mutation_batch_size)
     # old_genomes = old_genomes[:last_index]
-    
-    old_genomes,new_genomes = mutate_archive(old_genomes, elm)
+    aces_mode= "aces" in config_name
+    if aces_mode:
+        print("=======ACES MODE=======")
+    old_genomes,new_genomes = mutate_archive(old_genomes, elm,aces_mode=aces_mode)
     old_genomes, new_genomes = zip(*[(old_gen, new_gen) 
         for old_gen, new_gen in zip(old_genomes, new_genomes) if new_gen is not None])
     metric_dict = get_metrics(
@@ -378,10 +444,10 @@ def main(
     )
     print('done')
 
-    with open('heritability_metrics.json', 'w') as f:
+    with open(f'heritability_metrics_{config_name}.json', 'w') as f:
         json.dump(metric_dict, f)
-    with open("puzzle.json", "w") as f:
-        json.dump(new_genomes, f)
+    with open(f"puzzle_{config_name}.json", "w") as f:
+        json.dump({"old_genomes":old_genomes,"new_genomes":new_genomes,"metric_dict":metric_dict}, f)
 
 
     return metric_dict
