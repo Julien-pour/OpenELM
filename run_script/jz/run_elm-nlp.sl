@@ -18,7 +18,7 @@ module load python/3.11.5
 list_model_names=("CodeQwen1.5-7B-Chat" "Meta-Llama-3-70B-Instruct-GPTQ")
 index=$SLURM_ARRAY_TASK_ID
 
-model_names_id=${list_model_names[$ratio_index]}
+model_names_id=${list_model_names[$index]}
 
 full_path=$SCRATCH/hf/$model_names_id
 conda activate vllm41

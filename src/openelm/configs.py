@@ -202,7 +202,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     starting_seed: int = field(
         default_factory=lambda: 3
     )  # index of p3 dataset to use as puzzle to mutate
-    eval_k: int = 10 #100  # k for pass@k for fitness
+    eval_k: int = 50 #100  # k for pass@k for fitness
     embedding_model_type: str = "openai" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
     embedding_model_path: str = "ChatGPT" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
