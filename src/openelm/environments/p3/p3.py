@@ -38,8 +38,8 @@ from typing import List, Optional, Union
 
 from openelm.quality_metrics import utils
 from openelm.quality_metrics.yes import return_proba_yes, return_yes_prompt, return_prompt_format
-from openelm.quality_metrics.utils import load_prompt_PP
-from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
+# from openelm.quality_metrics.utils import load_prompt_PP
+# from openelm.quality_metrics.dataset_progress.progress_metrics import get_solution_logprobs
 
 from openelm.environments.p3.code_sandbox import evaluate,PASS
 from tenacity import retry, wait_exponential
@@ -1435,179 +1435,179 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         return new_probsols
 
 
-class P3ProbSol_Chat_PP(P3ProbSol_Chat):
-    def __init__(
-        self,
-        config: P3ProbSolChatEnv_PP_ELM_NLP_Config,
-        mutation_model: MutationModel,
-    ) -> None:
-        """
-        Version of the P3 Problem-solution environment with the Prediction Progress (PP)
-        fitness measure. This emvironment implements the in=context version of PP.
+# class P3ProbSol_Chat_PP(P3ProbSol_Chat):
+#     def __init__(
+#         self,
+#         config: P3ProbSolChatEnv_PP_ELM_NLP_Config,
+#         mutation_model: MutationModel,
+#     ) -> None:
+#         """
+#         Version of the P3 Problem-solution environment with the Prediction Progress (PP)
+#         fitness measure. This emvironment implements the in=context version of PP.
 
-        PP needs a model and an archive probsol dataset. For the currently evaluated
-        probsol, we put it as an example in the prompt before a probsol from the archive
-        and we measure how much loss decreases compared to a reference probsol. We average
-        out this value for probsols on the whole archive.
-        """
-        self.archive_dataset_name = config.archive_dataset_name
-        self.reference_probsol = config.reference_probsol
-        one_shot_prompt_id = config.one_shot_prompt_id
-        self.use_docstring = config.use_docstring
-        # for computing the solution attention mask in parallel
-        self.num_workers = config.num_workers
-        self.batch_size_quality = config.batch_size
-        self.compile = config.compile
-        self.flash_attn = config.flash_attn
-        self.num_max_tokens = config.num_max_tokens
+#         PP needs a model and an archive probsol dataset. For the currently evaluated
+#         probsol, we put it as an example in the prompt before a probsol from the archive
+#         and we measure how much loss decreases compared to a reference probsol. We average
+#         out this value for probsols on the whole archive.
+#         """
+#         self.archive_dataset_name = config.archive_dataset_name
+#         self.reference_probsol = config.reference_probsol
+#         one_shot_prompt_id = config.one_shot_prompt_id
+#         self.use_docstring = config.use_docstring
+#         # for computing the solution attention mask in parallel
+#         self.num_workers = config.num_workers
+#         self.batch_size_quality = config.batch_size
+#         self.compile = config.compile
+#         self.flash_attn = config.flash_attn
+#         self.num_max_tokens = config.num_max_tokens
 
-        super().__init__(config, mutation_model)
+#         super().__init__(config, mutation_model)
 
-        # from vllm import LLM, SamplingParams
-        # llm = LLM('microsoft/phi-1')
+#         # from vllm import LLM, SamplingParams
+#         # llm = LLM('microsoft/phi-1')
 
-        # load model and tokenizer
-        self.model, self.tokenizer = utils.create_model_and_tokenizer(
-            config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn
-        )
+#         # load model and tokenizer
+#         self.model, self.tokenizer = utils.create_model_and_tokenizer(
+#             config.model_or_model_path, compile=self.compile, flash_attn=self.flash_attn
+#         )
 
-        print(f'bsize {self.batch_size_quality}')
-        print(self.model)
-        print(self.model.config.max_position_embeddings)
-        print('BWAAA')
+#         print(f'bsize {self.batch_size_quality}')
+#         print(self.model)
+#         print(self.model.config.max_position_embeddings)
+#         print('BWAAA')
 
-        # load and process archive puzzles into strings
-        self.archive_name = self.archive_dataset_name
-        # with open(self.archive_dataset_name, 'r') as f:
-        #     puzzle_archive = json.load(f)
-        puzzle_archive = utils.load_dataset_progress(self.archive_name)
+#         # load and process archive puzzles into strings
+#         self.archive_name = self.archive_dataset_name
+#         # with open(self.archive_dataset_name, 'r') as f:
+#         #     puzzle_archive = json.load(f)
+#         puzzle_archive = utils.load_dataset_progress(self.archive_name)
             
-        self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
-                                    for p in puzzle_archive if p['sol_bodies']]
-        self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
-        # sort puzzles by length
-        n_tokens_full_puzzles = [len(self.tokenizer(apuz + asol).input_ids) for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
-        # Sort the indices based on the lengths
-        sorted_indices = sorted(range(len(n_tokens_full_puzzles)), key=lambda i: n_tokens_full_puzzles[i])
+#         self.archive_puzzle_strs = [utils.make_puzzle(p, self.use_docstring)
+#                                     for p in puzzle_archive if p['sol_bodies']]
+#         self.archive_sol_strs = [utils.make_solution(p) for p in puzzle_archive if p['sol_bodies']]
+#         # sort puzzles by length
+#         n_tokens_full_puzzles = [len(self.tokenizer(apuz + asol).input_ids) for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+#         # Sort the indices based on the lengths
+#         sorted_indices = sorted(range(len(n_tokens_full_puzzles)), key=lambda i: n_tokens_full_puzzles[i])
         
-        # Reorder the puzzles and solutions lists based on the sorted indices
-        self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in sorted_indices]
-        self.archive_sol_strs = [self.archive_sol_strs[i] for i in sorted_indices]
+#         # Reorder the puzzles and solutions lists based on the sorted indices
+#         self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in sorted_indices]
+#         self.archive_sol_strs = [self.archive_sol_strs[i] for i in sorted_indices]
 
-        self.solutions_tokenized = None  # will be populated after filtering
+#         self.solutions_tokenized = None  # will be populated after filtering
 
-        # load reference probsol
-        if self.reference_probsol is None:
-            if self.use_docstring:
-                self.ref_puzzle = utils.REF_PUZZLE.replace('def sat(', 'def f(')
-            else:
-                self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
-        self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
+#         # load reference probsol
+#         if self.reference_probsol is None:
+#             if self.use_docstring:
+#                 self.ref_puzzle = utils.REF_PUZZLE.replace('def sat(', 'def f(')
+#             else:
+#                 self.ref_puzzle = utils.REF_PUZZLE_NODOC.replace('def sat', 'def f(')
+#         self.ref_solution = utils.REF_SOL.replace('def sol', 'def g(')
 
-        self.prompt_text = load_prompt_PP(one_shot_prompt_id)
-        # with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-        # with open(os.path.join(os.path.dirname(__file__),'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
-        #     self.prompt_text = f.read()
+#         self.prompt_text = load_prompt_PP(one_shot_prompt_id)
+#         # with open(os.path.join(os.getcwd(), 'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+#         # with open(os.path.join(os.path.dirname(__file__),'quality_metrics', 'dataset_progress', one_shot_prompt_id), 'r') as f:
+#         #     self.prompt_text = f.read()
             
 
-        self._filter_puzzles()
-        self.original_losses = self._get_original_losses()
-        print(f'original losses {self.original_losses}')
-        pass
+#         self._filter_puzzles()
+#         self.original_losses = self._get_original_losses()
+#         print(f'original losses {self.original_losses}')
+#         pass
 
-    def _filter_puzzles(self, tolerance=800, num_max_tokens=2048):
-        print('Filtering long puzzles in the archive')
-        if num_max_tokens is None:
-            num_max_tokens = self.model.config.max_position_embeddings
-        archive_puzzle_sols = [
-            self.prompt_text.format(
-                puzzle=self.ref_puzzle,
-                solution=self.ref_solution,
-                archive_puzzle=apuz,
-                archive_solution=asol)
-            for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+#     def _filter_puzzles(self, tolerance=800, num_max_tokens=2048):
+#         print('Filtering long puzzles in the archive')
+#         if num_max_tokens is None:
+#             num_max_tokens = self.model.config.max_position_embeddings
+#         archive_puzzle_sols = [
+#             self.prompt_text.format(
+#                 puzzle=self.ref_puzzle,
+#                 solution=self.ref_solution,
+#                 archive_puzzle=apuz,
+#                 archive_solution=asol)
+#             for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
 
-        archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols)
-        indices_to_keep = []
+#         archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols)
+#         indices_to_keep = []
 
-        for i, ts in enumerate(archive_tokenized_puzzles.input_ids):
-            if len(ts) + tolerance < num_max_tokens:
-                indices_to_keep.append(i)
+#         for i, ts in enumerate(archive_tokenized_puzzles.input_ids):
+#             if len(ts) + tolerance < num_max_tokens:
+#                 indices_to_keep.append(i)
 
-        self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in indices_to_keep]
-        self.archive_sol_strs = [self.archive_sol_strs[i] for i in indices_to_keep]
-        self.solutions_tokenized = self.tokenizer(self.archive_sol_strs)
-        print("end filtering")
+#         self.archive_puzzle_strs = [self.archive_puzzle_strs[i] for i in indices_to_keep]
+#         self.archive_sol_strs = [self.archive_sol_strs[i] for i in indices_to_keep]
+#         self.solutions_tokenized = self.tokenizer(self.archive_sol_strs)
+#         print("end filtering")
 
-    def _get_original_losses(self):
-        # try to load values based on the archive dataset
-        # path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
-        # if os.path.exists(path):
-        #     return torch.load(path)
-        # else:
-            # compute the values and cache them (for future runs)
-        return self._get_losses(self.ref_puzzle, self.ref_solution)
+#     def _get_original_losses(self):
+#         # try to load values based on the archive dataset
+#         # path = os.path.join('quality_metrics', 'dataset_progress', 'loss_cache', self.archive_name + '.pt')
+#         # if os.path.exists(path):
+#         #     return torch.load(path)
+#         # else:
+#             # compute the values and cache them (for future runs)
+#         return self._get_losses(self.ref_puzzle, self.ref_solution)
 
-    def _get_losses(self, puzzle: str, solution: str):
-        # format prompts with archive and ref puzzles
-        archive_puzzle_sols = [
-            self.prompt_text.format(
-                puzzle=puzzle,
-                solution=solution,
-                archive_puzzle=apuz,
-                archive_solution=asol)
-            for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
+#     def _get_losses(self, puzzle: str, solution: str):
+#         # format prompts with archive and ref puzzles
+#         archive_puzzle_sols = [
+#             self.prompt_text.format(
+#                 puzzle=puzzle,
+#                 solution=solution,
+#                 archive_puzzle=apuz,
+#                 archive_solution=asol)
+#             for apuz, asol in zip(self.archive_puzzle_strs, self.archive_sol_strs)]
 
-        archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
+#         archive_tokenized_puzzles = self.tokenizer(archive_puzzle_sols, return_tensors='pt', padding=True)
 
-        # print(archive_puzzle_sols[0])
+#         # print(archive_puzzle_sols[0])
 
-        # get solution mask
-        solution_attention_mask = utils.get_solution_mask_from_str_loop(
-            full_prompts=archive_puzzle_sols,
-            solutions=self.archive_sol_strs,
-            tokenizer=self.tokenizer,
-            # num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
-            archive_attention_mask=archive_tokenized_puzzles.attention_mask,
-            offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
-        )
-        archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
+#         # get solution mask
+#         solution_attention_mask = utils.get_solution_mask_from_str_loop(
+#             full_prompts=archive_puzzle_sols,
+#             solutions=self.archive_sol_strs,
+#             tokenizer=self.tokenizer,
+#             # num_solution_tokenss=[len(t) - 1 for t in self.solutions_tokenized.input_ids],
+#             archive_attention_mask=archive_tokenized_puzzles.attention_mask,
+#             offsets=[l.tolist().index(1) for l in archive_tokenized_puzzles.attention_mask],
+#         )
+#         archive_tokenized_puzzles.loss_attention_mask = solution_attention_mask
 
-        return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size_quality)
+#         return get_solution_logprobs(archive_tokenized_puzzles, self.model, batch_size=self.batch_size_quality)
 
-    def fitness(self, probsol: P3ProbSolResult, use_pass_k=False) -> float:
-        solving_fitness = super().fitness(probsol, use_pass_k)
-        if solving_fitness <= 0:
-            return solving_fitness  # we require that the problem be solvable by chatgpt
+#     def fitness(self, probsol: P3ProbSolResult, use_pass_k=False) -> float:
+#         solving_fitness = super().fitness(probsol, use_pass_k)
+#         if solving_fitness <= 0:
+#             return solving_fitness  # we require that the problem be solvable by chatgpt
 
-        # check the docstring works fine
-        puzzle, solution = utils.parse_puzzle_from_str(probsol.program_str)
+#         # check the docstring works fine
+#         puzzle, solution = utils.parse_puzzle_from_str(probsol.program_str)
 
-        final_losses = self._get_losses(puzzle, solution)
+#         final_losses = self._get_losses(puzzle, solution)
 
-        differences = final_losses - self.original_losses
-        fitness = differences.mean().item()
-        return - fitness
+#         differences = final_losses - self.original_losses
+#         fitness = differences.mean().item()
+#         return - fitness
 
-    def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True, disable_tqdm=True):
+#     def multiple_fitness(self,list_probsol: list[P3ProbSolResult], use_pass_k = False, parrallel_fitness=True, disable_tqdm=True):
         
-        list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
-        assert len(list_solving_fitness) == len(list_probsol)
+#         list_solving_fitness = super().multiple_fitness(list_probsol, use_pass_k)
+#         assert len(list_solving_fitness) == len(list_probsol)
 
-        for idx,solving_fitness in enumerate(tqdm(list_solving_fitness,disable=disable_tqdm)):
-            if solving_fitness <= 0:
-                continue
-            else:
-                # check the docstring works fine
-                puzzle, solution = utils.parse_puzzle_from_str(list_probsol[idx].program_str)
+#         for idx,solving_fitness in enumerate(tqdm(list_solving_fitness,disable=disable_tqdm)):
+#             if solving_fitness <= 0:
+#                 continue
+#             else:
+#                 # check the docstring works fine
+#                 puzzle, solution = utils.parse_puzzle_from_str(list_probsol[idx].program_str)
 
-                final_losses = self._get_losses(puzzle, solution)
+#                 final_losses = self._get_losses(puzzle, solution)
 
-                differences = final_losses - self.original_losses
-                fitness = differences.mean().item()
-                list_solving_fitness[idx] = - fitness
-                list_probsol[idx].fitness = - fitness
-        return list_solving_fitness
+#                 differences = final_losses - self.original_losses
+#                 fitness = differences.mean().item()
+#                 list_solving_fitness[idx] = - fitness
+#                 list_probsol[idx].fitness = - fitness
+#         return list_solving_fitness
     
 
 
