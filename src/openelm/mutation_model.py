@@ -137,6 +137,8 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
             print("completion problem: ",e)
             out=None
             count+=1
+    if out == None:
+        raise Exception("No completion")
 
     # completion_token = completion.usage.completion_tokens
     # prompt_token = completion.usage.prompt_tokens
@@ -314,6 +316,7 @@ class PromptModel(MutationModel):
         if self.config.gen_max_len != -1:
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
         out_test=get_completion_test(self.model, "test", self.cfg_generation)
+
     def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,n_completions=1,activate_parrallel=True) -> list[str]:
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path or self.config.vllm :
             if self.config.parrallel_call and activate_parrallel:
