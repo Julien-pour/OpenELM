@@ -22,7 +22,8 @@ model_names_id=${list_model_names[$index]}
 
 full_path=$SCRATCH/hf/$model_names_id
 conda activate vllm41
-
+MAXWAIT=20
+sleep $((RANDOM % MAXWAIT))
 python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 6000 &
 SERVER_PID=$!
 
