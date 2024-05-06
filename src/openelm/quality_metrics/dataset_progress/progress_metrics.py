@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
-import seaborn as sns
-sns.set_theme()
+# import seaborn as sns
+# sns.set_theme()
 
 from typing import List, Dict, Optional
 from argparse import ArgumentParser
