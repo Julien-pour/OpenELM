@@ -28,7 +28,7 @@ python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --a
 SERVER_PID=$!
 
 # Wait for the server to be ready
-list_sleep=(10 120)
+list_sleep=(10 60)
 sleep ${list_sleep[$index]}
 
 conda deactivate
