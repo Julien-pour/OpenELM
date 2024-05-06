@@ -75,6 +75,23 @@ def get_model(config: ModelConfig):
     else:
         raise NotImplementedError
     
+@retry(wait=wait_exponential(multiplier=1, min=5, max=600))
+def get_completion_test(client, prompt : str, cfg_generation, )->str:
+    try:
+        completion = client.chat.completions.create(
+        messages=[
+            {"role": "system", "content": "You are an AI programming assistant"},#You are a coding assistant, skilled in writting code with creative flair."},
+            {"role": "user", "content": prompt}
+        ],
+        **cfg_generation
+        )
+        
+        out = completion.choices[0].message.content
+
+    except Exception as e:
+        print("completion problem test server: ",e)
+        out=None
+    return out
 @retry(wait=wait_exponential(multiplier=1, min=5, max=5))
 def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None,n_completions=1)->str:
     """Get completion from OpenAI API"""
@@ -90,6 +107,9 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
         tool_name=tools[0]["function"]["name"]
         kwargs.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
     n_try=4
+    if "llama" in cfg_generation["model"].lower():
+        kwargs["stop_token_ids"] = [128001, 128009] #fix bug in llama
+        n_try=1
     count=1
     while count<n_try:
         try :
@@ -293,7 +313,7 @@ class PromptModel(MutationModel):
         }
         if self.config.gen_max_len != -1:
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
-    
+        out_test=get_completion_test(self.model, "test", self.cfg_generation)
     def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,n_completions=1,activate_parrallel=True) -> list[str]:
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path or self.config.vllm :
             if self.config.parrallel_call and activate_parrallel:

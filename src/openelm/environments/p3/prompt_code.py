@@ -115,7 +115,60 @@ assert f(g()) == True
 ## Examples:
 {examples}
 
-Generate 5 P3 similar to the last Examples (Puzzle 2). Ensure that all new puzzles are more challenging than Puzzle from previous examples.
+Generate 5 P3 similar to previous Examples. Ensure that all new puzzles are more challenging than Puzzle from previous examples.
 Please make sure that new puzzles test the all the following skills:{skill_target}
 ## New 5 problems inspired by Puzzle 2:
 """
+
+instruction_solve_puzzle = '''You will be given a function. Respond only in code with a correct, efficient implementation of the function. You will need to generate the correct solutions (g), for the Problem 2 that satisfies the condition f(g()) == True.
+
+Problem 0:
+```python
+def f(stamps: List[int], target=80, max_stamps=4, options=[10, 32, 8]) -> bool:
+    """Find a selection of at most max_stamps stamps whose total worth is the target value."""
+    for s in stamps:
+        assert s in options
+    return len(stamps) <= max_stamps and sum(stamps) == target
+```
+Solution 0:
+```python
+def g(target = 80, max_stamps = 4, options = [10, 32, 8]):
+    from itertools import combinations_with_replacement
+    for n in range(max_stamps + 1):
+        for c in combinations_with_replacement(options, n):
+            if sum(c) == target:
+                return list(c)
+
+assert f(g()) == True
+```
+
+Problem 1:
+```python
+from typing import*
+def f(ans: List[List[int]], target=2) -> bool:
+    """
+    Find a list of pairs of integers where the number of pairs in which the second number is more than
+    two greater than the first number is a given constant
+    """
+    for i in range(len(ans)):
+        a, b = ans[i]
+        if b - a >= 2:
+            target -= 1
+    return target == 0
+```
+
+Solution 1:
+```python
+def g(target = 2):
+    return [[0, 2]] * target 
+
+assert f(g()) == True
+```
+
+Now you need to give the solution (def g({arg_g}):) to the following Problem 2 that satisfies the condition f(g()) == True.
+
+Problem 2:
+```python
+{f}
+```
+'''
