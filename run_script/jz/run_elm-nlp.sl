@@ -39,3 +39,4 @@ seed=1
 path="" 
 python run_elm.py --config-name=elm_nlp seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id
 # start from save: 'qd.loading_snapshot_map=True' 'qd.log_snapshot_dir=$path'
+kill $SERVER_PID
