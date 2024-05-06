@@ -109,7 +109,7 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
     n_try=4
     if "llama" in cfg_generation["model"].lower():
         kwargs["stop_token_ids"] = [128001, 128009] #fix bug in llama
-        n_try=1
+        
     count=1
     while count<n_try:
         try :
