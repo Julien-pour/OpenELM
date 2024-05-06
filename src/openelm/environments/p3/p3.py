@@ -1191,16 +1191,20 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         for id, f_str in enumerate(list_f_str):
              # -1 because we already have the original problem
 
-            list_all_prompts.extend([prompt_solve_puzzle_given_f(f_str) for _ in range(n_new_sol2gen)])
+            list_all_prompts.extend([prompt_solve_puzzle_given_f(f_str)]) #for _ in range(n_new_sol2gen)])
             new_list_task_id.extend([list_task_id[id] for _ in range(n_new_sol2gen)])
         template = ""
-        code_batch=[{"prompt":prompt,"template":template} for prompt in list_all_prompts] # -1 because we already have the original problem
-        local_scope_exec = False
-        _generated_programs = self.mutation_model.generate_programs(
-            code_batch, local_scope_exec,do_trunc=False
-        )
+        # code_batch=[{"prompt":prompt,"template":template} for prompt in list_all_prompts] # -1 because we already have the original problem
+        _generated_programs = self.mutation_model.generate_completion(list_all_prompts,n_completions=n_new_sol2gen)
+        list_all_prompts_duplicate= copy.deepcopy(list_all_prompts)
+        list_all_prompts_duplicate= [prompt for prompt in list_all_prompts_duplicate for _ in range(n_new_sol2gen)]
+        if n_new_sol2gen>1:
+            all_gen = []
+            for idx in range(len(_generated_programs)):
+                all_gen.extend(_generated_programs[idx])
+            _generated_programs = all_gen
 
-        assert len(_generated_programs) == len(code_batch)
+        assert len(_generated_programs) == len(list_all_prompts_duplicate)
         # should we just ask LLM to correct g() or to correct the whole puzzle?
         list_pb=[]
         # parse the generated code 
@@ -1212,7 +1216,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             else:
                 list_pb.append(split_pb)
 
-        assert len(list_pb) == len(code_batch)
+        assert len(list_pb) == len(list_all_prompts_duplicate)
         assert len(new_list_task_id) == len(list_pb)
         for idx_assert in range(len(list_pb)):
             idx_f = new_list_task_id[idx_assert]

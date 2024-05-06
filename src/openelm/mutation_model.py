@@ -75,13 +75,15 @@ def get_model(config: ModelConfig):
     else:
         raise NotImplementedError
     
-@retry(wait=wait_exponential(multiplier=1, min=5, max=60))
-def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
+@retry(wait=wait_exponential(multiplier=1, min=5, max=5))
+def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None,n_completions=1)->str:
     """Get completion from OpenAI API"""
     kwargs={}
     kwargs.update(cfg_generation)
     if temperature is not None:
         kwargs["temperature"]= temperature
+    if n_completions>1:
+        kwargs["n"]= n_completions
     flag_tool=tools is not None
     if flag_tool:
         kwargs.update({"tools": tools})
@@ -97,13 +99,23 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
                 {"role": "user", "content": prompt}
             ],**kwargs
             )
+            
             out = completion.choices[0].message.content
             if out == None:
                 raise Exception("No completion")
             
+            if n_completions>1:
+                list_completion=[]
+                for i in range(len(completion.choices)):
+                    list_completion.append(completion.choices[i].message.content)
+                if len(list_completion)!=n_completions:
+                    print(f"Warning not enough completion: {len(list_completion)} completions instead of {n_completions}")
+                out= list_completion
+
             break
         except Exception as e:
             print("completion problem: ",e)
+            out=None
             count+=1
 
     # completion_token = completion.usage.completion_tokens
@@ -126,11 +138,13 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20,temperature=None)->list[str]:
+def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20,temperature=None,n_completions=1)->list[str]:
     """Get multiple completions from OpenAI API
     batch_tools =[[tools]] tools is the function, toll_name is the name of the tool
 
                     /!\ need to integrate batch tools in the loop /!\
+    n_completions: number of completions to generate per prompt
+    temperature: sampling temperature for the generation
     """
     # check that batch_prompt is list[str]
     if isinstance(batch_prompt, str):
@@ -146,6 +160,8 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
                     kwargs["cfg_generation"]=cfg_generation
                     if temperature is not None:
                         kwargs["temperature"]= temperature
+                    if n_completions>1:
+                        kwargs["n_completions"]= n_completions
                     # if "kwargs" in kwargs_modified:
                     #     original_kwargs = kwargs_modified.pop("kwargs")
                     future = executor.submit(
@@ -278,13 +294,13 @@ class PromptModel(MutationModel):
         if self.config.gen_max_len != -1:
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
     
-    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,activate_parrallel=True) -> list[str]:
+    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,n_completions=1,activate_parrallel=True) -> list[str]:
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path or self.config.vllm :
             if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
-                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature)
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature,n_completions=n_completions)
             else:
-                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature)
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature,n_completions=n_completions)
         else: raise NotImplementedError
         return results
 
@@ -302,7 +318,7 @@ class PromptModel(MutationModel):
         self,
         prompt_dicts: list[dict[str, str]],
         local_scope_truncate: bool,
-        do_trunc=True,
+        do_trunc=False,
         batch_tools=None,
         **kwargs
     ) -> list[str]:
