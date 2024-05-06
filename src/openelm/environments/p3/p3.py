@@ -788,7 +788,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         
         first_example ="def f(x,a=1,b=1): return a*x==b \ndef g(x,a=1,b=1): return b/a\nassert f(g())==True"
         # self.n_skills = n_skills
-        out = self.to_phenotype(first_example)["emb"]
+        out = []#self.to_phenotype(first_example)["emb"]
         if self.config.embedding_model_type == "openai" and not "embedding" in self.config.embedding_model_type: 
             #NLP space
 
