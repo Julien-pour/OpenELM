@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=imi@v100
 #SBATCH -C v100-32g
-#SBATCH --job-name={name}
+#SBATCH --job-name=rd_gen
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:4
