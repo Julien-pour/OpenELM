@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # top_logprobs
 import sys 
-sys.path.append("/home/flowers/work/OpenELM")
+sys.path.append("/gpfsdswork/projects/rech/imi/uqv82bm/OpenELM/")
 from heritability import main
 
 prompt_elm_to_test = """You are a helpful assistant to a Professor teaching a programming course in Python. The Professor wants to give some puzzles to his master's students to teach them Python.
@@ -99,5 +99,5 @@ last_constraint="""Make sure that the new problems are more complicated by one o
 """
 prompt_elm_to_test= prompt_elm_to_test+last_constraint
 
-metric_dict = main(prompt_to_test=prompt_aces, num_puz=20,config_name="aces")
+metric_dict = main(prompt_to_test=prompt_aces, num_puz=64,config_name="aces")
 print(metric_dict)

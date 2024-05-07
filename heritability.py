@@ -72,7 +72,7 @@ def build_pb(pb):
     config = P3ProbSolChatEnvConfig()  # check this
     probsol = P3ProbSolResult(config=config, **pb)
     probsol.unique_id = pb['unique_id']
-    probsol.idx_generation = pb['idx_generation']
+    #probsol.idx_generation = pb['idx_generation']
     return probsol
 
 
@@ -419,9 +419,9 @@ def main(
     #     elm.config.qd.n_fewshot_examples = elm.config.qd.n_fewshot_examples -1
     quality_metric = None
     # model_id = 'deepseek-ai/deepseek-coder-1.3b-instruct'
-    model_id = "/home/flowers/work/hf/deepseek-coder-1.3b-base"#'/home/flowers/work/hf/jina-embeddings-v2-base-code'
+    model_id = "/gpfsssd/scratch/rech/imi/uqv82bm/hf/deepseek-coder-1.3b-base"#'/home/flowers/work/hf/jina-embeddings-v2-base-code'
 
-    old_genomes = load_genome('/home/flowers/work/OpenELM/analysis_P3/heritability/selected_genomes_umap.json')#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json")
+    old_genomes = load_genome('/gpfswork/rech/imi/uqv82bm/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json')#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json")
     old_genomes = filter_genomes(old_genomes, model_id)
     old_genomes = old_genomes[:num_puz]
 
