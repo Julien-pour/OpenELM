@@ -124,9 +124,9 @@ def main():
             results2 = get_multiple_completions(client, batch_prompt = batch_prompt2, cfg_generation=cfg_generation,max_workers=max_workers,temperature=0.8)
             print("--------------- end generating description -----------------")
 
-            if len(results1)!=len(results2):
-                print(f"len results1 = {len(results1)}, len results2 = {len(results2)}")
-                print(" /!\ results1 and results2 should have the same length /!\ ")
+            # if len(results1)!=len(results2):
+            #     print(f"len results1 = {len(results1)}, len results2 = {len(results2)}")
+            #     print(" /!\ results1 and results2 should have the same length /!\ ")
 
             for idx in range(len(results2)):  
                 out[idx]["description"] = results2[idx]
@@ -146,6 +146,7 @@ def main():
         # list_program_str=[p.__to_dict__() for p in list_p3]
 
         if generate_quality: #passĸ
+            print("--------------- start generating quality -----------------")
             list_program_str = [p["program_str"] for p in out]
             out1= copy.deepcopy(out)
             for i in out1:
@@ -162,8 +163,8 @@ def main():
             print("n puzzles=", len(out))
             with open(path_embed, "w") as f:
                 json.dump(out, f, indent=4)
-
-    
+            print("--------------- end generating quality -----------------")
+        
         # if generate_quality:
         #     print("--------------- start generating quality -----------------")
 
