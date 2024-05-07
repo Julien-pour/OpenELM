@@ -23,7 +23,7 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 32
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "/home/flowers/work/hf/CodeQwen1.5-7B-Chat-AWQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "/gpfsscratch/rech/imi/uqv82bm/hf/Meta-Llama-3-70B-Instruct-GPTQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     vllm: str = True
     azure: bool = True
     azure_endpoint: str = "https://petunia-3.openai.azure.com/"
