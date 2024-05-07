@@ -21,7 +21,7 @@ class ModelConfig(BaseConfig):
     top_p: float = 1.
     temp: float = 1.0
     gen_max_len: int = -1 # -1 for no limit
-    batch_size: int = 10
+    batch_size: int = 32
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "/home/flowers/work/hf/CodeQwen1.5-7B-Chat-AWQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     vllm: str = True
@@ -108,7 +108,7 @@ class EnvConfig(BaseConfig):
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
     processes: int = 15
-    batch_size: int = 10 #5  # Batch size of MAP-Elites
+    batch_size: int = 32 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
     n_descriptor: int = 20 # number of descriptor for MAP-Elites

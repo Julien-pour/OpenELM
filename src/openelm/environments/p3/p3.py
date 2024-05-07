@@ -1081,7 +1081,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         # with open(path_debug, "a") as f:
         #     f.write(txt+f"\n\n  n puzzle gen = {_generated_programs}\n\n  n real puzzle gen = {list_pb}")
 
-        generated_programs = list_pb[:50] # 5 puzzles per query * 10 queries = 50 puzzles max
+        generated_programs = list_pb[:int(5*self.env.batch_size)] # 5 puzzles per query * 10 queries = 50 puzzles max
         print('parsing finished')
 
         print(f"time to generate {len(generated_programs)} program = {start_t1-start_t0} sec")

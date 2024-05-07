@@ -346,39 +346,39 @@ def base_elm_prompt_fn(
         p_str = code_batch[0].program_str
         examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
 
-    default_prompt = """    You are a helpful assistant to a Professor teaching a programming course in Python.
-    The Professor wants to give some puzzles to his master's students to teach them Python.
+    default_prompt = """Consider Python Programming Puzzles (P3). P3 consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`
 
-    I already have a series of Python Programming Puzzles (P3). Each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
-    I will provide two existing puzzles for reference, and I need you to create five new distinct puzzles (Puzzle 2 to Puzzle 6), each being a **mutation** derived from Puzzle {N}.
-    
-    Rules:
-    - Each puzzle includes two functions: `def f(...)` and `def g(...)`.
-    - The first argument of `f` is always the output from `g()`.
-    - Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
-    - Avoid using `f` inside `g`, and `g` inside `f`.
-    - Include any necessary imports so your code runs smoothly.
-    - Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
-    - Make sure the puzzle is self-contained within these two functions.
+## Main Rules:
+- Each puzzle includes two functions: `def f(...)` and `def g(...)`.
+- The first argument of `f` is always the output from `g()`.
+- Ensure `f` and `g` have matching argument signatures (e.g., `def f(solution, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`). You also need to set the value of argument of f (arg1,arg2,...) and g when you define them.
+- Avoid using `f` inside `g`, and `g` inside `f`.
+- Include any necessary imports so your code runs smoothly.
+- Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
+- Make sure the puzzle is self-contained within these two functions.
 
-    Puzzle Format:
-    Puzzle description: A brief, one to two sentence summary of the puzzle's content.
-    ```python
-    def f(solution, args=...) -> bool:
-        # Python code to test the solution returned by g.
-        # This function is a test unit and must return True if the solution is correct, and False otherwise.
+## P3 Format:
+Puzzle description: A two to four sentence summary of the puzzle's content. To explain what is the problem `f`, and how you can solve it with `g`. 
+ python
+def f(solution, args=...) -> bool:
+    # Python code to test the solution returned by g.
+    # This function is a test unit and must return True if the solution is correct, and False otherwise.
 
-    def g(args=...) -> solution:
-        # Python code to generate a solution for the problem.
-        # The solution should generalize to all possible args.
-        return solution
+def g(args=...) -> solution:
+    # Python code to generate a solution for the problem.
+    # The solution should generalize to all possible args.
+    return solution
 
-    assert f(g()) == True
-    ```
-    {examples}
-    Your Task:
-    Create five new Python Programming Puzzles (Puzzle 2 to Puzzle 6).
-    Ensure that each new puzzle is created by making mutations to Puzzle {N}."""
+assert f(g()) == True
+ 
+
+## Examples:
+{examples}
+
+Generate 5 P3 similar to the last Examples (Puzzle 2). Ensure that all new puzzles are more challenging than Puzzle 2.
+
+## New 5 problems inspired by Puzzle 2:
+"""
     default_prompt=textwrap.dedent(default_prompt)
     if prompt is None:
         prompt = default_prompt
@@ -387,7 +387,7 @@ def base_elm_prompt_fn(
     if aces_mode:
         prompt = prompt.format(examples=examples, skills=skill_target)
     else:
-        prompt = prompt.format(examples=examples, N=i+1)
+        prompt = prompt.format(examples=examples)
     return prompt
 
 
