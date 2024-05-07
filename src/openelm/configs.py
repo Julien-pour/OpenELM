@@ -21,7 +21,7 @@ class ModelConfig(BaseConfig):
     top_p: float = 1.
     temp: float = 1.0
     gen_max_len: int = -1 # -1 for no limit
-    batch_size: int = 64
+    batch_size: int = 32
     model_type: str = "openai"  # Can be "hf", "openai", etc
     model_path: str = "/gpfsscratch/rech/imi/uqv82bm/hf/Meta-Llama-3-70B-Instruct-GPTQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     vllm: str = True
