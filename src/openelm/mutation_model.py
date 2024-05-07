@@ -303,6 +303,7 @@ class PromptModel(MutationModel):
         # Use RNG to rotate random seeds during inference.
         self.rng = np.random.default_rng(seed=seed)
         self.model = get_model(self.config)
+        self.max_workers = min(32, os.cpu_count() + 4)
         if self.config.model_type == "openai":
             self.instructor_model = instructor.patch(self.model)
         else:
@@ -322,7 +323,7 @@ class PromptModel(MutationModel):
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path or self.config.vllm :
             if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
-                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes,temperature=temperature,n_completions=n_completions)
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.max_workers,temperature=temperature,n_completions=n_completions)
             else:
                 results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature,n_completions=n_completions)
         else: raise NotImplementedError
@@ -332,7 +333,7 @@ class PromptModel(MutationModel):
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path:
             if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
-                results = get_multiple_completions_instructor(self.instructor_model, batch_prompt=list_prompt, cfg_generation = self.cfg_generation, batch_tools= batch_tools ,max_workers=self.config.processes,temperature=temperature)
+                results = get_multiple_completions_instructor(self.instructor_model, batch_prompt=list_prompt, cfg_generation = self.cfg_generation, batch_tools= batch_tools ,max_workers=self.max_workers,temperature=temperature)
             else:
                 results = get_multiple_completions_instructor(self.instructor_model, batch_prompt=list_prompt, cfg_generation = self.cfg_generation, batch_tools= batch_tools ,max_workers=1,temperature=temperature)
         else: raise NotImplementedError
@@ -368,7 +369,7 @@ class PromptModel(MutationModel):
             
             if self.config.parrallel_call:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
-                results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=self.config.processes)
+                results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=self.max_workers)
             else:
                 results = get_multiple_completions(self.model, prompts, self.cfg_generation, batch_tools=batch_tools,max_workers=1)
 

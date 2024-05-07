@@ -246,8 +246,8 @@ def unsafe_execute(
         rmdir = os.rmdir
         chdir = os.chdir
         # Disable functionalities that can make destructive changes to the test.
-        # allow only 0.5GB memory usage
-        maximum_memory_bytes = int(1/2 * 1024 * 1024 * 1024)
+        # allow only 2GB memory usage
+        maximum_memory_bytes = int(4 * 1024 * 1024 * 1024)
         reliability_guard(maximum_memory_bytes=maximum_memory_bytes)
         exec_globals = {}
         try:

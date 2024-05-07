@@ -29,7 +29,7 @@ class ModelConfig(BaseConfig):
     azure_endpoint: str = "https://petunia-3.openai.azure.com/"
     api_version = "2024-02-15-preview", 
     parrallel_call: bool = True # if True, use parallel call to API
-    processes: int = 64
+    processes: int = 80
     logits_only: bool = False
     do_sample: bool = True
     num_return_sequences: int = 1
@@ -107,7 +107,7 @@ class EnvConfig(BaseConfig):
     timeout: float = 10.0  # Seconds
     sandbox: bool = False
     sandbox_server: str = "http://localhost:5000"
-    processes: int = 64
+    processes: int = 80
     batch_size: int = 32 #5  # Batch size of MAP-Elites
     env_name: str = MISSING
     debug: bool = False
