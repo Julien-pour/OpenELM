@@ -28,7 +28,7 @@ def main():
             "aces_smart_quality_seed-1.json",
             ]
     # list_emb= [path_base+archive for archive in list_archive]
-    list_emb=["/home/flowers/work/OpenELM/analysis_P3/heritability/selected_genomes_umap.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#]
+    list_emb=["/gpfswork/rech/imi/uqv82bm/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#]
     # list_emb= ["/home/flowers/work/OpenELM/logs/archives/elm_nlp_seed-1.json",
     #            "/home/flowers/work/OpenELM/logs/archives/rd_gen_seed-1.json"]
     # list_emb= ["/projets/flowers/julien/OpenELM/logs/archives/elm_nlp_seed-1.json",
