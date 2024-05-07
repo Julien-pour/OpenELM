@@ -93,7 +93,7 @@ def get_completion_test(client, prompt : str, cfg_generation, )->str:
         out=None
     return out
 @retry(wait=wait_exponential(multiplier=1, min=5, max=5))
-def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None,n_completions=1)->str:
+def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None,n_completions=1,max_tokens=None)->str:
     """Get completion from OpenAI API"""
     kwargs={}
     kwargs.update(cfg_generation)
@@ -101,6 +101,8 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
         kwargs["temperature"]= temperature
     if n_completions>1:
         kwargs["n"]= n_completions
+    if max_tokens is not None:
+        kwargs["max_tokens"]= max_tokens
     flag_tool=tools is not None
     if flag_tool:
         kwargs.update({"tools": tools})
@@ -161,7 +163,7 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20,temperature=None,n_completions=1)->list[str]:
+def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: dict, batch_tools: list[list[dict]]=None,max_workers=20,temperature=None,n_completions=1,max_tokens=None)->list[str]:
     """Get multiple completions from OpenAI API
     batch_tools =[[tools]] tools is the function, toll_name is the name of the tool
 
@@ -185,6 +187,8 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
                         kwargs["temperature"]= temperature
                     if n_completions>1:
                         kwargs["n_completions"]= n_completions
+                    if max_tokens is not None:
+                        kwargs["max_tokens"]= max_tokens
                     # if "kwargs" in kwargs_modified:
                     #     original_kwargs = kwargs_modified.pop("kwargs")
                     future = executor.submit(
@@ -319,13 +323,13 @@ class PromptModel(MutationModel):
             self.cfg_generation["max_tokens"] = self.config.gen_max_len
         out_test=get_completion_test(self.model, "test", self.cfg_generation)
 
-    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,n_completions=1,activate_parrallel=True) -> list[str]:
+    def generate_completion(self,list_prompt: list[str],batch_tools=None,temperature=None,n_completions=1,activate_parrallel=True,max_tokens=None) -> list[str]:
         if "3.5" in self.config.model_path or "gpt-4" in self.config.model_path or "gpt" in self.config.model_path or self.config.vllm :
             if self.config.parrallel_call and activate_parrallel:
                 # results = Parallel(n_jobs=self.config.processes)(delayed(self.model.generate)([[HumanMessage(content=prompt)]]) for prompt in prompts)
-                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.max_workers,temperature=temperature,n_completions=n_completions)
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=self.max_workers,temperature=temperature,n_completions=n_completions,max_tokens=max_tokens)
             else:
-                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature,n_completions=n_completions)
+                results = get_multiple_completions(self.model, list_prompt, self.cfg_generation, batch_tools=batch_tools,max_workers=1,temperature=temperature,n_completions=n_completions,max_tokens=max_tokens)
         else: raise NotImplementedError
         return results
 
