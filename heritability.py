@@ -426,7 +426,8 @@ def main(
     old_genomes = old_genomes[:num_puz]
 
     # make number of genomes divisible by mutation batch size
-    mutation_batch_size = elm.qd_algorithm.env.batch_size
+    #mutation_batch_size = elm.qd_algorithm.env.batch_size
+    elm.qd_algorithm.env.batch_size= num_puz
     # last_index = len(old_genomes) - (len(old_genomes) % mutation_batch_size)
     # old_genomes = old_genomes[:last_index]
     aces_mode= "aces" in config_name
