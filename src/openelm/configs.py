@@ -209,6 +209,8 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 5 # number of puzzle to generate for one query
+    few_shot_example_gen_puzzle: str= "base" # "base" or "cot_fitness" add fitness score in prompt and ask to gen puzzle with 9-10/10 fitness # how to show few shot when generating new puzzles
+    subskills_examples:bool= False # add subskills examples in prompt
     remove_doc = True # can delete that?
     activate_filtering_description = True # use LLM to describe puzzle after generation so it is not bias by skill labeling
     puzzle_filtering = False # filter or not, only work if puzzle activate_filtering_description = True, filtering not very usefull for now

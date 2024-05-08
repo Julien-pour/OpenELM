@@ -260,9 +260,9 @@ def quality_correlation(quality_metric, old_genomes, new_genomes):
 
 
 def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
-    path_train="/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"
-    with open(path_train, 'r') as f:
-        train_genomes = json.load(f)
+    # path_train="/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"
+    # with open(path_train, 'r') as f:
+    #     train_genomes = json.load(f)
 
     metric_dict = {}
     metric_dict['quality_correlation'] = quality_correlation(
@@ -278,7 +278,7 @@ def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
     ).tolist()
     metric_dict['embedding_similarity_scrambled'] = similarities(
         old_genomes,
-        train_genomes[:len(old_genomes)],# np.random.permutation(new_genomes).tolist(),
+        np.random.permutation(new_genomes).tolist(),
         model_id,
         batch_size,
     ).tolist()
@@ -397,8 +397,11 @@ Generate 5 P3 similar to the last Examples (Puzzle 2). Ensure that all new puzzl
 # )
 def main(
     config_name: Optional[str] = "elm_nlp",
-    prompt_to_test: Optional[str] = None,
+    # name_save: Optional[str] = "base",
+    # prompt_to_test: Optional[str] = None,
     num_puz: Optional[int] = 100,
+    few_shot_example_gen_puzzle: Optional[str] = "base",#"base" or "cot_fitness"
+    subskills_examples: Optional[bool] = False,
 ):
     
     # if config is None:  # hydra not initialized
@@ -412,9 +415,11 @@ def main(
     config = OmegaConf.to_object(config)
 
     elm = ELM(config)
-    elm.qd_algorithm.env.config.activate_filtering_description = False
-    if prompt_to_test is not None:
-        elm.qd_algorithm.env.prompt_seed_function = partial(base_elm_prompt_fn, prompt=prompt_to_test)
+    elm.qd_algorithm.env.config.few_shot_example_gen_puzzle = few_shot_example_gen_puzzle
+    elm.qd_algorithm.env.config.subskills_examples = subskills_examples
+    name_save=f"__{few_shot_example_gen_puzzle}__{subskills_examples}__"
+    # if prompt_to_test is not None:
+    #     elm.qd_algorithm.env.prompt_seed_function = partial(base_elm_prompt_fn, prompt=prompt_to_test)
     # if "elm" in config_name:
     #     elm.config.qd.n_fewshot_examples = elm.config.qd.n_fewshot_examples -1
     quality_metric = None
@@ -444,15 +449,27 @@ def main(
         batch_size=4,
     )
     print('done')
-
-    with open(f'heritability_metrics_{config_name}.json', 'w') as f:
+    save_res_path="/gpfswork/rech/imi/uqv82bm/OpenELM/analysis_P3/heritability/res/"
+    with open(save_res_path+f'heritability_metrics__{config_name}__{name_save}.json', 'w') as f:
         json.dump(metric_dict, f)
-    with open(f"puzzle_{config_name}.json", "w") as f:
+    with open(save_res_path+f"puzzle__{config_name}__{name_save}.json", "w") as f:
         json.dump({"old_genomes":old_genomes,"new_genomes":new_genomes,"metric_dict":metric_dict}, f)
 
 
     return metric_dict
 if __name__ == "__main__":
-    # mp.set_start_method('spawn')
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_name', type=str, default="elm_nlp")
+    parser.add_argument('--num_puz', type=int, default=100)
+    parser.add_argument('--few_shot_example_gen_puzzle', type=str, default="base")
+    parser.add_argument('--subskills_examples', type=str, default="False")
+    args = parser.parse_args()
+    subskills_examples =   args.subskills_examples=="True"
+    main(
+        config_name=args.config_name,
+        num_puz=args.num_puz,
+        few_shot_example_gen_puzzle=args.few_shot_example_gen_puzzle,
+        subskills_examples=subskills_examples,
+    )   
     

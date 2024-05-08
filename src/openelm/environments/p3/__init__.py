@@ -8,7 +8,7 @@ from pydantic import BaseModel,Field
 from openelm.utils.code_eval import find_first_argument_of_first_function
 import copy
 from openelm.environments.p3.prompt_code import base_persona_code, prompt_gen_description
-from openelm.environments.p3.prompt_code import prompt_rd_gen,prompt_elm,prompt_aces,instruction_solve_puzzle
+from openelm.environments.p3.prompt_code import prompt_rd_gen,prompt_elm,prompt_aces,instruction_solve_puzzle,list_subskills
 from openelm.utils.code_eval import extract_arguments_except_first_specific
 skill_list = [
     "String Manipulation",
@@ -135,6 +135,8 @@ def get_programming_puzzles_prompt(
         code_batch: Optional[List[str]] = None,
         skill_targeted: Optional[List[int]]=None,
         n_fewshot_ex=3,
+        few_shot_example_gen_puzzle="base",
+        subskills_examples=False
     ):
     """
     should change that to list_few_shot_example from list to Phenotype type
@@ -144,6 +146,7 @@ def get_programming_puzzles_prompt(
     elm_mode=False
     # prompt_elm=""
     prompt2add=""
+    extra_prompt=""
     aces_mode=False
     if not code_batch is None:
         elm_mode = True
@@ -163,59 +166,40 @@ def get_programming_puzzles_prompt(
     examples = ""
     for i, puzzle in enumerate(puzzles):
         puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
+        if "few_shot_example_gen_puzzle" == "base":
+            examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
+        elif few_shot_example_gen_puzzle == "cot_fitness":
+            prompt_cot_fitness = f"Difficulty score: {int((puzzle.fitness+1)*100)} out of 100"
+            examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n{prompt_cot_fitness}\n```python\n{puzzle.program_str}\n```\n"
 
-        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
     if elm_mode:
         puzzle_description = code_batch[0].description
         p_str = code_batch[0].program_str
         # prompt_elm=f", each being a **mutation** derived from Puzzle {i+1}" #the structure of Puzzle 2
-        examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
-
-    # /!\ should use persona (could be an improved version) smthing like:
-    # You are a helpful assistant to a Professor teaching an undergraduate programming course in Python. 
-    # The teacher have assign to undergraduate student in CS to create a python programming puzzle.
-    # The Professor want to evaluate the diversity of those puzzles, can you label the puzzles please?
-    # base_persona ="You are a helpful assistant to a Professor teaching a programming course in Python. "
-    # base_persona += "The Professor wants to give some puzzles to his master's students to teach them Python.\n" # student -> Master student
-    # prompt = base_persona 
-    # main_prompt = """    I already have a series of Python Programming Puzzles (P3). Each puzzle consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`.
-    # I will provide two existing puzzles for reference, and I need you to create five new distinct puzzles (Puzzle 2 to Puzzle 6){prompt_elm}.
+        if "few_shot_example_gen_puzzle" == "base":
+            examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
+        elif few_shot_example_gen_puzzle == "cot_fitness":
+            prompt_cot_fitness = f"Difficulty score: {int((code_batch[0].fitness+1)*100)} out of 100"
+            examples += f"\nPuzzle {i+1} (to mutate):\nPuzzle description: {puzzle_description}\n```python\n{p_str}\n```\n"
     
-    # Rules:
-    # - Each puzzle includes two functions: `def f(...)` and `def g(...)`.
-    # - The first argument of `f` is always the output from `g()`.
-    # - Ensure `f` and `g` have matching argument signatures (e.g., `def f(arg0, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`).
-    # - Avoid using `f` inside `g`, and `g` inside `f`.
-    # - Include any necessary imports so your code runs smoothly.
-    # - Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
-    # - Make sure the puzzle is self-contained within these two functions.
-
-    # Puzzle Format:
-    # Puzzle description: A brief, one to two sentence summary of the puzzle's content.
-    # ```python
-    # def f(solution, args=...) -> bool:
-    #     # Python code to test the solution returned by g.
-    #     # This function is a test unit and must return True if the solution is correct, and False otherwise.
-
-    # def g(args=...) -> solution:
-    #     # Python code to generate a solution for the problem.
-    #     # The solution should generalize to all possible args.
-    #     return solution
-
-    # assert f(g()) == True
-    # ```
-    # {examples}
-    # Your Task:
-    # Create five new Python Programming Puzzles (Puzzle 2 to Puzzle 6)."""
-    # prompt += textwrap.dedent(main_prompt)
-    
-    # if elm_mode == True:
-    #     prompt2add = f" Ensure that each new puzzle is created by making mutations to Puzzle {i+1}."
     if aces_mode == True:
-        skill_target=""
-        idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
-        for idx in idx_skill_targeted:
-            skill_target += f"\n- {skill_list[idx]}"
+        if subskills_examples:
+            skill_target=", if you want, you can take inspiration from the given subskills:"
+            idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
+            for idx in idx_skill_targeted:
+                skill_target += f"\n* **{skill_list[idx]}**"
+                subskills=list_subskills[idx]
+                # random sampling between 1 and 3 subskills
+                n_subskills = np.random.randint(1,5)
+                subskills = np.random.choice(subskills, n_subskills, replace=False)
+                for subskill in subskills:
+                    skill_target += f"\n  * {subskill}"
+
+        else:
+            skill_target=":"
+            idx_skill_targeted = [idx for idx, val in enumerate(skill_targeted) if val]
+            for idx in idx_skill_targeted:
+                skill_target += f"\n- {skill_list[idx]}"
 
         # previous version
         # prompt2add = " Ensure that each puzzle is meaningfully different from the provided examples and from each other." #The puzzles should be challenging."# and adhere to the specified format."
@@ -223,10 +207,13 @@ def get_programming_puzzles_prompt(
         # prompt2add = " Ensure that the newly created puzzles are of comparable or greater difficulty."
 
         # prompt2add += f" Please make sure that new puzzles are based on ** all ** the following skills:{skill_target}"
+    if aces_mode or elm_mode:
+        if few_shot_example_gen_puzzle == "cot_fitness":
+            extra_prompt="You should aim to generate puzzles with a Difficulty score between 90 and 100 out of 100."
     if aces_mode:
-        prompt = prompt.format(examples=examples,skill_target=skill_target)
+        prompt = prompt.format(examples=examples,skill_target=skill_target,extra=extra_prompt)
     else:
-        prompt = prompt.format(examples=examples)
+        prompt = prompt.format(examples=examples,extra=extra_prompt)
     # prompt += prompt2add
     return prompt
 

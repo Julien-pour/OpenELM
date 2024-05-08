@@ -40,7 +40,7 @@ def main():
     dedup=False
 
     n_skills=20 # length of the skill vector
-    max_workers=40
+    max_workers=min(32, os.cpu_count() + 4)
     with initialize(version_base="1.2"):
         cfg = compose(config_name="elm_nlp")
         # print(cfg)
@@ -235,20 +235,20 @@ def main():
 
 
 
-        import json
-        from openelm.environments.p3.code_sandbox import evaluate
-        import numpy as np
-        path_embed = "/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"
-        with open(path_embed, "r") as f:
-            emb_dict = json.load(f)
-        str_to_add=str(
-                    f"\ndef run_eval():\n"
-                    f"    try:\n"
-                    f"        if f(True) == True:\n"
-                    f"            return False\n"
-                    f"    except:\n"
-                    f"            pass\n"
-                    f"    return f(g())")
+        # import json
+        # from openelm.environments.p3.code_sandbox import evaluate
+        # import numpy as np
+        # path_embed = "/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"
+        # with open(path_embed, "r") as f:
+        #     emb_dict = json.load(f)
+        # str_to_add=str(
+        #             f"\ndef run_eval():\n"
+        #             f"    try:\n"
+        #             f"        if f(True) == True:\n"
+        #             f"            return False\n"
+        #             f"    except:\n"
+        #             f"            pass\n"
+        #             f"    return f(g())")
         # list_codes = [emb_dict[idx]["program_str"].split("assert f")[0]+ "\n"+str_to_add for idx in range(len(emb_dict))]
         # list_task_id = [idx for idx in range(len(list_codes))]
 
