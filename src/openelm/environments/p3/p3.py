@@ -387,7 +387,7 @@ class P3ProbSolResult(Genotype):
             
         dic={"fitness":self.fitness,"program_str":self.program_str, "emb":list(self.emb),"explanation_emb":self.explanation_emb}
         dic.update({"idx_generation":self.idx_generation,"target_skills":list(self.target_skills),"puzzle_history": self.puzzle_history,"puzzles_id_fewshot":self.puzzles_id_fewshot})
-        dic.update({"quality":self.quality,"description" : self.description, "interestingness_f": self.interestingness_f})
+        dic.update({"quality":self.quality,"description" : self.description})
         dic.update({"is_valid":self.is_valid,"is_valid_explanation":self.is_valid_explanation})
         dic.update({"all_solution":self.all_solution, "all_solution_correct" : self.all_solution_correct})
         return dic

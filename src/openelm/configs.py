@@ -93,7 +93,7 @@ class MAPElitesQualityConfig(MAPElitesConfig):
 @dataclass
 class CVTMAPElitesConfig(QDConfig):
     qd_name: str = "cvtmapelites"
-    n_niches: int = 1024
+    n_niches: int = 10000
     cvt_samples: int = 40000
     load_centroids: bool = False # load centroids from log_snapshot_dir
 
