@@ -71,7 +71,7 @@ def g1():
 
         if self.config.embedding_model_type == "hf":
             # when the model can't be loaded, with feat-extraction
-            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+            if "codet5p-110m-embedding" in self.config.embedding_model_path :
                 self.tokenizer = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
                 self.model = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True,
                                                     #    rope_scaling = {"type": "dynamic", "factor": 2}
@@ -776,7 +776,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         print(self.config.embedding_model_path)
         if self.config.embedding_model_type == "hf": 
             # when the model can't be loaded, with feat-extraction
-            if self.config.embedding_model_path =="Salesforce/codet5p-110m-embedding":
+            if "codet5p-110m-embedding" in self.config.embedding_model_path:
                 print( "mode tokenzier + model from huggingface hub")
                 self.tokenizer_emb = AutoTokenizer.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)
                 self.model_emb = AutoModel.from_pretrained(self.config.embedding_model_path, trust_remote_code=True)

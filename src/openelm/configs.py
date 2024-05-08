@@ -482,6 +482,8 @@ aces_smart_yes_quality = [
 ]
 
 aces_smart_diversity = [
+    {"model": "prompt"},
+
     {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
     {"env": "p3_probsol_Chat_IMGEP_smart_diversity"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",    
@@ -495,6 +497,8 @@ aces_smart_elm = [
 ]
 
 aces_smart_elm_diversity = [
+    {"model": "prompt"},
+
     {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
     {"env": "p3_probsol_Chat_IMGEP_smart_elm_diversity"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",
