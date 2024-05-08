@@ -28,7 +28,7 @@ sleep $((RANDOM % MAXWAIT))
 python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 8000 --gpu-memory-utilization 0.6 &
 SERVER_PID=$!
 
-sleep 100
+sleep 30
 
 conda deactivate
 module purge
@@ -50,6 +50,7 @@ python heritability.py --config_name {config_name} --num_puz {num_puz}
 # aces_smart_elm
 # aces_smart_elm_diversity
 list_config=["rd_gen","elm","elm_nlp","aces","aces_smart","aces_smart_diversity","aces_smart_elm","aces_smart_elm_diversity"]
+list_config=["elm"]
 num_puz=100
 for config_name in list_config:
     name=f'vllm41_{config_name}'
