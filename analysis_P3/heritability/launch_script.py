@@ -50,7 +50,7 @@ python heritability.py --config_name {config_name} --num_puz {num_puz}
 # aces_smart_elm
 # aces_smart_elm_diversity
 list_config=["rd_gen","elm","elm_nlp","aces","aces_smart","aces_smart_diversity","aces_smart_elm","aces_smart_elm_diversity"]
-list_config=["elm"]
+list_config=["aces_diversity","aces_elm","aces_elm_diversity"]
 num_puz=100
 for config_name in list_config:
     name=f'vllm41_{config_name}'

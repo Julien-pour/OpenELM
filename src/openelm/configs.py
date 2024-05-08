@@ -296,6 +296,20 @@ class P3ProbSolChatEnv_IMGEP_random_Config(P3ProbSolChatEnvConfig_Base):
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "uniform" # guided exploration mode, option: "uniform" "smart" "none"
 
+@dataclass
+class P3ProbSolChatEnv_IMGEP_random_diversity_Config(P3ProbSolChatEnvConfig_Base):
+    subskills_examples:bool= True
+    aces_elm_mode=False
+
+@dataclass
+class P3ProbSolChatEnv_IMGEP_random_elm_Config(P3ProbSolChatEnvConfig_Base):
+    subskills_examples:bool= False
+    aces_elm_mode=True
+
+@dataclass
+class P3ProbSolChatEnv_IMGEP_random_elm_diversity_Config(P3ProbSolChatEnvConfig_Base):
+    subskills_examples:bool= True
+    aces_elm_mode=True
 
 @dataclass
 class P3ProbSolChatEnv_IMGEP_random_quality_Config(P3ProbSolChatEnv_IMGEP_random_Config):
@@ -504,6 +518,28 @@ aces_smart_elm_diversity = [
     "_self_",
 ]
 
+aces_diversity = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_random_diversity"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+aces_elm = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_random_elm"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+aces_elm_diversity = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_random_elm_diversity"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+
 @dataclass
 class ELMConfig(BaseConfig):
     hydra: Any = field(
@@ -581,6 +617,21 @@ class ACES_smart_elm_diversityConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_smart_elm_diversity)
     unique_id="aces_smart_elm_diversity"
 
+@dataclass
+class ACES_diversityConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_diversity)
+    unique_id="aces_diversity"
+
+@dataclass
+class ACES_elmConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_elm)
+    unique_id="aces_elm"
+
+@dataclass
+class ACES_elm_diversityConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_elm_diversity)
+    unique_id="aces_elm_diversity"
+
 defaults_p3 = [
     {"model": "prompt"},
     {"env": "p3_probsol_Chat"},#p3_probsol_Chat
@@ -637,6 +688,10 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_diversity", node=P3ProbSolChatEnv_IMGEP_smart_diversity_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_elm", node=P3ProbSolChatEnv_IMGEP_smart_elm_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_elm_diversity", node=P3ProbSolChatEnv_IMGEP_smart_elm_diversity_Config)
+    
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_diversity", node=P3ProbSolChatEnv_IMGEP_random_diversity_Config)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_elm", node=P3ProbSolChatEnv_IMGEP_random_elm_Config)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_elm_diversity", node=P3ProbSolChatEnv_IMGEP_random_elm_diversity_Config)
 
 
 
@@ -675,7 +730,9 @@ def register_configstore() -> ConfigStore:
     cs.store(name="aces_smart_diversity", node=ACES_smart_diversityConfig)
     cs.store(name="aces_smart_elm", node=ACES_smart_elmConfig)
     cs.store(name="aces_smart_elm_diversity", node=ACES_smart_elm_diversityConfig)
-
+    cs.store(name="aces_diversity", node=ACES_diversityConfig)
+    cs.store(name="aces_elm", node=ACES_elmConfig)
+    cs.store(name="aces_elm_diversity", node=ACES_elm_diversityConfig)
 
     return cs
 
