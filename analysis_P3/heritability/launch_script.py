@@ -28,7 +28,7 @@ sleep $((RANDOM % MAXWAIT))
 python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 8000 &
 SERVER_PID=$!
 
-sleep ${100}
+sleep 100
 
 conda deactivate
 module purge
@@ -48,6 +48,7 @@ list_subskills_examples = ["True","False"] # only usefull with config_name="aces
 subskills_examples="False"
 for few_shot_example_gen_puzzle in list_few_shot_example_gen_puzzle:
     name=f'vllm41_{config_name}_{few_shot_example_gen_puzzle}_{subskills_examples}'
+    
     script_formated = script_1.format(name=name,config_name=config_name,num_puz=num_puz,few_shot_example_gen_puzzle=few_shot_example_gen_puzzle,subskills_examples=subskills_examples)
     extra_path=name
     slurmfile_path = f'slurm/run_v100inf'+extra_path+'.slurm'
