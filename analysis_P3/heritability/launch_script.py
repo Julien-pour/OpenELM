@@ -58,7 +58,7 @@ for few_shot_example_gen_puzzle in list_few_shot_example_gen_puzzle:
 
 config_name="aces"
 for few_shot_example_gen_puzzle in list_few_shot_example_gen_puzzle:
-    for subskills_examples in enumerate(list_subskills_examples):
+    for subskills_examples in list_subskills_examples:
         name=f'vllm41_{config_name}_{few_shot_example_gen_puzzle}_{subskills_examples}'
         script_formated = script_1.format(name=name,config_name=config_name,num_puz=num_puz,few_shot_example_gen_puzzle=few_shot_example_gen_puzzle,subskills_examples=subskills_examples)
         extra_path=name
