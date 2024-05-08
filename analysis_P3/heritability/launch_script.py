@@ -15,8 +15,8 @@ script_1="""#!/bin/bash
 #SBATCH --hint=nomultithread
 #SBATCH --time=2:00:00
 
-#SBATCH --output=./out/out-%A_%a.out
-#SBATCH --error=./out/out-%A_%a.out
+#SBATCH --output=./out/out-{name}.out
+#SBATCH --error=./out/out-{name}.out
 
 export TMPDIR=$JOBSCRATCH
 module purge
@@ -25,7 +25,7 @@ full_path=$SCRATCH/hf/Meta-Llama-3-70B-Instruct-GPTQ
 conda activate vllm41
 MAXWAIT=30
 sleep $((RANDOM % MAXWAIT))
-python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 8000 &
+python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 8000 --gpu-memory-utilization 0.6 &
 SERVER_PID=$!
 
 sleep 100

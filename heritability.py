@@ -174,9 +174,8 @@ def embed(texts, tokenizer, model, batch_size, device):
         return embs
 
 def embed2(texts, model):
-    with torch.inference_mode():
-        embeddings=torch.tensor(model.encode(texts))
-        embeddings_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+    embeddings=torch.tensor(model.encode(texts))
+    embeddings_norm = torch.nn.functional.normalize(embeddings, p=2, dim=1)
 
     return embeddings_norm
 
@@ -187,16 +186,16 @@ def pointwise_sim(vec1, vec2):
     return res
 
 
-@torch.no_grad()
-def similarities(old_genomes, new_genomes, model_id, batch_size):
+@torch.inference_mode()
+def similarities(old_genomes, new_genomes, model_id, batch_size,model,tokenizer=None):
     # tokenizer = AutoTokenizer.from_pretrained('jinaai/jina-embeddings-v2-base-code')
     if "jina-embeddings-v2-base-code" in model_id: 
-        model = AutoModel.from_pretrained(
-            'jinaai/jina-embeddings-v2-base-code', 
-            trust_remote_code=True,
-            load_in_8bit=True,
-            device_map='auto'
-        )
+        # model = AutoModel.from_pretrained(
+        #     'jinaai/jina-embeddings-v2-base-code', 
+        #     trust_remote_code=True,
+        #     load_in_8bit=True,
+        #     device_map='auto'
+        # )
 
         old_embeddings = embed2(
             [gen['program_str'] for gen in old_genomes],
@@ -218,10 +217,10 @@ def similarities(old_genomes, new_genomes, model_id, batch_size):
             name=model_id
         print("loading emb model"+name)
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModel.from_pretrained(model_id)
-        model.to(device)
-        model.eval()
+        # tokenizer = AutoTokenizer.from_pretrained(model_id)
+        # model = AutoModel.from_pretrained(model_id)
+        # model.to(device)
+        # model.eval()
 
         old_embeddings = embed(
             [gen['program_str'].split("def g")[0].strip() for gen in old_genomes],
@@ -263,6 +262,25 @@ def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
     # path_train="/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"
     # with open(path_train, 'r') as f:
     #     train_genomes = json.load(f)
+    if "jina-embeddings-v2-base-code" in model_id: 
+        model = AutoModel.from_pretrained(
+            'jinaai/jina-embeddings-v2-base-code', 
+            trust_remote_code=True,
+            load_in_8bit=True,
+            device_map='auto'
+        )
+        tokenizer=None
+    else:
+        if "/" in model_id:
+            name=model_id.split("/")[-1]
+        else:
+            name=model_id
+        print("loading emb model"+name)
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModel.from_pretrained(model_id,load_in_8bit=True,device_map='auto')
+        model.to(device)
+        model.eval()
 
     metric_dict = {}
     metric_dict['quality_correlation'] = quality_correlation(
@@ -275,12 +293,14 @@ def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
         new_genomes,
         model_id,
         batch_size,
+        model,tokenizer
     ).tolist()
     metric_dict['embedding_similarity_scrambled'] = similarities(
         old_genomes,
         np.random.permutation(new_genomes).tolist(),
         model_id,
         batch_size,
+        model,tokenizer
     ).tolist()
 
     print(f'Embedding similarity mean {np.mean(metric_dict["embedding_similarity"])}')
