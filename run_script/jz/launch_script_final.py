@@ -42,7 +42,7 @@ cd /gpfswork/rech/imi/uqv82bm/OpenELM/
 seed=$SLURM_ARRAY_TASK_ID
 
 path="" 
-python run_elm.py --config-name={config_run} seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id
+python run_elm.py --config-name={config_name} seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id
 kill $SERVER_PID
 
 """
