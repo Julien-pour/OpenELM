@@ -59,7 +59,7 @@ for config_name in list_config:
         
     script_formated = script_1.format(name=config_name,config_name=config_name)
     extra_path=name
-    slurmfile_path = f'slurm/run_v100inf'+extra_path+'.slurm'
+    slurmfile_path = f'slurm/run_v100_20inf'+extra_path+'.slurm'
     with open(slurmfile_path, 'w') as f:
         f.write(script_formated)
     subprocess.call(f'sbatch {slurmfile_path}', shell=True)
