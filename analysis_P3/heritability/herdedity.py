@@ -124,6 +124,6 @@ last_constraint="""Make sure that the new problems are more complicated by one o
 - for Puzzle 6, you can add more reasoning steps to the problem 
 - for Puzzle 7, you can make some reasoning steps harder for LLM such as ChatGPT. 
 """
-metric_dict = main(prompt_to_test=prompt_elm, num_puz=16,config_name="aces")
+metric_dict = main(num_puz=2,config_name="aces")
 
 print(metric_dict)
