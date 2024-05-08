@@ -209,12 +209,12 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     N_puzzle_to_gen: int = 5 # number of puzzle to generate for one query
-    few_shot_example_gen_puzzle: str= "base" # "base" or "cot_fitness" add fitness score in prompt and ask to gen puzzle with 9-10/10 fitness # how to show few shot when generating new puzzles
+    few_shot_example_gen_puzzle: str= "cot_fitness" # "base" or "cot_fitness" add fitness score in prompt and ask to gen puzzle with 9-10/10 fitness # how to show few shot when generating new puzzles
     subskills_examples:bool= False # add subskills examples in prompt
     remove_doc = True # can delete that?
     activate_filtering_description = True # use LLM to describe puzzle after generation so it is not bias by skill labeling
     puzzle_filtering = False # filter or not, only work if puzzle activate_filtering_description = True, filtering not very usefull for now
-
+    aces_elm_mode=False
 
 @dataclass
 class P3ProbSolChatEnvConfig(P3ProbSolChatEnvConfig_Base):
@@ -261,6 +261,21 @@ class P3ProbSolChatEnv_IMGEP_smart_Config(P3ProbSolChatEnvConfig_Base):
     IMGEP_mode: str = "smart" # guided exploration mode, option: "random" "smart" "none"
 
 @dataclass
+class P3ProbSolChatEnv_IMGEP_smart_diversity_Config(P3ProbSolChatEnv_IMGEP_smart_Config):
+    subskills_examples:bool= True
+    aces_elm_mode=False
+
+@dataclass
+class P3ProbSolChatEnv_IMGEP_smart_elm_Config(P3ProbSolChatEnv_IMGEP_smart_Config):
+    subskills_examples:bool= False
+    aces_elm_mode=True
+
+@dataclass
+class P3ProbSolChatEnv_IMGEP_smart_elm_diversity_Config(P3ProbSolChatEnv_IMGEP_smart_Config):
+    subskills_examples:bool= True
+    aces_elm_mode=True
+
+@dataclass
 class P3ProbSolChatEnv_IMGEP_smart_quality_Config(P3ProbSolChatEnv_IMGEP_smart_Config):
     env_name: str = "p3_probsol_Chat_yes"
     batch_size_quality: Optional[int] = 4
@@ -298,7 +313,7 @@ class P3ProbSolChatEnv_ELM_Config(P3ProbSolChatEnvConfig_Base):
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
     use_preprocessed_trainset_emb: bool = False # True if using NLP feedback
     embedding_model_type: str = "hf" #"hf" # "openai" (for NLP "embedding" or just embedding with text-embedding-ada-002) or "hf" 
-    embedding_model_path: str = "Salesforce/codet5p-110m-embedding" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
+    embedding_model_path: str = "/gpfsscratch/rech/imi/uqv82bm/hf/codet5p-110m-embedding" # "Salesforce/codet5p-110m-embedding" # remove "embedding" to use chatgpt embedding in NLP space, otherwise standard emb model e.g hf: Salesforce/codet5p-110m-embedding ; openai: text-embedding-ada-002
     model_name: str = "chatgpt" # model used for mutation, not used ? (if not used should be removed from the config) 
     GPT_feedback: bool = False # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
@@ -465,6 +480,26 @@ aces_smart_yes_quality = [
     {"env": "p3_probsol_Chat_IMGEP_smart_Yes_quality"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",
 ]
+
+aces_smart_diversity = [
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_smart_diversity"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",    
+]
+
+aces_smart_elm = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_smart_elm"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
+aces_smart_elm_diversity = [
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "p3_probsol_Chat_IMGEP_smart_elm_diversity"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
+
 @dataclass
 class ELMConfig(BaseConfig):
     hydra: Any = field(
@@ -525,6 +560,23 @@ class ACES_smart_yesConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: aces_smart_yes_quality)
     unique_id="aces_smart_yes"
 
+
+#diversity
+@dataclass
+class ACES_smart_diversityConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_smart_diversity)
+    unique_id="aces_smart_diversity"
+
+@dataclass
+class ACES_smart_elmConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_smart_elm)
+    unique_id="aces_smart_elm"
+
+@dataclass
+class ACES_smart_elm_diversityConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: aces_smart_elm_diversity)
+    unique_id="aces_smart_elm_diversity"
+
 defaults_p3 = [
     {"model": "prompt"},
     {"env": "p3_probsol_Chat"},#p3_probsol_Chat
@@ -577,6 +629,13 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolChatEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
     cs.store(group="env", name="P3ProbSolChatEnv_PP_ELM_NLP", node=P3ProbSolChatEnv_PP_ELM_NLP_Config)
+    #diversity
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_diversity", node=P3ProbSolChatEnv_IMGEP_smart_diversity_Config)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_elm", node=P3ProbSolChatEnv_IMGEP_smart_elm_Config)
+    cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_elm_diversity", node=P3ProbSolChatEnv_IMGEP_smart_elm_diversity_Config)
+
+
+
     # quality
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_Yes_quality", node=P3ProbSolChatEnv_IMGEP_smart_quality_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_Yes_quality", node=P3ProbSolChatEnv_IMGEP_random_quality_Config)
@@ -609,6 +668,10 @@ def register_configstore() -> ConfigStore:
     cs.store(name="aces_quality", node=ACES_yesConfig)
     cs.store(name="aces_smart_quality", node=ACES_smart_yesConfig)
     cs.store(name="elm_quality", node=ELM_yesConfig)
+    cs.store(name="aces_smart_diversity", node=ACES_smart_diversityConfig)
+    cs.store(name="aces_smart_elm", node=ACES_smart_elmConfig)
+    cs.store(name="aces_smart_elm_diversity", node=ACES_smart_elm_diversityConfig)
+
 
     return cs
 

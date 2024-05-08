@@ -1012,19 +1012,22 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
 
         if trainset_only: # rd gen
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,
-                                                   few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,subskills_examples=self.config.subskills_examples)                    
+                                            few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,
+                                            subskills_examples=self.config.subskills_examples,prompt_aces_elm=self.config.prompt_aces_elm)                    
         
         elif skill_targeted == []: # elm mode
             # code_batch is puzzle to mutate (last puzzle of list_phenotype)
             code_batch = [list_phenotype[-1]]
             list_phenotype = list_phenotype[:-1]
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype, code_batch=code_batch,
-                                                   few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,subskills_examples=self.config.subskills_examples)
+                                        few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,
+                                        subskills_examples=self.config.subskills_examples,prompt_aces_elm=self.config.prompt_aces_elm)
             # for i in code_batch:
             list_id_puzzle_fewshot.append(code_batch[0].unique_id)
         else:
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,skill_targeted=skill_targeted,
-                                                   few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,subskills_examples=self.config.subskills_examples)
+                                        few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,
+                                        subskills_examples=self.config.subskills_examples,prompt_aces_elm=self.config.prompt_aces_elm)
         
         template = ""#f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         few_shot_ex = [puz.program_str for puz in list_phenotype]

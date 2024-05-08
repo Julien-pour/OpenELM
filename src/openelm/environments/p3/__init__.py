@@ -8,7 +8,7 @@ from pydantic import BaseModel,Field
 from openelm.utils.code_eval import find_first_argument_of_first_function
 import copy
 from openelm.environments.p3.prompt_code import base_persona_code, prompt_gen_description
-from openelm.environments.p3.prompt_code import prompt_rd_gen,prompt_elm,prompt_aces,instruction_solve_puzzle,list_subskills
+from openelm.environments.p3.prompt_code import prompt_rd_gen,prompt_elm,prompt_aces,prompt_aces_elm,instruction_solve_puzzle,list_subskills
 from openelm.utils.code_eval import extract_arguments_except_first_specific
 skill_list = [
     "String Manipulation",
@@ -136,7 +136,8 @@ def get_programming_puzzles_prompt(
         skill_targeted: Optional[List[int]]=None,
         n_fewshot_ex=3,
         few_shot_example_gen_puzzle="base",
-        subskills_examples=False
+        subskills_examples=False,
+        aces_elm_mode=False
     ):
     """
     should change that to list_few_shot_example from list to Phenotype type
@@ -154,6 +155,8 @@ def get_programming_puzzles_prompt(
     if not skill_targeted is None:
         aces_mode = True
         prompt = copy.deepcopy(prompt_aces)
+        if aces_elm_mode:
+            prompt = copy.deepcopy(prompt_aces_elm)
     if not (elm_mode or aces_mode):
         prompt = copy.deepcopy(prompt_rd_gen)
     if not isinstance(list_few_shot_example, list):

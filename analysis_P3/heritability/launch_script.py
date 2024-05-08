@@ -39,31 +39,24 @@ conda activate codegpt
 
 
 cd /gpfswork/rech/imi/uqv82bm/OpenELM/
-python heritability.py --config_name {config_name} --num_puz {num_puz} --few_shot_example_gen_puzzle {few_shot_example_gen_puzzle} --subskills_examples {subskills_examples}
+python heritability.py --config_name {config_name} --num_puz {num_puz}
 """
-config_name="elm_nlp"
-num_puz=64
-list_few_shot_example_gen_puzzle=["base","cot_fitness"]
-list_subskills_examples = ["True","False"] # only usefull with config_name="aces"
-subskills_examples="False"
-for few_shot_example_gen_puzzle in list_few_shot_example_gen_puzzle:
-    name=f'vllm41_{config_name}_{few_shot_example_gen_puzzle}_{subskills_examples}'
-    
-    script_formated = script_1.format(name=name,config_name=config_name,num_puz=num_puz,few_shot_example_gen_puzzle=few_shot_example_gen_puzzle,subskills_examples=subskills_examples)
+# rd_gen
+# elm
+# elm_nlp
+# aces 
+# aces_smart
+# aces_smart_diversity
+# aces_smart_elm
+# aces_smart_elm_diversity
+list_config=["rd_gen","elm","elm_nlp","aces","aces_smart","aces_smart_diversity","aces_smart_elm","aces_smart_elm_diversity"]
+num_puz=100
+for config_name in list_config:
+    name=f'vllm41_{config_name}'
+        
+    script_formated = script_1.format(name=name,config_name=config_name,num_puz=num_puz)
     extra_path=name
     slurmfile_path = f'slurm/run_v100inf'+extra_path+'.slurm'
     with open(slurmfile_path, 'w') as f:
         f.write(script_formated)
     subprocess.call(f'sbatch {slurmfile_path}', shell=True)
-
-
-config_name="aces"
-for few_shot_example_gen_puzzle in list_few_shot_example_gen_puzzle:
-    for subskills_examples in list_subskills_examples:
-        name=f'vllm41_{config_name}_{few_shot_example_gen_puzzle}_{subskills_examples}'
-        script_formated = script_1.format(name=name,config_name=config_name,num_puz=num_puz,few_shot_example_gen_puzzle=few_shot_example_gen_puzzle,subskills_examples=subskills_examples)
-        extra_path=name
-        slurmfile_path = f'slurm/run_v100inf'+extra_path+'.slurm'
-        with open(slurmfile_path, 'w') as f:
-            f.write(script_formated)
-        subprocess.call(f'sbatch {slurmfile_path}', shell=True)

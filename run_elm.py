@@ -31,17 +31,26 @@ logging.set_verbosity_error()  # avoid all FutureWarnings
 
 
 @hydra.main(
-    config_name="rd_gen",
+    config_name="aces",
     version_base="1.2",
 )
 def main(config):
+    if "/" in config["model"]["model_path"]:
+        model_name=config["model"]["model_path"].split("/")[-1]
+    else:
+        model_name=config["model"]["model_path"]
+    
     path_out=HydraConfig.get().runtime.output_dir
+    path_out=path_out.replace("logs/elm",f"logs/elm/{model_name}")
     config.output_dir = path_out
+    config.qd.output_dir = path_out
     print("----------------- Config ---------------")
     print(OmegaConf.to_yaml(config))
     print("-----------------  End -----------------")
     config = OmegaConf.to_object(config)
     config.qd.unique_id = config.unique_id+"_s"+str(config.qd.seed)+"_p"
+    config.output_dir = path_out
+    config.qd.output_dir = path_out
 
     elm = ELM(config)
     print(

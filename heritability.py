@@ -435,9 +435,9 @@ def main(
     config = OmegaConf.to_object(config)
 
     elm = ELM(config)
-    elm.qd_algorithm.env.config.few_shot_example_gen_puzzle = few_shot_example_gen_puzzle
-    elm.qd_algorithm.env.config.subskills_examples = subskills_examples
-    name_save=f"__{few_shot_example_gen_puzzle}__{subskills_examples}__"
+    # elm.qd_algorithm.env.config.few_shot_example_gen_puzzle = few_shot_example_gen_puzzle
+    # elm.qd_algorithm.env.config.subskills_examples = subskills_examples
+    name_save=f"__{config_name}"
     # if prompt_to_test is not None:
     #     elm.qd_algorithm.env.prompt_seed_function = partial(base_elm_prompt_fn, prompt=prompt_to_test)
     # if "elm" in config_name:
@@ -470,9 +470,9 @@ def main(
     )
     print('done')
     save_res_path="/gpfswork/rech/imi/uqv82bm/OpenELM/analysis_P3/heritability/res/"
-    with open(save_res_path+f'heritability_metrics__{config_name}__{name_save}.json', 'w') as f:
+    with open(save_res_path+f'heritability_metrics__{config_name}.json', 'w') as f:
         json.dump(metric_dict, f)
-    with open(save_res_path+f"puzzle__{config_name}__{name_save}.json", "w") as f:
+    with open(save_res_path+f"puzzle__{config_name}.json", "w") as f:
         json.dump({"old_genomes":old_genomes,"new_genomes":new_genomes,"metric_dict":metric_dict}, f)
 
 
