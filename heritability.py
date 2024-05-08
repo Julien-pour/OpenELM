@@ -278,8 +278,8 @@ def get_metrics(quality_metric, old_genomes, new_genomes, model_id, batch_size):
         print("loading emb model"+name)
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModel.from_pretrained(model_id,load_in_8bit=True,device_map='auto')
-        model.to(device)
+        model = AutoModel.from_pretrained(model_id,device_map='auto')
+        # model.to(device)
         model.eval()
 
     metric_dict = {}
@@ -466,7 +466,7 @@ def main(
         old_genomes,
         new_genomes,
         model_id=model_id,
-        batch_size=4,
+        batch_size=2,
     )
     print('done')
     save_res_path="/gpfswork/rech/imi/uqv82bm/OpenELM/analysis_P3/heritability/res/"
