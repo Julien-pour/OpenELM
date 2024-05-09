@@ -297,17 +297,17 @@ class P3ProbSolChatEnv_IMGEP_random_Config(P3ProbSolChatEnvConfig_Base):
     IMGEP_mode: str = "uniform" # guided exploration mode, option: "uniform" "smart" "none"
 
 @dataclass
-class P3ProbSolChatEnv_IMGEP_random_diversity_Config(P3ProbSolChatEnvConfig_Base):
+class P3ProbSolChatEnv_IMGEP_random_diversity_Config(P3ProbSolChatEnv_IMGEP_random_Config):
     subskills_examples:bool= True
     aces_elm_mode=False
 
 @dataclass
-class P3ProbSolChatEnv_IMGEP_random_elm_Config(P3ProbSolChatEnvConfig_Base):
+class P3ProbSolChatEnv_IMGEP_random_elm_Config(P3ProbSolChatEnv_IMGEP_random_Config):
     subskills_examples:bool= False
     aces_elm_mode=True
 
 @dataclass
-class P3ProbSolChatEnv_IMGEP_random_elm_diversity_Config(P3ProbSolChatEnvConfig_Base):
+class P3ProbSolChatEnv_IMGEP_random_elm_diversity_Config(P3ProbSolChatEnv_IMGEP_random_Config):
     subskills_examples:bool= True
     aces_elm_mode=True
 
