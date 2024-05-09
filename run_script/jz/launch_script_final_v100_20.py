@@ -13,7 +13,7 @@ script_1="""#!/bin/bash
 #SBATCH --cpus-per-task=40
 #SBATCH --hint=nomultithread
 #SBATCH --time=20:00:00
-#SBATCH --array=20-23
+#SBATCH --array=25-28
 #SBATCH --output=./out/out-{name}-%a.out
 #SBATCH --error=./out/out-{name}-%a.out
 
@@ -53,7 +53,9 @@ kill $SERVER_PID
 # aces_smart_diversity
 # aces_smart_elm
 # aces_smart_elm_diversity
-list_config=["rd_gen","elm","elm_nlp","aces","aces_smart","aces_smart_diversity","aces_smart_elm","aces_smart_elm_diversity","aces_diversity","aces_elm","aces_elm_diversity"]
+# list_config=["rd_gen","elm","elm_nlp","aces","aces_smart","aces_smart_diversity","aces_smart_elm","aces_smart_elm_diversity","aces_diversity","aces_elm","aces_elm_diversity"]
+list_config=["aces_diversity","aces_elm","aces_elm_diversity"]
+
 for config_name in list_config:
     name=f'vllm41_v100_{config_name}'
         
