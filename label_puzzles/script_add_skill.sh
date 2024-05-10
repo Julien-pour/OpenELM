@@ -4,8 +4,8 @@
 #SBATCH --job-name={name}
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:8
-#SBATCH --cpus-per-task=64
+#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=32
 #SBATCH --hint=nomultithread
 #SBATCH --qos=qos_gpu-dev
 #SBATCH --time=2:00:00
