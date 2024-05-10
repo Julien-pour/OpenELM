@@ -23,7 +23,7 @@ full_path=$SCRATCH/hf/Meta-Llama-3-70B-Instruct-GPTQ
 conda activate vllm41
 MAXWAIT=200
 sleep $((RANDOM % MAXWAIT))
-python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 2 --max-model-len 8000 --gpu-memory-utilization 0.8 &
+python -m vllm.entrypoints.openai.api_server --model $full_path --dtype half --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 8000 --gpu-memory-utilization 0.8 &
 SERVER_PID=$!
 
 sleep 100
@@ -33,7 +33,7 @@ conda deactivate
 module purge
 module load cpuarch/amd
 module load python/3.11.5
-list_path=("/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-10.json" "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-11.json" "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-12.json" "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-13.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json")
+list_path=("/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-10.json" "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-11.json" "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-12.json" "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-13.json")
 path= ${list_path[$index]}
 conda activate codegpt
 
