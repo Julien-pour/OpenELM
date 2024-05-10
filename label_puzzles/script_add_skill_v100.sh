@@ -5,9 +5,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:4
+#SBATCH --qos=qos_gpu-dev
 #SBATCH --cpus-per-task=40
 #SBATCH --hint=nomultithread
-#SBATCH --time=20:00:00
+#SBATCH --time=02:00:00
 #SBATCH --array=0-3
 #SBATCH --output=./out/ou--%a.out
 #SBATCH --error=./out/out-%a.out
