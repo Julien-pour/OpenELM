@@ -18,7 +18,7 @@ def main():
     import instructor
     script_dir = os.path.dirname(__file__) 
 
-    path_base="/home/flowers/work/evaluate_model/archives/"
+    path_base="/home/flowers/work/evaluate_model/archives/4a100"
     list_archive=["rd_gen_seed-1.json",
             "elm_quality_seed-1.json",
             "elm_nlp_quality_seed-1.json",
@@ -28,15 +28,19 @@ def main():
             "aces_smart_quality_seed-1.json",
             ]
     # list_emb= [path_base+archive for archive in list_archive]
-    list_emb=["/gpfswork/rech/imi/uqv82bm/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#]
+    list_emb=["/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-10.json",
+              "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-11.json"
+              "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-12.json",
+              "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-13.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#]
+    
     # list_emb= ["/home/flowers/work/OpenELM/logs/archives/elm_nlp_seed-1.json",
     #            "/home/flowers/work/OpenELM/logs/archives/rd_gen_seed-1.json"]
     # list_emb= ["/projets/flowers/julien/OpenELM/logs/archives/elm_nlp_seed-1.json",
     #            "/projets/flowers/julien/OpenELM/logs/archives/rd_gen_seed-1.json"]
     bs=4
     generate_skills=True
-    generate_description=True
-    generate_quality=True
+    generate_description=False
+    generate_quality=False
     dedup=False
 
     n_skills=20 # length of the skill vector
@@ -52,7 +56,7 @@ def main():
             }
     if generate_skills or generate_description or generate_quality:
         client = get_model(config.model)
-        instructor_client = instructor.patch(client)
+        # instructor_client = instructor.patch(client)
         from openelm import ELM
         elm = ELM(config)
 
