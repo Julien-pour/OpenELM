@@ -9,7 +9,7 @@ script='''#!/bin/bash
 #SBATCH --hint=nomultithread
 #SBATCH --time=20:00:00
 #SBATCH --output=./out/out{out1}-%a.out
-#SBATCH --error=./out/out(out2}-%a.out
+#SBATCH --error=./out/out{out2}-%a.out
 
 export TMPDIR=$JOBSCRATCH
 
