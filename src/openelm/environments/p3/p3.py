@@ -898,7 +898,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if self.config.GPT_feedback:
             # for api based model
             completions=[]
-            max_workers = self.mutation_model.config.processes
+            max_workers = min(32, os.cpu_count() + 4)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 for sub_batch in chunks(list_program_str, max_workers):
                     for idx,message_list in enumerate(sub_batch):
