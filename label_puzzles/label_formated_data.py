@@ -16,6 +16,10 @@ def main():
     from tqdm import tqdm
     import os
     import instructor
+    import argparse
+    parser = argparse.ArgumentParser(description="Example script for argument parsing")
+    parser.add_argument("--path", type=str, help="path_to_label",default="None")#"/home/flowers/work/eval_model2/")#)
+    args = parser.parse_args()
     script_dir = os.path.dirname(__file__) 
 
     path_base="/home/flowers/work/evaluate_model/archives/4a100"
@@ -28,11 +32,13 @@ def main():
             "aces_smart_quality_seed-1.json",
             ]
     # list_emb= [path_base+archive for archive in list_archive]
-    list_emb=["/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-10.json",
-              "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-11.json"
-              "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-12.json",
-              "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-13.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#]
-    
+    if args.path=="None":
+        list_emb=["/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-10.json",
+                "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-11.json"
+                "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-12.json",
+                "/gpfswork/rech/imi/uqv82bm/OpenELM/logs/archives/llama-70/4a100/elm_seed-13.json"]#"/home/flowers/work/OpenELM/src/openelm/utils/preprocess_p3_emb_dedup_puzzles.json"]#]
+    else:
+        list_emb=[args.path]
     # list_emb= ["/home/flowers/work/OpenELM/logs/archives/elm_nlp_seed-1.json",
     #            "/home/flowers/work/OpenELM/logs/archives/rd_gen_seed-1.json"]
     # list_emb= ["/projets/flowers/julien/OpenELM/logs/archives/elm_nlp_seed-1.json",
