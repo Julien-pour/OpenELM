@@ -7,10 +7,11 @@
 #SBATCH --gres=gpu:8
 #SBATCH --cpus-per-task=64
 #SBATCH --hint=nomultithread
+#SBATCH --qos=qos_gpu-dev
 #SBATCH --time=2:00:00
 #SBATCH --array=0-3
-#SBATCH --output=./out/out-{name}-%a.out
-#SBATCH --error=./out/out-{name}-%a.out
+#SBATCH --output=./out/ou--%a.out
+#SBATCH --error=./out/out-%a.out
 
 export TMPDIR=$JOBSCRATCH
 
