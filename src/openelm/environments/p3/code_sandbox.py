@@ -247,7 +247,7 @@ def unsafe_execute(
         chdir = os.chdir
         # Disable functionalities that can make destructive changes to the test.
         # allow only 2GB memory usage
-        maximum_memory_bytes = int(4 * 1024 * 1024 * 1024)
+        maximum_memory_bytes = int(2 * 1024 * 1024 * 1024)
         reliability_guard(maximum_memory_bytes=maximum_memory_bytes)
         exec_globals = {}
         try:
@@ -269,7 +269,7 @@ def unsafe_execute(
 
 
                 except BaseException as e:
-                    # print("error "+str(e))
+                    print("error "+str(e))
                     if fast_check:
                         raise
 
@@ -282,7 +282,7 @@ def unsafe_execute(
 
             stat.value = _SUCCESS
         except BaseException as e:
-            # print("error "+str(e))
+            print("error "+str(e))
             stat.value = _FAILED
         # Needed for cleaning up.
         shutil.rmtree = rmtree

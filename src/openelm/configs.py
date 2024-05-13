@@ -19,7 +19,7 @@ class ModelConfig(BaseConfig):
     gpus: int = 1
     deterministic: bool = False
     top_p: float = 1.
-    temp: float = 1.0
+    temp: float = 0.8
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 32
     model_type: str = "openai"  # Can be "hf", "openai", etc

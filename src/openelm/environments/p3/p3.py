@@ -1306,13 +1306,18 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             list_task_id.extend(new_list_task_id)
         str_to_add=str(
                     f"\ndef run_eval():\n"
-                    f"    try:\n"
-                    f"        if f(True) == True:\n"
-                    f"            return False\n"
-                    f"    except:\n"
-                    f"            pass\n"
-                    f"    return f(g())"
+                    f"    return f(g()) == True"
                 )
+        
+        # str_to_add=str(
+        #             f"\ndef run_eval():\n"
+        #             f"    try:\n"
+        #             f"        if f(True) == True:\n"
+        #             f"            return False\n"
+        #             f"    except:\n"
+        #             f"            pass\n"
+        #             f"    return f(g())"
+        #         )
         
         list_puzzle = [puz.split("\nassert f")[0]+str_to_add for puz in list_puzzle]
         typing_stuff2check = ["List","Dict"]

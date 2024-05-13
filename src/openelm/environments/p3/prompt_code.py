@@ -88,7 +88,8 @@ Generate 5 P3 similar to the last Examples (Puzzle 2). Ensure that all new puzzl
 ## New 5 problems inspired by Puzzle 2:
 """
 
-prompt_aces= """Consider Python Programming Puzzles (P3). P3 consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`
+#run_8xA100
+prompt_aces_V1= """Consider Python Programming Puzzles (P3). P3 consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`
 
 ## Main Rules:
 - Each puzzle includes two functions: `def f(...)` and `def g(...)`.
@@ -123,6 +124,78 @@ Generate 5 P3 similar to previous Examples. Ensure that all new puzzles are more
 Please make sure that new puzzles have all the following skills{skill_target}
 ## New 5 problems inspired by Puzzle from Examples:
 """
+prompt_aces= """Consider Python Programming Puzzles (P3). P3 consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`
+
+## Main Rules:
+- Each puzzle includes two functions: `def f(...)` and `def g(...)`.
+- The first argument of `f` is always the output from `g()`.
+- Ensure `f` and `g` have matching argument signatures (e.g., `def f(solution, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`). You also need to set the value of argument of f (arg1,arg2,...) and g when you define them.
+- Avoid using `f` inside `g`, and `g` inside `f`.
+- Include any necessary imports so your code runs smoothly.
+- Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
+- Make sure the puzzle is self-contained within these two functions.
+- Make sure that that each puzzle have just all required skills (see below)
+
+## P3 Format:
+Puzzle description: A two to four sentence summary of the puzzle's content. To explain what is the problem `f`, and how you can solve it with `g`. 
+```python
+def f(solution, args=...) -> bool:
+    # Python code to test the solution returned by g.
+    # This function is a test unit and must return True if the solution is correct, and False otherwise.
+
+def g(args=...) -> solution:
+    # Python code to generate a solution for the problem.
+    # The solution should generalize to all possible args.
+    return solution
+
+assert f(g()) == True
+```
+
+## Examples:
+{examples}
+
+Generate 5 P3 similar to previous Examples. Ensure that all new puzzles are more challenging than Puzzle from previous examples.
+{extra}
+
+**Please make sure that new puzzles have JUST ALL the following skills**{skill_target}
+## New 5 problems:
+"""
+#run_8xA100
+prompt_aces_elm_v1= """Consider Python Programming Puzzles (P3). P3 consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`
+
+## Main Rules:
+- Each puzzle includes two functions: `def f(...)` and `def g(...)`.
+- The first argument of `f` is always the output from `g()`.
+- Ensure `f` and `g` have matching argument signatures (e.g., `def f(solution, arg1=value1, arg2=value2, ...)` and `def g(arg1=value1, arg2=value2, ...)`). You also need to set the value of argument of f (arg1,arg2,...) and g when you define them.
+- Avoid using `f` inside `g`, and `g` inside `f`.
+- Include any necessary imports so your code runs smoothly.
+- Give a clear Puzzle description that must be brief and diverse compared to the other puzzles.
+- Make sure the puzzle is self-contained within these two functions.
+
+## P3 Format:
+Puzzle description: A two to four sentence summary of the puzzle's content. To explain what is the problem `f`, and how you can solve it with `g`. 
+```python
+def f(solution, args=...) -> bool:
+    # Python code to test the solution returned by g.
+    # This function is a test unit and must return True if the solution is correct, and False otherwise.
+
+def g(args=...) -> solution:
+    # Python code to generate a solution for the problem.
+    # The solution should generalize to all possible args.
+    return solution
+
+assert f(g()) == True
+```
+
+## Examples:
+{examples}
+
+Generate 5 P3 similar to the last Examples (Puzzle 2). Ensure that all new puzzles are more challenging than Puzzle 2.
+{extra}
+
+Please make sure that new puzzles have all the following skills{skill_target}
+## New 5 problems inspired by Puzzle 2:
+"""
 
 prompt_aces_elm= """Consider Python Programming Puzzles (P3). P3 consists of two functions: a problem function `f` and its corresponding solution `g`. The challenge lies in constructing a SAT problem `f` and a function `g` such that `f(g())` evaluates to `True`
 
@@ -156,7 +229,7 @@ assert f(g()) == True
 Generate 5 P3 similar to the last Examples (Puzzle 2). Ensure that all new puzzles are more challenging than Puzzle 2.
 {extra}
 
-Please make sure that new puzzles have all the following skills{skill_target}
+**Please make sure that new puzzles have JUST ALL the following skills**{skill_target}
 ## New 5 problems inspired by Puzzle 2:
 """
 

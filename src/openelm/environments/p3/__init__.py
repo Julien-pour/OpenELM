@@ -169,11 +169,22 @@ def get_programming_puzzles_prompt(
     examples = ""
     for i, puzzle in enumerate(puzzles):
         puzzle_description = puzzle.description # /!\ need to implement that puzzle.description /!\
-        if "few_shot_example_gen_puzzle" == "base":
-            examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n```python\n{puzzle.program_str}\n```\n"
-        elif few_shot_example_gen_puzzle == "cot_fitness":
-            prompt_cot_fitness = f"Difficulty score: {int((puzzle.fitness+1)*100)} out of 100"
-            examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n{prompt_cot_fitness}\n```python\n{puzzle.program_str}\n```\n"
+        # if "few_shot_example_gen_puzzle" == "base":
+        prompt_cot_fitness = ""
+        skill_puzzle_i=""
+        if few_shot_example_gen_puzzle == "cot_fitness":
+            prompt_cot_fitness = f"\n\n- Difficulty score: {int((puzzle.fitness+1)*100)} out of 100"
+        if aces_mode:
+            skill_puzzle_i="\n\n- This puzzle has the following skills:"
+            idx_skill_targeted = [idx for idx, val in enumerate(puzzle.emb) if val]
+            for idx in idx_skill_targeted:
+                skill_puzzle_i += f"\n* {skill_list[idx]}"
+
+        examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}{prompt_cot_fitness}{skill_puzzle_i}\n\n```python\n{puzzle.program_str}\n```\n"
+            
+        # elif few_shot_example_gen_puzzle == "cot_fitness":
+        #     prompt_cot_fitness = f"Difficulty score: {int((puzzle.fitness+1)*100)} out of 100"
+        #     examples += f"\nPuzzle {i}:\nPuzzle description: {puzzle_description}\n{prompt_cot_fitness}\n```python\n{puzzle.program_str}\n```\n"
 
     if elm_mode:
         puzzle_description = code_batch[0].description
