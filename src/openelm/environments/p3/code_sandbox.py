@@ -269,7 +269,7 @@ def unsafe_execute(
 
 
                 except BaseException as e:
-                    print("error "+str(e))
+                    # print("error "+str(e))
                     if fast_check:
                         raise
 
@@ -282,7 +282,7 @@ def unsafe_execute(
 
             stat.value = _SUCCESS
         except BaseException as e:
-            print("error "+str(e))
+            # print("error "+str(e))
             stat.value = _FAILED
         # Needed for cleaning up.
         shutil.rmtree = rmtree
