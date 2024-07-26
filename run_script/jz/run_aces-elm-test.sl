@@ -37,7 +37,7 @@ conda deactivate
 module purge
 module load python/3.11.5
 
-conda activate codegpt
+conda activate codegpt2
 
 cd /gpfswork/rech/imi/uqv82bm/OpenELM/
 seed=1
