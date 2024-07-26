@@ -1203,7 +1203,7 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             new_list_task_id.extend([list_task_id[id] for _ in range(n_new_sol2gen)])
         template = ""
         # code_batch=[{"prompt":prompt,"template":template} for prompt in list_all_prompts] # -1 because we already have the original problem
-        _generated_programs = self.mutation_model.generate_completion(list_all_prompts,n_completions=n_new_sol2gen,max_tokens=2000)
+        _generated_programs = self.mutation_model.generate_completion(list_all_prompts,n_completions=n_new_sol2gen,max_tokens=1256)
         list_all_prompts_duplicate= copy.deepcopy(list_all_prompts)
         list_all_prompts_duplicate= [prompt for prompt in list_all_prompts_duplicate for _ in range(n_new_sol2gen)]
         if n_new_sol2gen>1:

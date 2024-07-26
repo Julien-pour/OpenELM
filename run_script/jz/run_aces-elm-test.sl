@@ -12,8 +12,8 @@
 #SBATCH --hint=nomultithread
 #SBATCH --time=01:00:00
 
-#SBATCH --output=./out/out_finetune_deep-%A_%a.out
-#SBATCH --error=./out/out_finetune_deep-%A_%a.out
+#SBATCH --output=./out/aces_elm-%A_%a.out
+#SBATCH --error=./out/aces_elm-%A_%a.out
 export TMPDIR=$JOBSCRATCH
 module purge
 module load python/3.11.5
@@ -26,7 +26,7 @@ full_path=$SCRATCH/hf/$model_names_id
 conda activate vllm532  # dont forget to
 MAXWAIT=20
 sleep $((RANDOM % MAXWAIT))
-python -m vllm.entrypoints.openai.api_server --model $full_path --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 7000 &
+python -m vllm.entrypoints.openai.api_server --model $full_path --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 6000 &
 SERVER_PID=$!
 
 # Wait for the server to be ready
