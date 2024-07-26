@@ -5,11 +5,12 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=40
+#SBATCH --cpus-per-task=36
 #SBATCH --array=0
+#SBATCH --qos=qos_gpu-dev
 
 #SBATCH --hint=nomultithread
-#SBATCH --time=20:00:00
+#SBATCH --time=01:00:00
 
 #SBATCH --output=./out/out_finetune_deep-%A_%a.out
 #SBATCH --error=./out/out_finetune_deep-%A_%a.out
