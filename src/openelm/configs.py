@@ -196,6 +196,7 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     env_name: str = "p3_probsol_Chat"
     prompt_size: str = "med"  # med  
     use_preprocessed_trainset: bool = True # use preprocessed trainset for faster loading + add it to the MAP
+    recompute_difficulty: bool = True # recompute difficulty for each puzzle
     use_preprocessed_trainset_emb: bool = True # True if using NLP feedback
     limited_trainset= True # start with few example ~ 130 examples
     timeout: float = 10.0  # timeout for running a solution

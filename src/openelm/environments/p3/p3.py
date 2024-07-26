@@ -997,7 +997,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         for puz in list_p3:
             if not hasattr(puz,"unique_id"):
                 raise ValueError("no unique_id in the trainset")
-        self.archive_P3puzzle = list_p3
+        if self.config.recompute_difficulty:
+            list_p3_difficulty_recomputed = self.multiple_fitness_v2(list_p3)
+        self.archive_P3puzzle = list_p3_difficulty_recomputed
     
     def construct_prompt(
         self, list_phenotype, skill_targeted=[], trainset_only = False
