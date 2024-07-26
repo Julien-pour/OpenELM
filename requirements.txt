@@ -25,5 +25,4 @@ seaborn
 peft
 pynvml
 packaging
-flash_attn
 instructor
