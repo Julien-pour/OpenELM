@@ -999,8 +999,9 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
                 raise ValueError("no unique_id in the trainset")
         if self.config.recompute_difficulty:
             list_p3_difficulty_recomputed = self.multiple_fitness_v2(list_p3)
-        self.archive_P3puzzle = list_p3_difficulty_recomputed
-    
+            self.archive_P3puzzle = list_p3_difficulty_recomputed
+        else:
+            self.archive_P3puzzle = list_p3
     def construct_prompt(
         self, list_phenotype, skill_targeted=[], trainset_only = False
     ) -> dict[str, str]:
@@ -1015,7 +1016,8 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
         if trainset_only: # rd gen
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,
                                             few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,
-                                            subskills_examples=self.config.subskills_examples,aces_elm_mode=self.config.aces_elm_mode)                    
+                                            subskills_examples=self.config.subskills_examples,aces_elm_mode=self.config.aces_elm_mode,
+                                            wizard_coder=self.config.wizard_coder)                    
         
         elif skill_targeted == []: # elm mode
             # code_batch is puzzle to mutate (last puzzle of list_phenotype)
@@ -1023,13 +1025,15 @@ class P3ProbSol_Chat(BaseEnvironment[P3ProbSolResult]):
             list_phenotype = list_phenotype[:-1]
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype, code_batch=code_batch,
                                         few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,
-                                        subskills_examples=self.config.subskills_examples,aces_elm_mode=self.config.aces_elm_mode)
+                                        subskills_examples=self.config.subskills_examples,aces_elm_mode=self.config.aces_elm_mode,
+                                        wizard_coder=self.config.wizard_coder)
             # for i in code_batch:
             list_id_puzzle_fewshot.append(code_batch[0].unique_id)
         else:
             prompt_str = self.prompt_seed_function(list_few_shot_example=list_phenotype,skill_targeted=skill_targeted,
                                         few_shot_example_gen_puzzle=self.config.few_shot_example_gen_puzzle,
-                                        subskills_examples=self.config.subskills_examples,aces_elm_mode=self.config.aces_elm_mode)
+                                        subskills_examples=self.config.subskills_examples,aces_elm_mode=self.config.aces_elm_mode,
+                                        wizard_coder=self.config.wizard_coder)
         
         template = ""#f"{P3_IMPORTS}\n"#{self.new_probsol_preamble}"
         few_shot_ex = [puz.program_str for puz in list_phenotype]

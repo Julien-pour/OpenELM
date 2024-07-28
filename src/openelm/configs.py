@@ -168,7 +168,7 @@ class P3ProbSolEnvConfig(EnvConfig):
     embedding_model_type: str = "openai"  # openai or hf
     embedding_model_path: str = "text-embedding-ada-002"  # e.g. hf: Salesforce/codegen-350M-mono ; openai: text-embedding-ada-002
     model_name: str = "openai" # model used for mutation
-    
+    uniform_sampling_fewshot: bool = False # sample uniformely example doesn't take into account niches 
 
 
 @dataclass
@@ -216,6 +216,8 @@ class P3ProbSolChatEnvConfig_Base(EnvConfig):
     activate_filtering_description = True # use LLM to describe puzzle after generation so it is not bias by skill labeling
     puzzle_filtering = False # filter or not, only work if puzzle activate_filtering_description = True, filtering not very usefull for now
     aces_elm_mode=False
+    uniform_sampling_fewshot: bool = False # sample uniformely example doesn't take into account niches 
+    wizard_coder=False # use wizard coder to generate puzzle
 
 @dataclass
 class P3ProbSolChatEnvConfig(P3ProbSolChatEnvConfig_Base):
@@ -248,7 +250,11 @@ class P3ProbSolChatEnvConfig(P3ProbSolChatEnvConfig_Base):
     GPT_feedback: bool = True # use GPT for feedback (MapElites)  
     IMGEP_mode: str = "none" # guided exploration mode, option: "random" "smart" "none"
     
-    
+@dataclass
+class P3ProbSolChatEnv_Wizard_Config(P3ProbSolChatEnvConfig):
+    wizard_coder = True
+    uniform_sampling_fewshot = True
+
 @dataclass
 class P3ProbSolChatEnv_IMGEP_smart_Config(P3ProbSolChatEnvConfig_Base):
 
@@ -439,6 +445,12 @@ rd_gen = [
     {"env": "p3_probsol_Chat"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
     "_self_",
 ]
+wizard_gen = [
+    {"model": "prompt"},
+    {"qd": "mapelites"}, #mapelites #"cvtmapelites"},
+    {"env": "P3ProbSolChatEnv_Wizard"}, # p3_probsol_Chat_IMGEP_smart,p3_probsol_Chat
+    "_self_",
+]
 
 elm_base = [
     {"model": "prompt"},
@@ -561,6 +573,12 @@ class Rd_genConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: rd_gen)
     unique_id="rd_gen"
     
+@dataclass
+class Wizard_coderConfig(ELMConfig):
+    defaults: list[Any] = field(default_factory=lambda: wizard_gen)
+    unique_id="wiz_coder"
+    
+
 @dataclass
 class ELM_baseConfig(ELMConfig):
     defaults: list[Any] = field(default_factory=lambda: elm_base)
@@ -685,6 +703,11 @@ def register_configstore() -> ConfigStore:
     cs.store(group="env", name="p3_probsol_Chat", node=P3ProbSolChatEnvConfig)
     cs.store(group="env", name="p3_problem", node=P3ProblemEnvConfig)
     cs.store(group="env", name="P3ProbSolChatEnv_PP_ELM_NLP", node=P3ProbSolChatEnv_PP_ELM_NLP_Config)
+    
+    # wizard 
+    cs.store(group="env", name="P3ProbSolChatEnv_Wizard", node=P3ProbSolChatEnv_Wizard_Config)
+
+    
     #diversity
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_diversity", node=P3ProbSolChatEnv_IMGEP_smart_diversity_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_elm", node=P3ProbSolChatEnv_IMGEP_smart_elm_Config)
@@ -697,6 +720,7 @@ def register_configstore() -> ConfigStore:
 
 
     # quality
+
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_smart_Yes_quality", node=P3ProbSolChatEnv_IMGEP_smart_quality_Config)
     cs.store(group="env", name="p3_probsol_Chat_IMGEP_random_Yes_quality", node=P3ProbSolChatEnv_IMGEP_random_quality_Config)
     cs.store(group="env", name="P3ProbSolChatEnv_ELM_NLP_Yes_quality", node=P3ProbSolChatEnv_ELM_NLP_quality_Config)
@@ -720,6 +744,8 @@ def register_configstore() -> ConfigStore:
     cs.store(name="elmconfig", node=ELMConfig)
     cs.store(name="p3config", node=P3Config)
     cs.store(name="rd_gen", node=Rd_genConfig)
+    cs.store(name="wizard_gen", node=Wizard_coderConfig)
+
     cs.store(name="elm", node=ELM_baseConfig)
     cs.store(name="elm_nlp", node=ELM_nlpConfig)
     cs.store(name="aces", node=ACESConfig)

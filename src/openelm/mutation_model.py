@@ -125,8 +125,12 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
             
             out = completion.choices[0].message.content
             if out == None:
+                print("completion",completion)
+                print("completion.choices, ",completion.choices)
+                print("completion.choices[0]",completion.choices[0])
+                print("completion.choices[0].message",completion.choices[0].message)
                 raise Exception("No completion")
-            
+                
             if n_completions>1:
                 list_completion=[]
                 for i in range(len(completion.choices)):

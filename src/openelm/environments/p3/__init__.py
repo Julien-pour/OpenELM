@@ -8,7 +8,7 @@ from pydantic import BaseModel,Field
 from openelm.utils.code_eval import find_first_argument_of_first_function
 import copy
 from openelm.environments.p3.prompt_code import base_persona_code, prompt_gen_description
-from openelm.environments.p3.prompt_code import prompt_rd_gen,prompt_elm,prompt_aces,prompt_aces_elm,instruction_solve_puzzle,list_subskills
+from openelm.environments.p3.prompt_code import prompt_rd_gen,prompt_elm,prompt_aces,prompt_aces_elm,instruction_solve_puzzle,list_subskills,prompt_wizard_coder
 from openelm.utils.code_eval import extract_arguments_except_first_specific
 skill_list = [
     "String Manipulation",
@@ -137,7 +137,8 @@ def get_programming_puzzles_prompt(
         n_fewshot_ex=3,
         few_shot_example_gen_puzzle="base",
         subskills_examples=False,
-        aces_elm_mode=False
+        aces_elm_mode=False,
+        wizard_coder=False
     ):
     """
     should change that to list_few_shot_example from list to Phenotype type
@@ -157,8 +158,13 @@ def get_programming_puzzles_prompt(
         prompt = copy.deepcopy(prompt_aces)
         if aces_elm_mode:
             prompt = copy.deepcopy(prompt_aces_elm)
-    if not (elm_mode or aces_mode):
+    rd_gen = not (elm_mode or aces_mode)
+    if rd_gen:
         prompt = copy.deepcopy(prompt_rd_gen)
+    if wizard_coder:
+        prompt = copy.deepcopy(prompt_wizard_coder)
+        few_shot_example_gen_puzzle="base"
+        extra_prompt += evolve_instructions()
     if not isinstance(list_few_shot_example, list):
         list_few_shot_example = [list_few_shot_example]
     if all(isinstance(x, str) for x in list_few_shot_example):
@@ -223,7 +229,7 @@ def get_programming_puzzles_prompt(
         # prompt2add += f" Please make sure that new puzzles are based on ** all ** the following skills:{skill_target}"
     if aces_mode or elm_mode:
         if few_shot_example_gen_puzzle == "cot_fitness":
-            extra_prompt="You should aim to generate puzzles with a Difficulty score between 90 and 100 out of 100."
+            extra_prompt+="You should aim to generate puzzles with a Difficulty score between 90 and 100 out of 100."
     if aces_mode:
         prompt = prompt.format(examples=examples,skill_target=skill_target,extra=extra_prompt)
     else:
@@ -231,6 +237,19 @@ def get_programming_puzzles_prompt(
     # prompt += prompt2add
     return prompt
 
+
+def evolve_instructions() -> None:
+    """wizard coder instruction from https://github.com/nickrosh/evol-teacher/blob/main/generate_evol.py"""
+    methods = [
+    'Add new constraints and requirements to the original problem, adding approximately 10 additional words.',
+    'Replace a commonly used requirement in the programming task with a less common and more specific one.',
+    'If the original problem can be solved with only a few logical steps, please add more reasoning steps.',
+    'Provide a piece of erroneous code as a reference to increase misdirection.',
+    'Propose higher time or space complexity requirements, but please refrain from doing so frequently.'
+    ]
+    chosen_method = np.random.choice(methods)
+    prompt_extra = f"Generate 5 Python Programming Puzzles by increasing the difficulty of the given programming puzzles a bit.\n\nYou can increase the difficulty using, but not limited to, the following methods:\n{chosen_method}"
+    return prompt_extra
 
 
 def prompt_solve_puzzle_given_f(problem_str: str): 

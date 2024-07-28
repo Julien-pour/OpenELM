@@ -482,8 +482,11 @@ class MAPElitesBase:
         if trainset_only: # only use example from trainset
             list_few_shot_example_phenotypes = list(self.rng.choice(self.env.archive_P3puzzle,size=n_fewshot))
             return (list_few_shot_example_phenotypes, skill_targeted)
-
-        if skill_targeted == []: # no target
+        
+        if self.env.config.uniform_sampling_fewshot:
+            list_archive_index = self.rng.choice(len(self.genomes.archive),size=n_fewshot)
+            
+        if skill_targeted == [] : # no target
             #choose random cells 
             liste_niche_idx = self.rd_niche_selection_explored(n=n_fewshot)
             # select n_fewshot examples
