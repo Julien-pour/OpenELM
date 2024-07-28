@@ -11,8 +11,8 @@
 #SBATCH --hint=nomultithread
 #SBATCH --time=20:00:00
 
-#SBATCH --output=./out/out_finetune_deep-%A_%a.out
-#SBATCH --error=./out/out_finetune_deep-%A_%a.out
+#SBATCH --output=./out/aces_smart-%A_%a.out
+#SBATCH --error=./out/asces_smart-%A_%a.out
 export TMPDIR=$JOBSCRATCH
 module purge
 module load python/3.11.5
@@ -25,7 +25,7 @@ full_path=$SCRATCH/hf/$model_names_id
 conda activate vllm532  # dont forget to
 MAXWAIT=20
 sleep $((RANDOM % MAXWAIT))
-python -m vllm.entrypoints.openai.api_server --model $full_path --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 7000 &
+python -m vllm.entrypoints.openai.api_server --model $full_path --api-key token-abc123 --tensor-parallel-size 4 --max-model-len 6000 &
 SERVER_PID=$!
 
 # Wait for the server to be ready
@@ -39,6 +39,8 @@ conda activate codegpt2
 
 cd /gpfswork/rech/imi/uqv82bm/OpenELM/
 seed=1
+
+# config.eval_k
 path="" 
 python run_elm.py --config-name=aces_smart seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id
 kill $SERVER_PID
