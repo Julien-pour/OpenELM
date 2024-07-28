@@ -23,7 +23,7 @@ class ModelConfig(BaseConfig):
     gen_max_len: int = -1 # -1 for no limit
     batch_size: int = 32
     model_type: str = "openai"  # Can be "hf", "openai", etc
-    model_path: str = "/gpfsscratch/rech/imi/uqv82bm/hf/Meta-Llama-3-70B-Instruct-GPTQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
+    model_path: str = "/home/flowers/work/hf/Meta-Llama-3.1-8B-Instruct-AWQ-INT4"#"/gpfsscratch/rech/imi/uqv82bm/hf/Meta-Llama-3-70B-Instruct-GPTQ"#"gpt-35-0125"#"gpt-3.5-turbo"  # Can be HF model name or path to local model
     vllm: str = True
     azure: bool = True
     azure_endpoint: str = "https://petunia-3.openai.azure.com/"
@@ -34,11 +34,11 @@ class ModelConfig(BaseConfig):
     do_sample: bool = True
     num_return_sequences: int = 1
     trust_remote_code: bool = True  # needed for mosaicml/mpt-7b-instruct
-    request_timeout: int = 120 # timeout for API call
+    request_timeout: int = 1000 # timeout for API call
     max_retries: int = 100 # number of retries for API call
 @dataclass
 class PromptModelConfig(ModelConfig):
-    request_timeout: int = 30 # timeout for API call
+    request_timeout: int = 1000 # timeout for API call
     model_name: str = "prompt"
     # model_path: str = "gpt-35-0125"#"	"gpt-3.5-turbo-0301"  "gpt-3.5-turbo" #"Salesforce/codegen-350M-mono"
 

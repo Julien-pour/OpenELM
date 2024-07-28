@@ -75,7 +75,7 @@ def get_model(config: ModelConfig):
     else:
         raise NotImplementedError
     
-@retry(wait=wait_exponential(multiplier=1, min=5, max=600))
+# @retry(wait=wait_exponential(multiplier=1, min=5, max=600))
 def get_completion_test(client, prompt : str, cfg_generation, )->str:
     try:
         completion = client.chat.completions.create(
@@ -92,7 +92,7 @@ def get_completion_test(client, prompt : str, cfg_generation, )->str:
         print("completion problem test server: ",e)
         out=None
     return out
-@retry(wait=wait_exponential(multiplier=1, min=5, max=5))
+# @retry(wait=wait_exponential(multiplier=1, min=5, max=5))
 def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=None,n_completions=1,max_tokens=None)->str:
     """Get completion from OpenAI API"""
     kwargs={}
@@ -109,9 +109,9 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
         tool_name=tools[0]["function"]["name"]
         kwargs.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
     n_try=4
-    if "llama" in cfg_generation["model"].lower():
+    if "llama" in cfg_generation["model"].lower() or "Meta-Llama-3.1" in cfg_generation["model"]:
 
-        kwargs["extra_body"] = {"stop_token_ids":[128001, 128009]} #fix bug in llama
+        kwargs["extra_body"] = {"stop_token_ids":[128001,128008,128009]} #fix bug in llama
         
     count=1
     while count<n_try:
@@ -213,7 +213,7 @@ def get_multiple_completions(client, batch_prompt: list[str], cfg_generation: di
 
     return results
 
-@retry(wait=wait_exponential(multiplier=1, min=5, max=60))
+# @retry(wait=wait_exponential(multiplier=1, min=5, max=60))
 def get_completion_instructor(client, prompt : str, cfg_generation, tools=None,temperature=None)->str:
     """Get completion from OpenAI API with instructor"""
     kwargs={}
