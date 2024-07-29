@@ -108,7 +108,7 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
         kwargs.update({"tools": tools})
         tool_name=tools[0]["function"]["name"]
         kwargs.update({"tool_choice": {"type": "function", "function": {"name": tool_name}}})
-    n_try=4
+    n_try=2
     if "llama" in cfg_generation["model"].lower() or "Meta-Llama-3.1" in cfg_generation["model"]:
 
         kwargs["extra_body"] = {"stop_token_ids":[128001,128008,128009]} #fix bug in llama
@@ -125,10 +125,15 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
             
             out = completion.choices[0].message.content
             if out == None:
-                print("completion",completion)
-                print("completion.choices, ",completion.choices)
-                print("completion.choices[0]",completion.choices[0])
-                print("completion.choices[0].message",completion.choices[0].message)
+                print("completion: ",completion)
+                print("completion.choices,:",completion.choices)
+                print("completion.choices[0]: ",completion.choices[0])
+                print("completion.choices[0].message: ",completion.choices[0].message)
+                print("completion usage: ",completion.usage)
+                print("/!!!!\ eeeeeeeeeerrrrrrrrrroooooooooorrrrrrr no completion /!!!!\ ")
+                print("------------------------------")
+                print("/!!!!!!!!!\ end of error no completion /!!!!!!!!!!\ ") 
+                # out="Error: No completion"
                 raise Exception("No completion")
                 
             if n_completions>1:
@@ -145,7 +150,16 @@ def get_completion(client, prompt : str, cfg_generation, tools=None,temperature=
             out=None
             count+=1
     if out == None:
-        raise Exception("No completion")
+        print("completion: ",completion)
+        print("completion.choices,:",completion.choices)
+        print("completion.choices[0]: ",completion.choices[0])
+        print("completion.choices[0].message: ",completion.choices[0].message)
+        print("completion usage: ",completion.usage)
+        print("/!!!!\ eeeeeeeeeerrrrrrrrrroooooooooorrrrrrr no completion /!!!!\ ")
+        print("------------------------------")
+        print("/!!!!!!!!!\ end of error no completion /!!!!!!!!!!\ ") 
+        out = "Error: No completion"
+        # raise Exception("No completion") /!\ need to handle this error debug for now
 
     # completion_token = completion.usage.completion_tokens
     # prompt_token = completion.usage.prompt_tokens
