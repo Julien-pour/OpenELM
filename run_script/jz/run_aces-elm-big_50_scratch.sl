@@ -9,7 +9,7 @@
 #SBATCH --array=1
 
 #SBATCH --hint=nomultithread
-#SBATCH --time=17:00:00
+#SBATCH --time=15:00:00
 
 #SBATCH --output=./out/aces_elm_big-%A_%a.out
 #SBATCH --error=./out/out_finetune_deep-%A_%a.out
