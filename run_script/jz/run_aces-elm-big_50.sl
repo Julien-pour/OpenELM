@@ -40,8 +40,8 @@ conda activate codegpt2
 
 cd /gpfswork/rech/imi/uqv82bm/OpenELM/
 seed=1
-path="/gpfswork/rech/imi/uqv82bm/OpenELM/logs/elm/Meta-Llama-3.1-405B-Instruct-AWQ-INT4/aces_elm_seed-1/24-07-29_00:36/step_15" 
-python run_elm.py --config-name=aces_elm seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id 'qd.loading_snapshot_map=True' 'qd.log_snapshot_dir=$path'
+path="/gpfswork/rech/imi/uqv82bm/OpenELM/logs/elm/Meta-Llama-3.1-405B-Instruct-AWQ-INT4/aces_elm_seed-1/24-07-29_16:23/step_27" 
+python run_elm.py --config-name=aces_elm seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id qd.loading_snapshot_map=True qd.log_snapshot_dir=$path
 kill $SERVER_PID
 
 # start from save: 'qd.loading_snapshot_map=True' 'qd.log_snapshot_dir=$path'
