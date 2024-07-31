@@ -7,9 +7,9 @@
 #SBATCH --gres=gpu:8
 #SBATCH --cpus-per-task=64
 #SBATCH --array=1
-
+#SBATCH --qos=qos_gpu-dev
 #SBATCH --hint=nomultithread
-#SBATCH --time=17:00:00
+#SBATCH --time=2:00:00
 
 #SBATCH --output=./out/aces_elm_big-%A_%a.out
 #SBATCH --error=./out/out_finetune_deep-%A_%a.out
@@ -40,7 +40,7 @@ conda activate codegpt2
 
 cd /gpfswork/rech/imi/uqv82bm/OpenELM/
 seed=1
-path="/gpfswork/rech/imi/uqv82bm/OpenELM/logs/elm/Meta-Llama-3.1-405B-Instruct-AWQ-INT4/aces_elm_seed-1/24-07-29_16:23/step_27" 
+path="/gpfswork/rech/imi/uqv82bm/OpenELM/logs/elm/Meta-Llama-3.1-405B-Instruct-AWQ-INT4/aces_elm_seed-1/24-07-31_16:05/step_36" 
 python run_elm.py --config-name=aces_elm seed=$seed env.seed=$seed qd.seed=$seed model.model_path=$full_path model_name=$model_names_id qd.loading_snapshot_map=True qd.log_snapshot_dir=$path
 kill $SERVER_PID
 
